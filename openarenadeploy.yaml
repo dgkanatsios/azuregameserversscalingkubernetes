@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openarena
+  labels:
+    name: openarena
+spec:
+  containers:
+  - name: openarena
+    image: dgkanatsios/openarena:latest
+    ports:
+    - containerPort: 27950
+      protocol: UDP
+    - containerPort: 27960
+      protocol: UDP  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openarena-service
+  labels:
+    name: openarena-service
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 27950
+      targetPort: 27950
+      protocol: UDP
+    - port: 27960
+      targetPort: 27960
+      protocol: UDP 
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: openarena
+  type: LoadBalancer

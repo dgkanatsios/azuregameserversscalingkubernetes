@@ -17,11 +17,11 @@ sudo az aks install-cli
 az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
 ```
 
-Copy the OpenArena files:
+Create a storage account to copy the OpenArena files:
 
 ```bash
 # Change these parameters as needed
-AKS_PERS_STORAGE_ACCOUNT_NAME=openarena$RANDOM
+AKS_PERS_STORAGE_ACCOUNT_NAME=aksopenarena$RANDOM
 AKS_PERS_SHARE_NAME=openarenadata
 
 # Create the storage account with the provided parameters
@@ -46,7 +46,16 @@ STORAGE_KEY=$(az storage account keys list --resource-group $AKS_RESOURCE_GROUP 
 echo $STORAGE_KEY
 ```
 
-Mount to copy the files (e.g. from a Linux machine)
+Mount to copy the files (e.g. from a Linux machine) - [instructions](https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-linux)
 ```bash
-sudo mount -t cifs //accountname.file.core.windows.net/openarenadata /path -o vers=3.0,username=accountname,password=...,dir_mode=0777,file_mode=0777
+sudo mount -t cifs //$STORAGE_ACCOUNT.file.core.windows.net/$AKS_PERS_SHARE_NAME /path -o vers=3.0,username=$STORAGE_ACCOUNT,password=$STORAGE_KEY,dir_mode=0777,file_mode=0777
+```
+
+Create a Kubernetes secret
+```bash
+kubectl create secret generic openarena-storage-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT --from-literal=azurestorageaccountkey=$STORAGE_KEY
+```
+
+```bash
+az aks browse --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
 ```

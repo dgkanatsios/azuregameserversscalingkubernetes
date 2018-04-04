@@ -1,6 +1,6 @@
 # AzureGameServersScalingKubernetes
 
-~ WORK IN PROGRESS ~
+~ HEAVY WORK IN PROGRESS DO NOT USE ~
 
 Create a new AKS cluster:
 
@@ -54,6 +54,11 @@ sudo mount -t cifs //$STORAGE_ACCOUNT.file.core.windows.net/$AKS_PERS_SHARE_NAME
 Create a Kubernetes secret
 ```bash
 kubectl create secret generic openarena-storage-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT --from-literal=azurestorageaccountkey=$STORAGE_KEY
+```
+
+Create the namespace
+```bash
+kubectl create -f namespace.yaml
 ```
 
 ```bash

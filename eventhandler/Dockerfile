@@ -4,14 +4,12 @@ FROM golang:alpine AS builder
 WORKDIR /go/src/app
 COPY . .
 RUN apk add --no-cache git
-RUN go get -d -v
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
+RUN go-wrapper download   # "go get -d -v ./..."
+RUN go-wrapper install    # "go install -v ./..."
 
 #final stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /go/bin/app /app
 ENTRYPOINT ./app
-LABEL Name=api Version=0.0.1
-EXPOSE 8000
-CMD ["/app/main"]
+LABEL Name=eventhandler Version=0.0.1

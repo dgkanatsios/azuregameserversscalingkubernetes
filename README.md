@@ -7,12 +7,12 @@ Create a new AKS cluster:
 ```bash
 AKS_RESOURCE_GROUP=aksopenarenarg
 AKS_NAME=aksopenarena
-AKS_LOCATION=eastus # for better performance, choose the location that your Azure Container Instances will be deployed
+AKS_LOCATION=eastus 
 
 az provider register -n Microsoft.ContainerService
 az login
 az group create --name $AKS_RESOURCE_GROUP --location $AKS_LOCATION
-az aks create --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME --node-count 1 --ssh-key-value ~/.ssh/id_rsa.pub --node-vm-size Standard_A1_v2 #this will take some time...
+az aks create --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME --node-count 1 --ssh-key-value ~/.ssh/id_rsa.pub --node-vm-size Standard_A1_v2 --kubernetes-version 1.9.6 #this will take some time...
 sudo az aks install-cli
 az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
 ```

@@ -7,6 +7,7 @@ import (
 	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -24,8 +25,30 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
+	storageclient, _ := shared.GetBasicClient()
+	tableservice := storageclient.GetTableService()
+	table := tableservice.GetTableReference(shared.TableName)
+	fmt.Println(table)
+	return
+
 	clientset := shared.GetClientOutOfCluster()
 
+	controllerPods := createPodController(clientset, namespace)
+	controllerServices := createServiceController(clientset, namespace)
+
+	stop := make(chan struct{})
+
+	go controllerPods.Run(stop)
+	go controllerServices.Run(stop)
+
+	fmt.Println("Listening for Kubernetes events...")
+
+	for {
+		time.Sleep(time.Second)
+	}
+}
+
+func createPodController(clientset kubernetes.Interface, namespace string) cache.Controller {
 	watchlist := cache.NewListWatchFromClient(clientset.Core().RESTClient(), "pods", namespace, fields.Everything())
 	_, controller := cache.NewInformer(
 		watchlist,
@@ -50,11 +73,7 @@ func main() {
 			},
 		},
 	)
-	stop := make(chan struct{})
-	go controller.Run(stop)
-	for {
-		time.Sleep(time.Second)
-	}
+	return controller
 }
 
 /*
@@ -70,3 +89,33 @@ Pod changed:
  } {PodScheduled True 0001-01-01 00:00:00 +0000 UTC 2018-04-04 18:54:31 +0300 EEST  }],Message:,Reason:,HostIP:192.168.65.3,PodIP:10.1.0.43,StartTime:2018-04-04 18:54:31 +0300 EEST,ContainerStatuses:[{web {nil ContainerStateRunning{StartedAt:2018-04-04 18:54:32 +0300 EEST,} nil} {nil nil nil} true 0 nginx:1.12 docker-pullable://nginx@sha256:416134fd8b36457ee5dfdc08eb7271a30aa0ce0d8a1b55a6bcb9852f8f362630 docker://a4b855994078d81fae60b764ad1215fbf0c043ad8b3fd9e85b986ff1f09850af}],QOSClass:BestEffort,InitContainerStatuses:[],NominatedNodeName:,},}
 
 */
+
+func createServiceController(clientset kubernetes.Interface, namespace string) cache.Controller {
+	watchlist := cache.NewListWatchFromClient(clientset.Core().RESTClient(), "services", namespace, fields.Everything())
+	_, controller := cache.NewInformer(
+		watchlist,
+		&apiv1.Service{},
+		time.Second*0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				fmt.Println("Service added:\n", obj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				fmt.Println("Service deleted:\n", obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				service := newObj.(*apiv1.Service)
+				name := service.ObjectMeta.Name
+
+				var externalIP string
+				fmt.Println("lala", service.Spec)
+				if len(service.Spec.ExternalIPs) > 0 {
+					externalIP = service.Spec.ExternalIPs[0]
+				}
+
+				fmt.Println("Service updated:\n", name, externalIP)
+			},
+		},
+	)
+	return controller
+}

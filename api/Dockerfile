@@ -10,8 +10,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 #final stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /go/bin/app /app
+COPY --from=builder /go/src/app /app
 ENTRYPOINT ./app
 LABEL Name=api Version=0.0.1
 EXPOSE 8000
-CMD ["/app/main"]

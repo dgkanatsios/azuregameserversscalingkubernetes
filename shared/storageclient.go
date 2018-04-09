@@ -15,7 +15,7 @@ func GetStorageClient() *storage.Client {
 		var err error
 		instance, err = getBasicClient() // <--- NOT THREAD SAFE
 		if err != nil {
-			log.Fatalf("Cannot instantiate storage client, ", err)
+			log.Fatalf("Cannot instantiate storage client due to %s ", err)
 		}
 	}
 	return instance

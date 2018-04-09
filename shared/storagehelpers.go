@@ -37,7 +37,7 @@ func UpsertEntity(name string, ip string, node string, status string) {
 	entity.Properties = props
 
 	if err := entity.InsertOrMerge(nil); err != nil {
-		log.Fatalf("Cannot insert or merge entity due to ", err)
+		log.Fatalf("Cannot insert or merge entity due to %s", err)
 	}
 }
 
@@ -54,7 +54,7 @@ func GetEntity(name string) *storage.Entity {
 	entity := table.GetEntityReference(name, name)
 
 	if err := entity.Get(Timeout, storage.MinimalMetadata, nil); err != nil {
-		log.Fatalf("Cannot get entity due to ", err)
+		log.Fatalf("Cannot get entity due to %s", err)
 	}
 
 	return entity
@@ -73,6 +73,6 @@ func DeleteEntity(name string) {
 	entity := table.GetEntityReference(name, name)
 
 	if err := entity.Delete(true, nil); err != nil {
-		log.Fatalf("Cannot delete entity due to ", err)
+		log.Fatalf("Cannot delete entity due to %s", err)
 	}
 }

@@ -79,5 +79,5 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("Cannot delete service due to ", err)
 	}
 
-``	w.Write([]byte(name + " " + name + " were deleted"))
+	w.Write([]byte(name + " " + name + " were deleted"))
 }

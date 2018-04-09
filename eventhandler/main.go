@@ -25,12 +25,6 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-	//upsertEntity("1", "22", "3")
-	entity := getEntity("1")
-	fmt.Println(entity.Properties["PublicIP"])
-
-	return
-
 	clientset := shared.GetClientOutOfCluster()
 
 	controllerPods := createPodController(clientset, namespace)
@@ -57,17 +51,25 @@ func createPodController(clientset kubernetes.Interface, namespace string) cache
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				fmt.Println("Pod added:\n", obj)
+				pod := obj.(*apiv1.Pod)
+				name := pod.ObjectMeta.Name
+				status := pod.Status.Phase
+				shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status))
 			},
 			DeleteFunc: func(obj interface{}) {
 				fmt.Println("Pod deleted:\n", obj)
+				pod := obj.(*apiv1.Pod)
+				name := pod.ObjectMeta.Name
+				shared.DeleteEntity(name)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				//fmt.Println("Pod changed: \n", newObj)
 				pod := newObj.(*apiv1.Pod)
 				name := pod.ObjectMeta.Name
 				status := pod.Status.Phase
+				shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status))
 
-				if status == "Running" {
+				if string(status) == "Running" {
 					fmt.Println("Pod ", name, " is now ", status)
 				}
 			},
@@ -108,7 +110,6 @@ func createServiceController(clientset kubernetes.Interface, namespace string) c
 				name := service.ObjectMeta.Name
 
 				var externalIP string
-				fmt.Println("lala", service.Spec)
 				if len(service.Spec.ExternalIPs) > 0 {
 					externalIP = service.Spec.ExternalIPs[0]
 				}

@@ -8,15 +8,16 @@ import (
 
 	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
 	"github.com/gorilla/mux"
-	apiv1 "k8s.io/api/core/v1"
 	core "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const namespace string = core.NamespaceDefault
 
 // our main function
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/create", create).Methods("GET")
+	router.HandleFunc("/create", createHandler).Methods("GET")
+	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}").Methods("GET")
 
 	port := 8000
 
@@ -25,34 +26,23 @@ func main() {
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router))
 }
 
-func create(w http.ResponseWriter, r *http.Request) {
+func createHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
 	podname, servicename := createStuff()
-	w.Write([]byte(podname + " " + servicename + " was created"))
+	w.Write([]byte(podname + " and " + servicename + " was created"))
 }
 
 func createStuff() (podName string, serviceName string) {
 
-	namespace := apiv1.NamespaceDefault
-	// config, err := rest.InClusterConfig()
+	name := "openarena-" + shared.RandString(6)
 
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+	clientset := getClientSet()
 
-	// clientset, err := kubernetes.NewForConfig(config)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	clientset := shared.GetClientOutOfCluster()
 	podsClient := clientset.Core().Pods(namespace)
 	servicesClient := clientset.Core().Services(namespace)
 
-	name := "openarena-" + shared.RandString(6)
-
 	pod := createPod(name, 80)
-	service := createService(name, 80)
+	service := createService(shared.GetServiceNameFromPodName(name), 80)
 
 	fmt.Println("Creating pod...")
 	result, err := podsClient.Create(pod)
@@ -70,45 +60,24 @@ func createStuff() (podName string, serviceName string) {
 	return pod.ObjectMeta.Name, service.ObjectMeta.Name
 }
 
-func createPod(name string, port int32) *core.Pod {
-	pod := &core.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{"server": name},
-		},
-		Spec: core.PodSpec{
-			Containers: []apiv1.Container{
-				{
-					Name:  "web",
-					Image: "nginx:1.12",
-					Ports: []apiv1.ContainerPort{
-						{
-							Name:          "http",
-							Protocol:      apiv1.ProtocolTCP,
-							ContainerPort: port,
-						},
-					},
-				},
-			},
-		},
-	}
-	return pod
-}
+func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	clientset := getClientSet()
 
-func createService(name string, port int32) *core.Service {
-	service := &core.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name + "-service",
-		},
-		Spec: core.ServiceSpec{
-			Ports: []apiv1.ServicePort{{
-				Name:     "port",
-				Protocol: "UDP",
-				Port:     port,
-			}},
-			Selector: map[string]string{"server": name},
-			Type:     "LoadBalancer",
-		},
+	podsClient := clientset.Core().Pods(namespace)
+	servicesClient := clientset.Core().Services(namespace)
+
+	name := r.FormValue("name")
+
+	var err error
+	err = podsClient.Delete(name, nil)
+	if err != nil {
+		log.Fatal("Cannot delete pod due to ", err)
 	}
-	return service
+
+	err = servicesClient.Delete(name, nil)
+	if err != nil {
+		log.Fatal("Cannot delete service due to ", err)
+	}
+
+``	w.Write([]byte(name + " " + name + " were deleted"))
 }

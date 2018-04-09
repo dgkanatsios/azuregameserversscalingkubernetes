@@ -101,7 +101,7 @@ func createService(name string, port int32) *core.Service {
 			Name: name + "-service",
 		},
 		Spec: core.ServiceSpec{
-			Ports: []apiv1.ServicePort{apiv1.ServicePort{
+			Ports: []apiv1.ServicePort{{
 				Name:     "port",
 				Protocol: "UDP",
 				Port:     port,

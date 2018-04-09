@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
 	_ "github.com/joho/godotenv/autoload" // load env variables
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -55,12 +54,4 @@ func RandString(n int) string {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
-}
-
-// GetBasicClient creates a new Azure storage client
-func GetBasicClient() (*storage.Client, error) {
-	name := os.Getenv("STORAGE_ACCOUNT_NAME")
-	key := os.Getenv("STORAGE_ACCOUNT_KEY")
-	cli, err := storage.NewBasicClient(name, key)
-	return &cli, err
 }

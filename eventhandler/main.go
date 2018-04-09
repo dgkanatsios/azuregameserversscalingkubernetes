@@ -25,10 +25,10 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-	storageclient, _ := shared.GetBasicClient()
-	tableservice := storageclient.GetTableService()
-	table := tableservice.GetTableReference(shared.TableName)
-	fmt.Println(table)
+	//upsertEntity("1", "22", "3")
+	entity := getEntity("1")
+	fmt.Println(entity.Properties["PublicIP"])
+
 	return
 
 	clientset := shared.GetClientOutOfCluster()

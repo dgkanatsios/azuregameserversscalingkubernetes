@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "github.com/joho/godotenv/autoload" // load env variables
 	"k8s.io/client-go/kubernetes"
@@ -13,6 +14,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano()) //randomize name creation
+}
 
 func buildOutOfClusterConfig() (*rest.Config, error) {
 	kubeconfigPath := os.Getenv("KUBECONFIG")

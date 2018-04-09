@@ -15,6 +15,7 @@ const namespace string = core.NamespaceDefault
 
 // our main function
 func main() {
+
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createHandler).Methods("GET")
 	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}").Methods("GET")

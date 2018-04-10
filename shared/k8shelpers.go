@@ -43,12 +43,25 @@ func CreatePod(name string, port int32) *core.Pod {
 							Name:  "OA_PORT",
 							Value: "27960",
 						},
-					},
-					EnvFrom: []core.EnvFromSource{
 						{
-							SecretRef: &core.SecretEnvSource{
-								LocalObjectReference: core.LocalObjectReference{
-									Name: "openarena-storage-secret",
+							Name: "STORAGE_ACCOUNT_NAME",
+							ValueFrom: &core.EnvVarSource{
+								SecretKeyRef: &core.SecretKeySelector{
+									LocalObjectReference: core.LocalObjectReference{
+										Name: "openarena-storage-secret",
+									},
+									Key: "azurestorageaccountname",
+								},
+							},
+						},
+						{
+							Name: "STORAGE_ACCOUNT_KEY",
+							ValueFrom: &core.EnvVarSource{
+								SecretKeyRef: &core.SecretKeySelector{
+									LocalObjectReference: core.LocalObjectReference{
+										Name: "openarena-storage-secret",
+									},
+									Key: "azurestorageaccountkey",
 								},
 							},
 						},

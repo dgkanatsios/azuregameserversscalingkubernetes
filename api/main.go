@@ -42,8 +42,8 @@ func createStuff() (podName string, serviceName string) {
 	podsClient := clientset.Core().Pods(namespace)
 	servicesClient := clientset.Core().Services(namespace)
 
-	pod := shared.CreatePod(name, 80)
-	service := shared.CreateService(shared.GetServiceNameFromPodName(name), 80)
+	pod := shared.CreatePod(name, 27960)
+	service := shared.CreateService(shared.GetServiceNameFromPodName(name), 27960)
 
 	fmt.Println("Creating pod...")
 	result, err := podsClient.Create(pod)

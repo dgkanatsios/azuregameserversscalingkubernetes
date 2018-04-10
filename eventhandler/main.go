@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
@@ -40,32 +41,53 @@ func createPodController(clientset kubernetes.Interface, namespace string) cache
 		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				fmt.Println("Pod added:\n", obj)
-				pod := obj.(*apiv1.Pod)
-				name := pod.ObjectMeta.Name
-				status := pod.Status.Phase
-				shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status))
+				handlePodAdd(obj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				fmt.Println("Pod deleted:\n", obj)
-				pod := obj.(*apiv1.Pod)
-				name := pod.ObjectMeta.Name
-				shared.DeleteEntity(name)
+				handlePodDelete(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				//fmt.Println("Pod changed: \n", newObj)
-				pod := newObj.(*apiv1.Pod)
-				name := pod.ObjectMeta.Name
-				status := pod.Status.Phase
-				shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status))
-
-				if string(status) == "Running" {
-					fmt.Println("Pod ", name, " is now ", status)
-				}
+				handlePodUpdate(newObj)
 			},
 		},
 	)
 	return controller
+}
+
+func handlePodAdd(obj interface{}) {
+	fmt.Println("Pod added:\n", obj)
+	pod := obj.(*apiv1.Pod)
+	name := pod.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+	status := pod.Status.Phase
+	shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status))
+}
+
+func handlePodDelete(obj interface{}) {
+	fmt.Println("Pod deleted:\n", obj)
+	pod := obj.(*apiv1.Pod)
+	name := pod.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+	shared.DeleteEntity(name)
+}
+
+func handlePodUpdate(obj interface{}) {
+	fmt.Println("Pod changed: \n", obj)
+	pod := obj.(*apiv1.Pod)
+	name := pod.ObjectMeta.Name
+	if !strings.HasPrefix(name, "openarena") {
+		return
+	}
+	status := pod.Status.Phase
+	shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status))
+
+	if !isOpenArena(name) {
+		fmt.Println("Pod ", name, " is now ", status)
+	}
 }
 
 /*
@@ -90,23 +112,52 @@ func createServiceController(clientset kubernetes.Interface, namespace string) c
 		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				fmt.Println("Service added:\n", obj)
+				handleServiceAdd(obj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				fmt.Println("Service deleted:\n", obj)
+				handleServiceDelete(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				service := newObj.(*apiv1.Service)
-				name := service.ObjectMeta.Name
-
-				var externalIP string
-				if len(service.Spec.ExternalIPs) > 0 {
-					externalIP = service.Spec.ExternalIPs[0]
-				}
-
-				fmt.Println("Service updated:\n", name, externalIP)
+				handleServiceUpdate(newObj)
 			},
 		},
 	)
 	return controller
+}
+
+func handleServiceAdd(obj interface{}) {
+	fmt.Println("Service added:\n", obj)
+	service := obj.(*apiv1.Service)
+	name := service.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+}
+
+func handleServiceDelete(obj interface{}) {
+	fmt.Println("Service deleted:\n", obj)
+	service := obj.(*apiv1.Service)
+	name := service.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+}
+
+func handleServiceUpdate(obj interface{}) {
+	service := obj.(*apiv1.Service)
+	name := service.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+	var externalIP string
+	if len(service.Spec.ExternalIPs) > 0 {
+		externalIP = service.Spec.ExternalIPs[0]
+	}
+
+	fmt.Println("Service updated:\n", name, externalIP)
+
+}
+
+func isOpenArena(name string) bool {
+	return strings.HasPrefix(name, "openarena")
 }

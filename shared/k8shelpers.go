@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,7 @@ func CreatePod(name string, port int32) *core.Pod {
 						},
 						{
 							Name:  "OA_PORT",
-							Value: "27960",
+							Value: strconv.Itoa(int(port)),
 						},
 						{
 							Name: "STORAGE_ACCOUNT_NAME",

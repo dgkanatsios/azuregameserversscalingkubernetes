@@ -16,6 +16,7 @@ spec:
       containers:
       - name: docker-openarena-k8s-api
         image: docker.io/dgkanatsios/docker_openarena_k8s_api:latest
+        imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME
             valueFrom:
@@ -49,6 +50,7 @@ spec:
       containers:
       - name: docker-openarena-k8s-eventhandler
         image: docker.io/dgkanatsios/docker_openarena_k8s_eventhandler:latest
+        imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME
             valueFrom:

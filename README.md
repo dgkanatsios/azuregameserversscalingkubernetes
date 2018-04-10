@@ -62,6 +62,11 @@ Create a Kubernetes secret
 kubectl create secret generic openarena-storage-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY
 ```
 
+Create `api` and `eventhandler` K8s apps
+```bash
+kubectl create -f deployapihandler.yaml
+```bash
+
 ```bash
 az aks browse --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
 ```

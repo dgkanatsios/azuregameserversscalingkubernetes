@@ -44,6 +44,15 @@ func CreatePod(name string, port int32) *core.Pod {
 							Value: "27960",
 						},
 					},
+					EnvFrom: []core.EnvFromSource{
+						{
+							SecretRef: &core.SecretEnvSource{
+								LocalObjectReference: core.LocalObjectReference{
+									Name: "openarena-storage-secret",
+								},
+							},
+						},
+					},
 					VolumeMounts: []core.VolumeMount{
 						{
 							Name:      "openarenavolume",

@@ -37,13 +37,13 @@ func createStuff() (podName string, serviceName string) {
 
 	name := "openarena-" + shared.RandString(6)
 
-	clientset := getClientSet()
+	clientset := shared.GetClientSet()
 
 	podsClient := clientset.Core().Pods(namespace)
 	servicesClient := clientset.Core().Services(namespace)
 
-	pod := createPod(name, 80)
-	service := createService(shared.GetServiceNameFromPodName(name), 80)
+	pod := shared.CreatePod(name, 80)
+	service := shared.CreateService(shared.GetServiceNameFromPodName(name), 80)
 
 	fmt.Println("Creating pod...")
 	result, err := podsClient.Create(pod)
@@ -62,7 +62,7 @@ func createStuff() (podName string, serviceName string) {
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
-	clientset := getClientSet()
+	clientset := shared.GetClientSet()
 
 	podsClient := clientset.Core().Pods(namespace)
 	servicesClient := clientset.Core().Services(namespace)

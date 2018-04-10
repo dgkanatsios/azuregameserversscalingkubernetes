@@ -14,18 +14,8 @@ import (
 func main() {
 
 	namespace := apiv1.NamespaceDefault
-	// config, err := rest.InClusterConfig()
 
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// clientset, err := kubernetes.NewForConfig(config)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	clientset := shared.GetClientOutOfCluster()
+	clientset := shared.GetClientSet()
 
 	controllerPods := createPodController(clientset, namespace)
 	controllerServices := createServiceController(clientset, namespace)

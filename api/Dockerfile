@@ -1,16 +1,16 @@
 
 #build stage
-FROM golang:alpine AS builder
-WORKDIR /go/src/app
+FROM golang:1.10.1-stretch AS builder
+WORKDIR /build
 COPY . .
-RUN apk add --no-cache git
-RUN go get -d -v
+RUN go get -d -v 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
 #final stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /go/src/app /app
-ENTRYPOINT ./app
-LABEL Name=api Version=0.0.1
+WORKDIR /app
+COPY --from=builder /build/app .
+CMD ["./app"]
 EXPOSE 8000
+LABEL Name=docker_openarena_k8s_api Version=0.0.1

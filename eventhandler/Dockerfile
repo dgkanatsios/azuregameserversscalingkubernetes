@@ -1,15 +1,15 @@
 
 #build stage
-FROM golang:alpine AS builder
-WORKDIR /go/src/app
+FROM golang:1.10.1-stretch AS builder
+WORKDIR /build
 COPY . .
-RUN apk add --no-cache git
-RUN go-wrapper download   # "go get -d -v ./..."
-RUN go-wrapper install    # "go install -v ./..."
+RUN go get -d -v 
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
 #final stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /go/bin/app /app
-ENTRYPOINT ./app
-LABEL Name=eventhandler Version=0.0.1
+WORKDIR /app
+COPY --from=builder /build/app .
+CMD ["./app"]
+LABEL Name=docker_openarena_k8s_eventhandler Version=0.0.1

@@ -7,7 +7,7 @@ metadata:
 spec:
   containers:
   - name: openarena
-    image: docker.io/dgkanatsios/docker_openarena:latest
+    image: docker.io/dgkanatsios/docker_openarena_k8s:latest
     env:
     - name: OA_STARTMAP
       value: "dm4ish"

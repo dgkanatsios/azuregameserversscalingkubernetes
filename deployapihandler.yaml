@@ -1,0 +1,58 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: docker_openarena_k8s_api-deployment
+  labels:
+    name: docker_openarena_k8s_api
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: docker_openarena_k8s_api
+    spec:
+      containers:
+      - name: docker_openarena_k8s_api
+        image: docker.io/dgkanatsios/docker_openarena_k8s_api:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: docker_openarena_k8s_eventhandler
+  labels:
+    name: docker_openarena_k8s_api
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: docker_openarena_k8s_eventhandler
+    spec:
+      containers:
+      - name: docker_openarena_k8s_api
+        image: docker.io/dgkanatsios/docker_openarena_k8s_eventhandler:latest
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker_openarena_k8s_api
+  labels:
+    name: docker_openarena_k8s_api
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: docker_openarena_k8s_api
+  type: LoadBalancer

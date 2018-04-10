@@ -76,3 +76,23 @@ func DeleteEntity(name string) {
 		log.Fatalf("Cannot delete entity due to %s", err)
 	}
 }
+
+// GetRunningEntities returns all entities in the running state
+func GetRunningEntities() []*storage.Entity {
+	storageclient := GetStorageClient()
+
+	tableservice := storageclient.GetTableService()
+
+	table := tableservice.GetTableReference(TableName)
+	table.Create(Timeout, storage.MinimalMetadata, nil)
+
+	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
+		Filter: "Status='Running'",
+	})
+
+	if err != nil {
+		log.Fatalf("Cannot get entities due to %s", err)
+	}
+
+	return result.Entities
+}

@@ -62,7 +62,11 @@ func handlePodAdd(obj interface{}) {
 		return
 	}
 	status := pod.Status.Phase
-	shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status), "")
+	shared.UpsertEntity(&shared.StorageEntity{
+		Name:     name,
+		NodeName: pod.Spec.NodeName,
+		Status:   string(status),
+	})
 }
 
 func handlePodDelete(obj interface{}) {
@@ -83,7 +87,11 @@ func handlePodUpdate(obj interface{}) {
 		return
 	}
 	status := pod.Status.Phase
-	shared.UpsertEntity(name, "", pod.Spec.NodeName, string(status), "")
+	shared.UpsertEntity(&shared.StorageEntity{
+		Name:     name,
+		NodeName: pod.Spec.NodeName,
+		Status:   string(status),
+	})
 
 	if !isOpenArena(name) {
 		fmt.Println("Pod ", name, " is now ", status)
@@ -152,7 +160,10 @@ func handleServiceUpdate(obj interface{}) {
 	var externalIP string
 	if len(service.Status.LoadBalancer.Ingress) > 0 {
 		externalIP = service.Status.LoadBalancer.Ingress[0].IP
-		shared.UpsertEntity(shared.GetPodNameFromServiceName(name), externalIP, "", "", "")
+		shared.UpsertEntity(&shared.StorageEntity{
+			Name:     shared.GetPodNameFromServiceName(name),
+			PublicIP: externalIP,
+		})
 	}
 
 	fmt.Println("Service updated:\n", name, externalIP)

@@ -55,7 +55,11 @@ func createStuff() (podName string, serviceName string) {
 	}
 
 	fmt.Println("Creating pod...")
-	shared.UpsertEntity(name, "", "", shared.CreatingState, strconv.Itoa(port))
+	shared.UpsertEntity(&shared.StorageEntity{
+		Name:   name,
+		Status: shared.CreatingState,
+		Port:   strconv.Itoa(port),
+	})
 	pod := shared.CreatePod(name, int32(port))
 	service := shared.CreateService(shared.GetServiceNameFromPodName(name), int32(port))
 
@@ -88,8 +92,10 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("Cannot delete pod due to ", err)
 	}
 
-	shared.UpsertEntity(name, "", "", shared.TerminatingState, "")
-
+	shared.UpsertEntity(&shared.StorageEntity{
+		Name:   name,
+		Status: shared.TerminatingState,
+	})
 	err = servicesClient.Delete(name, nil)
 	if err != nil {
 		log.Fatal("Cannot delete service due to ", err)

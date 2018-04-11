@@ -10,7 +10,7 @@ import (
 //good samples here: https://github.com/luigialves/sample-golang-with-azure-table-storage/blob/master/sample.go
 
 // UpsertEntity upserts entity
-func UpsertEntity(name string, ip string, node string, status string, port string) {
+func UpsertEntity(pod *StorageEntity) {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -19,24 +19,24 @@ func UpsertEntity(name string, ip string, node string, status string, port strin
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	//partition key is the same as row key (pod's name)
-	entity := table.GetEntityReference(name, name)
+	entity := table.GetEntityReference(pod.Name, pod.Name)
 
 	props := make(map[string]interface{})
 
-	if ip != "" {
-		props["PublicIP"] = ip
+	if pod.PublicIP != "" {
+		props["PublicIP"] = pod.PublicIP
 	}
 
-	if node != "" {
-		props["NodeName"] = node
+	if pod.NodeName != "" {
+		props["NodeName"] = pod.NodeName
 	}
 
-	if status != "" {
-		props["Status"] = status
+	if pod.Status != "" {
+		props["Status"] = pod.Status
 	}
 
-	if port != "" {
-		props["Port"] = port
+	if pod.Port != "" {
+		props["Port"] = pod.Port
 	}
 
 	entity.Properties = props

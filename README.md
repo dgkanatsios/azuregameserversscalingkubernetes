@@ -57,15 +57,21 @@ Mount to copy the files (e.g. from a Linux machine) - [instructions](https://doc
 sudo mount -t cifs //$STORAGE_ACCOUNT_NAME.file.core.windows.net/$AKS_PERS_SHARE_NAME /path -o vers=3.0,username=$STORAGE_ACCOUNT_NAME,password=$STORAGE_ACCOUNT_KEY,dir_mode=0777,file_mode=0777
 ```
 
-Create a Kubernetes secret
+Create a Kubernetes secret that will hold our storage account credentials
 ```bash
 kubectl create secret generic openarena-storage-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY
 ```
 
 Create `api` and `eventhandler` K8s apps
 ```bash
-kubectl create -f deployapihandler.yaml
+kubectl apply -f various/deployapihandler.yaml
+```
+
+To update your API and EventHandler deployments using an ugly and non-recommended hack:
 ```bash
+cd various
+./updatedeployments.sh
+```
 
 ```bash
 az aks browse --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME

@@ -80,7 +80,7 @@ func handlePodDelete(obj interface{}) {
 }
 
 func handlePodUpdate(obj interface{}) {
-	fmt.Println("Pod changed: \n", obj)
+	fmt.Println("Pod updated: \n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name
 	if !strings.HasPrefix(name, "openarena") {
@@ -167,8 +167,6 @@ func handleServiceUpdate(obj interface{}) {
 	}
 
 	fmt.Println("Service updated:\n", name, externalIP)
-	fmt.Println(obj)
-
 }
 
 func isOpenArena(name string) bool {

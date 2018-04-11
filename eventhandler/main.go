@@ -156,6 +156,7 @@ func handleServiceUpdate(obj interface{}) {
 	}
 
 	fmt.Println("Service updated:\n", name, externalIP)
+	fmt.Println(obj)
 
 }
 

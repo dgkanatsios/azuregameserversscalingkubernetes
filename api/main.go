@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,6 +20,7 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createHandler).Methods("GET")
 	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}").Methods("GET")
+	router.HandleFunc("/running", getRunningHandler).Methods("GET")
 
 	port := 8000
 
@@ -42,10 +44,21 @@ func createStuff() (podName string, serviceName string) {
 	podsClient := clientset.Core().Pods(namespace)
 	servicesClient := clientset.Core().Services(namespace)
 
-	pod := shared.CreatePod(name, 27960)
-	service := shared.CreateService(shared.GetServiceNameFromPodName(name), 27960)
+	var port int
+	port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
+	for {
+		if shared.IsPortUsed(port) {
+			port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
+		} else {
+			break
+		}
+	}
 
 	fmt.Println("Creating pod...")
+	shared.UpsertEntity(name, "", "", shared.CreatingState, strconv.Itoa(port))
+	pod := shared.CreatePod(name, int32(port))
+	service := shared.CreateService(shared.GetServiceNameFromPodName(name), int32(port))
+
 	result, err := podsClient.Create(pod)
 	if err != nil {
 		panic(err)
@@ -75,7 +88,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("Cannot delete pod due to ", err)
 	}
 
-	shared.UpsertEntity(name, "", "", "Deleting")
+	shared.UpsertEntity(name, "", "", shared.TerminatingState, "")
 
 	err = servicesClient.Delete(name, nil)
 	if err != nil {
@@ -83,4 +96,13 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(name + " were deleted"))
+}
+
+func getRunningHandler(w http.ResponseWriter, r *http.Request) {
+	entities := shared.GetRunningEntities()
+	result, err := json.Marshal(entities)
+	if err != nil {
+		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
+	}
+	w.Write(result)
 }

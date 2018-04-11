@@ -2,6 +2,7 @@ package shared
 
 import (
 	"log"
+	"strconv"
 
 	storage "github.com/Azure/azure-sdk-for-go/storage"
 )
@@ -9,7 +10,7 @@ import (
 //good samples here: https://github.com/luigialves/sample-golang-with-azure-table-storage/blob/master/sample.go
 
 // UpsertEntity upserts entity
-func UpsertEntity(name string, ip string, node string, status string) {
+func UpsertEntity(name string, ip string, node string, status string, port string) {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -32,6 +33,10 @@ func UpsertEntity(name string, ip string, node string, status string) {
 
 	if status != "" {
 		props["Status"] = status
+	}
+
+	if port != "" {
+		props["Port"] = port
 	}
 
 	entity.Properties = props
@@ -95,4 +100,24 @@ func GetRunningEntities() []*storage.Entity {
 	}
 
 	return result.Entities
+}
+
+// IsPortUsed reports whether a specified port is used by a pod
+func IsPortUsed(port int) bool {
+	storageclient := GetStorageClient()
+
+	tableservice := storageclient.GetTableService()
+
+	table := tableservice.GetTableReference(TableName)
+	table.Create(Timeout, storage.MinimalMetadata, nil)
+
+	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
+		Filter: "Port='" + strconv.Itoa(port) + "'",
+	})
+
+	if err != nil {
+		log.Fatalf("Cannot get entities due to %s", err)
+	}
+
+	return len(result.Entities) > 0
 }

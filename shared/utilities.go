@@ -30,3 +30,8 @@ func GetServiceNameFromPodName(podName string) string {
 func GetPodNameFromServiceName(serviceName string) string {
 	return serviceName
 }
+
+// GetRandomInt returns a random number
+func GetRandomInt(min int, max int) int {
+	return rand.Intn(max-min) + min
+}

@@ -150,8 +150,8 @@ func handleServiceUpdate(obj interface{}) {
 		return
 	}
 	var externalIP string
-	if len(service.Spec.ExternalIPs) > 0 {
-		externalIP = service.Spec.ExternalIPs[0]
+	if len(service.Status.LoadBalancer.Ingress) > 0 {
+		externalIP = service.Status.LoadBalancer.Ingress[0].IP
 		shared.UpsertEntity(shared.GetPodNameFromServiceName(name), externalIP, "", "", "")
 	}
 
@@ -163,3 +163,25 @@ func handleServiceUpdate(obj interface{}) {
 func isOpenArena(name string) bool {
 	return strings.HasPrefix(name, "openarena")
 }
+
+/*
+
+Service added:
+ &Service{ObjectMeta:k8s_io_apimachinery_pkg_apis_meta_v1.ObjectMeta{Name:openarena-ywtirc,GenerateName:,Namespace:default,SelfLink:/api/v1/namespaces/default/services/openarena-yw
+tirc,UID:09c17c33-3d8e-11e8-9630-0a58ac1f0661,ResourceVersion:267936,Generation:0,CreationTimestamp:2018-04-11 13:41:29 +0000 UTC,DeletionTimestamp:<nil>,DeletionGracePeriodSeconds
+:nil,Labels:map[string]string{},Annotations:map[string]string{},OwnerReferences:[],Finalizers:[],ClusterName:,Initializers:nil,},Spec:ServiceSpec{Ports:[{port1 UDP 26105 {0 26105 }
+ 31961}],Selector:map[string]string{server: openarena-ywtirc,},ClusterIP:10.0.180.157,Type:LoadBalancer,ExternalIPs:[],SessionAffinity:None,LoadBalancerIP:,LoadBalancerSourceRanges
+:[],ExternalName:,ExternalTrafficPolicy:Cluster,HealthCheckNodePort:0,PublishNotReadyAddresses:false,SessionAffinityConfig:nil,},Status:ServiceStatus{LoadBalancer:LoadBalancerStatu
+s{Ingress:[],},},}
+
+
+Service updated:
+ openarena-ywtirc
+&Service{ObjectMeta:k8s_io_apimachinery_pkg_apis_meta_v1.ObjectMeta{Name:openarena-ywtirc,GenerateName:,Namespace:default,SelfLink:/api/v1/namespaces/default/services/openarena-ywt
+irc,UID:09c17c33-3d8e-11e8-9630-0a58ac1f0661,ResourceVersion:267998,Generation:0,CreationTimestamp:2018-04-11 13:41:29 +0000 UTC,DeletionTimestamp:<nil>,DeletionGracePeriodSeconds:
+nil,Labels:map[string]string{},Annotations:map[string]string{},OwnerReferences:[],Finalizers:[],ClusterName:,Initializers:nil,},Spec:ServiceSpec{Ports:[{port1 UDP 26105 {0 26105 }
+31961}],Selector:map[string]string{server: openarena-ywtirc,},ClusterIP:10.0.180.157,Type:LoadBalancer,ExternalIPs:[],SessionAffinity:None,LoadBalancerIP:,LoadBalancerSourceRanges:
+[],ExternalName:,ExternalTrafficPolicy:Cluster,HealthCheckNodePort:0,PublishNotReadyAddresses:false,SessionAffinityConfig:nil,},Status:ServiceStatus{LoadBalancer:LoadBalancerStatus
+{Ingress:[{52.170.255.33 }],},},}
+
+*/

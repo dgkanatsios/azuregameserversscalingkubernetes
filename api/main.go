@@ -29,8 +29,8 @@ func main() {
 
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
-	podname, servicename := createStuff()
-	w.Write([]byte(podname + " and " + servicename + " was created"))
+	podname, _ := createStuff()
+	w.Write([]byte(podname + " was created"))
 }
 
 func createStuff() (podName string, serviceName string) {
@@ -75,10 +75,12 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("Cannot delete pod due to ", err)
 	}
 
+	shared.UpsertEntity(name, "", "", "Deleting")
+
 	err = servicesClient.Delete(name, nil)
 	if err != nil {
 		log.Fatal("Cannot delete service due to ", err)
 	}
 
-	w.Write([]byte(name + " " + name + " were deleted"))
+	w.Write([]byte(name + " were deleted"))
 }

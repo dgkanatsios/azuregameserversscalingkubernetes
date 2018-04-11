@@ -152,6 +152,7 @@ func handleServiceUpdate(obj interface{}) {
 	var externalIP string
 	if len(service.Spec.ExternalIPs) > 0 {
 		externalIP = service.Spec.ExternalIPs[0]
+		shared.UpsertEntity(shared.GetPodNameFromServiceName(name), externalIP, "", "")
 	}
 
 	fmt.Println("Service updated:\n", name, externalIP)

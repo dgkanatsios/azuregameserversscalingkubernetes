@@ -25,3 +25,8 @@ func RandString(n int) string {
 func GetServiceNameFromPodName(podName string) string {
 	return podName
 }
+
+// GetPodNameFromServiceName converts the name of the service to a similar name for the pod
+func GetPodNameFromServiceName(serviceName string) string {
+	return serviceName
+}

@@ -13,4 +13,4 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /build/app .
 CMD ["./app"]
-LABEL Name=docker_openarena_k8s_eventhandler Version=0.0.1
+LABEL Name=docker_openarena_k8s_eventhandler Version=0.0.2

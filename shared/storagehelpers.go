@@ -92,7 +92,7 @@ func GetRunningEntities() []*storage.Entity {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: "Status='Running'",
+		Filter: "Status eq 'Running'",
 	})
 
 	if err != nil {
@@ -112,7 +112,7 @@ func IsPortUsed(port int) bool {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: "Port='" + strconv.Itoa(port) + "'",
+		Filter: "Port eq '" + strconv.Itoa(port) + "'",
 	})
 
 	if err != nil {

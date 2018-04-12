@@ -18,9 +18,9 @@ func initializeSetSessionsURL() {
 	if err != nil {
 		log.Fatal("Cannot initialize setSessionsURL due to", err.Error())
 	}
-	ip := service.Spec.ClusterIP
+	ip := service.Spec.ClusterIP + ":" + string(service.Spec.Ports[0].NodePort)
 
-	setSessionsURL = "http://" + ip + ":8000/setsessions?code=" + getAccessCode()
+	setSessionsURL = "http://" + ip + "/setsessions?code=" + getAccessCode()
 
 	fmt.Println("Initializes setSessionsURL:", setSessionsURL)
 }

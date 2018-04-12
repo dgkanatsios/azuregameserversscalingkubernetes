@@ -42,9 +42,9 @@ do
         #RESOURCE_GROUP='openarena'
         #CONTAINER_GROUP_NAME='openarenarver1'
 
-        echo "[{\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}]"
+        echo "About to send data: {\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}"
         #wget -O- --post-data="[{\"resourceGroup\":\"$RESOURCE_GROUP\", \"containerGroupName\":\"$CONTAINER_GROUP_NAME\", \"activeSessions\":$connected}]" --header=Content-Type:application/json "$SET_SESSIONS_URL"
-        wget -O- --post-data="[{\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}]" --header=Content-Type:application/json "$SET_SESSIONS_URL"
+        wget -O- --post-data="{\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}" --header=Content-Type:application/json "$SET_SESSIONS_URL"
 
     fi 
 done

@@ -10,7 +10,6 @@ import (
 	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
 	"github.com/gorilla/mux"
 	core "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const namespace string = core.NamespaceDefault
@@ -20,12 +19,14 @@ var podsClient = clientset.Core().Pods(namespace)
 var servicesClient = clientset.Core().Services(namespace)
 var secretsClient = clientset.Core().Secrets(namespace)
 
-func main() {
+var setSessionsURL = "http://docker-openarena-k8s-api:8000/setsessions?code=" + getAccessCode()
 
+func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
 	router.HandleFunc("/running", getRunningPodsHandler).Queries("code", "{code}").Methods("GET")
+	router.HandleFunc("/setsessions", setSessionsHandler).Methods("POST")
 
 	port := 8000
 
@@ -68,7 +69,7 @@ func createPodAndService() (podName string, serviceName string) {
 		Port:   strconv.Itoa(port),
 	})
 
-	pod := shared.NewPod(name, int32(port))
+	pod := shared.NewPod(name, int32(port), setSessionsURL)
 	service := shared.NewService(shared.GetServiceNameFromPodName(name), int32(port))
 
 	result, err := podsClient.Create(pod)
@@ -125,21 +126,24 @@ func getRunningPodsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func isAPICallAuthorized(w http.ResponseWriter, r *http.Request) bool {
-	code := r.FormValue("code")
-
-	if !authenticateCode(code) {
-		w.WriteHeader(401)
-		w.Write([]byte("Unathorized"))
-		return false
+func setSessionsHandler(w http.ResponseWriter, r *http.Request) {
+	if !isAPICallAuthorized(w, r) {
+		return
 	}
-	return true
-}
 
-func authenticateCode(code string) bool {
-	secret, err := secretsClient.Get("apiaccesscode", meta_v1.GetOptions{})
+	var serverSessions ServerSessions
+	err := json.NewDecoder(r.Body).Decode(&serverSessions)
+
 	if err != nil {
-		log.Fatal("Cannot get code due to ", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error setting sessions: " + err.Error()))
+		return
 	}
-	return code == string(secret.Data["code"])
+
+	shared.UpsertEntity(&shared.StorageEntity{
+		Name:           serverSessions.Name,
+		ActiveSessions: &serverSessions.ActiveSessions,
+	})
+
+	w.Write([]byte("Set sessions OK for pod: " + serverSessions.Name))
 }

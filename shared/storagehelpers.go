@@ -39,6 +39,10 @@ func UpsertEntity(pod *StorageEntity) {
 		props["Port"] = pod.Port
 	}
 
+	if pod.ActiveSessions != nil {
+		props["ActiveSessions"] = *pod.ActiveSessions
+	}
+
 	entity.Properties = props
 
 	if err := entity.InsertOrMerge(nil); err != nil {

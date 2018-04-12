@@ -17,7 +17,7 @@ import (
 )
 
 // NewPod returns a Kubernetes Pod struct
-func NewPod(name string, port int32) *core.Pod {
+func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -65,6 +65,14 @@ func NewPod(name string, port int32) *core.Pod {
 									Key: "azurestorageaccountkey",
 								},
 							},
+						},
+						{
+							Name:  "SERVER_NAME",
+							Value: name,
+						},
+						{
+							Name:  "SET_SESSIONS_URL",
+							Value: setSessionsURL,
 						},
 					},
 					VolumeMounts: []core.VolumeMount{

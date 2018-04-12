@@ -44,7 +44,7 @@ do
 
         #do nothing for the time being
         #wget -O- --post-data="[{\"resourceGroup\":\"$RESOURCE_GROUP\", \"containerGroupName\":\"$CONTAINER_GROUP_NAME\", \"activeSessions\":$connected}]" --header=Content-Type:application/json "$SET_SESSIONS_URL"
-        wget -O- --post-data="[{\"resourceGroup\":\"$SERVER_NAME\", \"activeSessions\":$connected}]" --header=Content-Type:application/json "$SET_SESSIONS_URL"
+        wget -O- --post-data="[{\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}]" --header=Content-Type:application/json "$SET_SESSIONS_URL"
 
     fi 
 done

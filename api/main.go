@@ -19,7 +19,7 @@ var podsClient = clientset.Core().Pods(namespace)
 var servicesClient = clientset.Core().Services(namespace)
 var secretsClient = clientset.Core().Secrets(namespace)
 
-var setSessionsURL = "http://docker-openarena-k8s-api:8000/setsessions?code=" + getAccessCode()
+var setSessionsURL string
 
 func main() {
 	router := mux.NewRouter()
@@ -68,6 +68,10 @@ func createPodAndService() (podName string, serviceName string) {
 		Status: shared.CreatingState,
 		Port:   strconv.Itoa(port),
 	})
+
+	if setSessionsURL == "" {
+		initializeSetSessionsURL()
+	}
 
 	pod := shared.NewPod(name, int32(port), setSessionsURL)
 	service := shared.NewService(shared.GetServiceNameFromPodName(name), int32(port))

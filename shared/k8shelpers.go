@@ -114,9 +114,8 @@ func NewService(name string, port int32) *core.Service {
 				Protocol: core.ProtocolUDP,
 				Port:     port,
 			}},
-			Selector:  map[string]string{"server": name},
-			Type:      "LoadBalancer",
-			ClusterIP: "None", //https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+			Selector: map[string]string{"server": name},
+			Type:     "LoadBalancer",
 		},
 	}
 	return service

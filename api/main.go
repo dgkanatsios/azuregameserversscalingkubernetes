@@ -98,7 +98,10 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	err = podsClient.Delete(name, nil)
 	if err != nil {
-		log.Fatal("Cannot delete pod due to ", err)
+		output := "Cannot delete pod due to " + err.Error()
+		fmt.Println(output)
+		w.Write([]byte(output))
+		return
 	}
 
 	shared.UpsertEntity(&shared.StorageEntity{

@@ -16,8 +16,8 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-// CreatePod returns a Kubernetes Pod struct
-func CreatePod(name string, port int32) *core.Pod {
+// NewPod returns a Kubernetes Pod struct
+func NewPod(name string, port int32) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -87,13 +87,15 @@ func CreatePod(name string, port int32) *core.Pod {
 					},
 				},
 			},
+			HostNetwork:   true,
+			RestartPolicy: core.RestartPolicyNever,
 		},
 	}
 	return pod
 }
 
-// CreateService returns a Kubernetes Service struct
-func CreateService(name string, port int32) *core.Service {
+// NewService returns a Kubernetes Service struct
+func NewService(name string, port int32) *core.Service {
 	service := &core.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -104,8 +106,9 @@ func CreateService(name string, port int32) *core.Service {
 				Protocol: core.ProtocolUDP,
 				Port:     port,
 			}},
-			Selector: map[string]string{"server": name},
-			Type:     "LoadBalancer",
+			Selector:  map[string]string{"server": name},
+			Type:      "LoadBalancer",
+			ClusterIP: "None", //https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
 		},
 	}
 	return service

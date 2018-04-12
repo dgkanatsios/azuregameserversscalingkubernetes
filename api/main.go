@@ -10,17 +10,22 @@ import (
 	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
 	"github.com/gorilla/mux"
 	core "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const namespace string = core.NamespaceDefault
 
-// our main function
+var clientset = shared.GetClientSet()
+var podsClient = clientset.Core().Pods(namespace)
+var servicesClient = clientset.Core().Services(namespace)
+var secretsClient = clientset.Core().Secrets(namespace)
+
 func main() {
 
 	router := mux.NewRouter()
-	router.HandleFunc("/create", createHandler).Methods("GET")
-	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}").Methods("GET")
-	router.HandleFunc("/running", getRunningHandler).Methods("GET")
+	router.HandleFunc("/create", createHandler).Queries("code", "{code}").Methods("GET")
+	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
+	router.HandleFunc("/running", getRunningPodsHandler).Queries("code", "{code}").Methods("GET")
 
 	port := 8000
 
@@ -31,20 +36,21 @@ func main() {
 
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
-	podname, _ := createStuff()
-	w.Write([]byte(podname + " was created"))
+
+	if !isAPICallAuthorized(w, r) {
+		return
+	}
+
+	podname, _ := createPodAndService()
+	w.Write([]byte("pod " + podname + " and relevant Service were created"))
 }
 
-func createStuff() (podName string, serviceName string) {
+func createPodAndService() (podName string, serviceName string) {
 
 	name := "openarena-" + shared.RandString(6)
 
-	clientset := shared.GetClientSet()
-
-	podsClient := clientset.Core().Pods(namespace)
-	servicesClient := clientset.Core().Services(namespace)
-
 	var port int
+	//get a random port
 	port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
 	for {
 		if shared.IsPortUsed(port) {
@@ -55,13 +61,15 @@ func createStuff() (podName string, serviceName string) {
 	}
 
 	fmt.Println("Creating pod...")
+
 	shared.UpsertEntity(&shared.StorageEntity{
 		Name:   name,
 		Status: shared.CreatingState,
 		Port:   strconv.Itoa(port),
 	})
-	pod := shared.CreatePod(name, int32(port))
-	service := shared.CreateService(shared.GetServiceNameFromPodName(name), int32(port))
+
+	pod := shared.NewPod(name, int32(port))
+	service := shared.NewService(shared.GetServiceNameFromPodName(name), int32(port))
 
 	result, err := podsClient.Create(pod)
 	if err != nil {
@@ -79,10 +87,10 @@ func createStuff() (podName string, serviceName string) {
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
-	clientset := shared.GetClientSet()
 
-	podsClient := clientset.Core().Pods(namespace)
-	servicesClient := clientset.Core().Services(namespace)
+	if !isAPICallAuthorized(w, r) {
+		return
+	}
 
 	name := r.FormValue("name")
 
@@ -104,11 +112,34 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(name + " were deleted"))
 }
 
-func getRunningHandler(w http.ResponseWriter, r *http.Request) {
+func getRunningPodsHandler(w http.ResponseWriter, r *http.Request) {
+	if !isAPICallAuthorized(w, r) {
+		return
+	}
+
 	entities := shared.GetRunningEntities()
 	result, err := json.Marshal(entities)
 	if err != nil {
 		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
 	}
 	w.Write(result)
+}
+
+func isAPICallAuthorized(w http.ResponseWriter, r *http.Request) bool {
+	code := r.FormValue("code")
+
+	if !authenticateCode(code) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
+		return false
+	}
+	return true
+}
+
+func authenticateCode(code string) bool {
+	secret, err := secretsClient.Get("apiaccesscode", meta_v1.GetOptions{})
+	if err != nil {
+		log.Fatal("Cannot get code due to ", err)
+	}
+	return code == string(secret.Data["code"])
 }

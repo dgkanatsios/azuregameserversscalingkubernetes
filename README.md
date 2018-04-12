@@ -62,6 +62,11 @@ Create a Kubernetes secret that will hold our storage account credentials
 kubectl create secret generic openarena-storage-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY
 ```
 
+Create a Kubernetes secret that will hold our access code for the API
+```bash
+kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
+```
+
 Create `api` and `eventhandler` K8s apps
 ```bash
 kubectl apply -f various/deployapihandler.yaml

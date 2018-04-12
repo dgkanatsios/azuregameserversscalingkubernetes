@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -14,11 +15,13 @@ type ServerSessions struct {
 }
 
 func initializeSetSessionsURL() {
-	service, err := servicesClient.Get("docker-openarena-k8s-api", meta_v1.GetOptions{})
+
+	endpoint, err := endpointsClient.Get("docker-openarena-k8s-api", meta_v1.GetOptions{})
 	if err != nil {
 		log.Fatal("Cannot initialize setSessionsURL due to", err.Error())
 	}
-	ip := service.Spec.ClusterIP + ":" + string(service.Spec.Ports[0].NodePort)
+
+	ip := endpoint.Subsets[0].Addresses[0].IP + ":" + strconv.Itoa(int(endpoint.Subsets[0].Ports[0].Port))
 
 	setSessionsURL = "http://" + ip + "/setsessions?code=" + getAccessCode()
 

@@ -18,6 +18,7 @@ var clientset = shared.GetClientSet()
 var podsClient = clientset.Core().Pods(namespace)
 var servicesClient = clientset.Core().Services(namespace)
 var secretsClient = clientset.Core().Secrets(namespace)
+var endpointsClient = clientset.Core().Endpoints(namespace)
 
 var setSessionsURL string
 

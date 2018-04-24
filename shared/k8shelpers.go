@@ -96,6 +96,7 @@ func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
 				},
 			},
 			HostNetwork:   true,
+			DNSPolicy:     core.DNSClusterFirstWithHostNet, //https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 			RestartPolicy: core.RestartPolicyNever,
 		},
 	}

@@ -71,7 +71,8 @@ func createPodAndService() (podName string, serviceName string) {
 	})
 
 	if setSessionsURL == "" {
-		initializeSetSessionsURL()
+		//initializeSetSessionsURL()
+		setSessionsURL = "http://docker-openarena-k8s-api/setsessions?code=" + getAccessCode()
 	}
 
 	pod := shared.NewPod(name, int32(port), setSessionsURL)

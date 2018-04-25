@@ -47,4 +47,3 @@ spec:
   type: NodePort
   externalIPs: 
   - 52.170.95.251
-  - 52.170.252.236

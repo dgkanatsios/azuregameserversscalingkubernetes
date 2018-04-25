@@ -5,6 +5,8 @@ metadata:
   labels:
     name: openarena
 spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
   containers:
   - name: openarena
     image: docker.io/dgkanatsios/docker_openarena_k8s:latest
@@ -29,17 +31,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: openarena-service
+  name: openarena
   labels:
-    name: openarena-service
+    name: openarena
 spec:
   ports:
     # the port that this service should serve on
-    - port: 27960
+    - port: 33333
       targetPort: 27960
       protocol: UDP 
       name: port1
   # label keys and values that must match in order to receive traffic for this service
   selector:
     name: openarena
-  type: LoadBalancer
+  type: NodePort
+  externalIPs: 
+  - 52.170.95.251
+  - 52.170.252.236

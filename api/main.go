@@ -153,5 +153,5 @@ func setSessionsHandler(w http.ResponseWriter, r *http.Request) {
 		ActiveSessions: &serverSessions.ActiveSessions,
 	})
 
-	w.Write([]byte(fmt.Sprint("Set sessions OK for pod: " , serverSessions.Name ,"\n"))
+	w.Write([]byte(fmt.Sprint("Set sessions OK for pod: ", serverSessions.Name, "\n")))
 }

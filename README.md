@@ -45,10 +45,10 @@ export AZURE_STORAGE_CONNECTION_STRING=`az storage account show-connection-strin
 az storage share create -n $AKS_PERS_SHARE_NAME
 
 # Get Storage credentials
-STORAGE_ACCOUNT=$(az storage account list --resource-group $AKS_RESOURCE_GROUP --query "[?contains(name,'$AKS_PERS_STORAGE_ACCOUNT_NAME')].[name]" --output tsv)
+STORAGE_ACCOUNT_NAME=$(az storage account list --resource-group $AKS_RESOURCE_GROUP --query "[?contains(name,'$AKS_PERS_STORAGE_ACCOUNT_NAME')].[name]" --output tsv)
 echo $STORAGE_ACCOUNT_NAME
 
-STORAGE_KEY=$(az storage account keys list --resource-group $AKS_RESOURCE_GROUP --account-name $STORAGE_ACCOUNT_NAME --query "[0].value" --output tsv)
+STORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group $AKS_RESOURCE_GROUP --account-name $STORAGE_ACCOUNT_NAME --query "[0].value" --output tsv)
 echo $STORAGE_ACCOUNT_KEY
 ```
 
@@ -67,8 +67,9 @@ Create a Kubernetes secret that will hold our access code for the API
 kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 ```
 
-Create `api` and `eventhandler` K8s apps
+Create `api` and `eventhandler` K8s deployments
 ```bash
+cd various
 kubectl apply -f various/deployapihandler.yaml
 ```
 

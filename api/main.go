@@ -103,7 +103,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	err = podsClient.Delete(name, nil)
 	if err != nil {
-		output := "Cannot delete pod due to " + err.Error()
+		output := fmt.Sprintf("Cannot delete pod due to %s", err.Error())
 		fmt.Println(output)
 		w.Write([]byte(output))
 		return
@@ -153,5 +153,5 @@ func setSessionsHandler(w http.ResponseWriter, r *http.Request) {
 		ActiveSessions: &serverSessions.ActiveSessions,
 	})
 
-	w.Write([]byte(fmt.Sprint("Set sessions OK for pod: ", serverSessions.Name, "\n")))
+	w.Write([]byte(fmt.Sprintf("Set sessions OK for pod: %s\n", serverSessions.Name)))
 }

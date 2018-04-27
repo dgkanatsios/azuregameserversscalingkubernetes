@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	multiplayergameserverclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -123,7 +124,7 @@ func NewService(name string, port int32) *core.Service {
 }
 
 // GetClientSet returns a Kubernetes interface object that will allow us to give commands to the K8s API
-func GetClientSet() kubernetes.Interface {
+func GetClientSet() (kubernetes.Interface, multiplayergameserverclientset.Interface) {
 	if runInK8s := os.Getenv("RUN_IN_K8S"); runInK8s == "" || runInK8s == "true" {
 		config, err := rest.InClusterConfig()
 
@@ -135,25 +136,31 @@ func GetClientSet() kubernetes.Interface {
 		if err != nil {
 			fmt.Println(err)
 		}
-		return clientset
+
+		multiplayergameserverclientset, err := multiplayergameserverclientset.NewForConfig(config)
+		if err != nil {
+			log.Fatalf("getClusterConfig: %v", err)
+		}
+
+		return clientset, multiplayergameserverclientset
 	}
 	//else...
-	clientset := GetClientOutOfCluster()
-	return clientset
+	clientset, multiplayergameserverclientset := GetClientOutOfCluster()
+	return clientset, multiplayergameserverclientset
 
 }
 
 func buildOutOfClusterConfig() (*rest.Config, error) {
 	kubeconfigPath := os.Getenv("KUBECONFIG")
 	if kubeconfigPath == "" {
-		//kubeconfigPath = "/.kube/config"
-		kubeconfigPath = "C:\\users\\dgkanatsios\\.kube\\config"
+		kubeconfigPath = "~/.kube/config"
+		//kubeconfigPath = "C:\\users\\dgkanatsios\\.kube\\config"
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 }
 
 // GetClientOutOfCluster returns a k8s clientset to the request from outside of cluster
-func GetClientOutOfCluster() kubernetes.Interface {
+func GetClientOutOfCluster() (kubernetes.Interface, multiplayergameserverclientset.Interface) {
 	config, err := buildOutOfClusterConfig()
 	if err != nil {
 		log.Fatalf("Can not get kubernetes config: %v", err)
@@ -165,7 +172,12 @@ func GetClientOutOfCluster() kubernetes.Interface {
 		log.Fatalf("Can not create clientset for config: %v", err)
 	}
 
-	return clientset
+	multiplayergameserverclientset, err := multiplayergameserverclientset.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("GetClientOutOfCluster: %v", err)
+	}
+
+	return clientset, multiplayergameserverclientset
 }
 
 //CreateKubeConfig authenticates to the local cluster

@@ -1,0 +1,8 @@
+apiVersion: azure.com/v1
+kind: MultiplayerGameServer
+metadata:
+  name: example-myresource
+spec:
+  image: hello world
+  port: 13
+  startmap: lala

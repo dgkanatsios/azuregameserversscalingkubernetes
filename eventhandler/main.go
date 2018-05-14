@@ -7,10 +7,10 @@ import (
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	dgs_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
 	apiv1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -18,9 +18,9 @@ func main() {
 
 	namespace := apiv1.NamespaceDefault
 
-	client, _ := shared.GetClientSet()
+	_, dedicatedgameserverclientset := shared.GetClientSet()
 
-	controllerPods := createDedicatedGameServerController(client, namespace)
+	controllerPods := createDedicatedGameServerController(dedicatedgameserverclientset, namespace)
 
 	stop := make(chan struct{})
 
@@ -33,8 +33,8 @@ func main() {
 	}
 }
 
-func createDedicatedGameServerController(client kubernetes.Interface, namespace string) cache.Controller {
-	watchlist := cache.NewListWatchFromClient(client.Core().RESTClient(), "dedicatedgameservers", namespace, fields.Everything())
+func createDedicatedGameServerController(dedicatedgameserverclientset versioned.Interface, namespace string) cache.Controller {
+	watchlist := cache.NewListWatchFromClient(dedicatedgameserverclientset.AzureV1().RESTClient(), "dedicatedgameservers", namespace, fields.Everything())
 	_, controller := cache.NewInformer(
 		watchlist,
 		&dgs_v1.DedicatedGameServer{},

@@ -11,19 +11,21 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
+var namespace = apiv1.NamespaceDefault
+var clientset, dedicatedgameserverclientset = shared.GetClientSet()
+var podsClient = clientset.Core().Pods(namespace)
+
 func main() {
 
-	namespace := apiv1.NamespaceDefault
-
-	_, dedicatedgameserverclientset := shared.GetClientSet()
-
-	controllerPods := createDedicatedGameServerController(dedicatedgameserverclientset, namespace)
-
+	controllerDedicatedGameServers := createDedicatedGameServerController(dedicatedgameserverclientset, namespace)
+	controllerPods := createPodController(clientset, namespace)
 	stop := make(chan struct{})
 
+	go controllerDedicatedGameServers.Run(stop)
 	go controllerPods.Run(stop)
 
 	fmt.Println("Listening for Kubernetes events...")
@@ -41,31 +43,97 @@ func createDedicatedGameServerController(dedicatedgameserverclientset versioned.
 		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				handleAdd(obj)
+				handleDedicatedGameServerAdd(obj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				handleDelete(obj)
+				handleDedicatedGameServerDelete(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				handleUpdate(newObj)
+				handleDedicatedGameServerUpdate(newObj)
 			},
 		},
 	)
 	return controller
 }
 
-func handleAdd(obj interface{}) {
+func handleDedicatedGameServerAdd(obj interface{}) {
+	fmt.Println("DedicatedGameServer added:\n", obj)
+	dgs := obj.(*dgs_v1.DedicatedGameServer)
+	name := dgs.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+	//_ := pod.Status.Phase
+	pod := shared.NewPod(name, *dgs.Spec.Port, "sessionsurl")
+
+	result, err := podsClient.Create(pod)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Created pod %q.\n", result.GetObjectMeta().GetName())
+}
+
+func handleDedicatedGameServerDelete(obj interface{}) {
+	fmt.Println("DedicatedGameServer deleted:\n", obj)
+	dgs := obj.(*dgs_v1.DedicatedGameServer)
+	name := dgs.ObjectMeta.Name
+	if !isOpenArena(name) {
+		return
+	}
+
+	err := podsClient.Delete(name, nil)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Deleted pod %q.\n", name)
+
+}
+
+func handleDedicatedGameServerUpdate(obj interface{}) {
+	fmt.Println("DedicatedGameServer updated: \n", obj)
+	dgs := obj.(*dgs_v1.DedicatedGameServer)
+	name := dgs.ObjectMeta.Name
+	if !strings.HasPrefix(name, "openarena") {
+		return
+	}
+
+	if !isOpenArena(name) {
+		fmt.Println("DedicatedGameServer ", name, " was updated")
+	}
+}
+
+func createPodController(client kubernetes.Interface, namespace string) cache.Controller {
+	watchlist := cache.NewListWatchFromClient(client.Core().RESTClient(), "pods", namespace, fields.Everything())
+	_, controller := cache.NewInformer(
+		watchlist,
+		&apiv1.Pod{},
+		time.Second*0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				handlePodAdd(obj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				handlePodDelete(obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				handlePodUpdate(newObj)
+			},
+		},
+	)
+	return controller
+}
+
+func handlePodAdd(obj interface{}) {
 	fmt.Println("Pod added:\n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name
 	if !isOpenArena(name) {
 		return
 	}
-	//_ := pod.Status.Phase
 
 }
 
-func handleDelete(obj interface{}) {
+func handlePodDelete(obj interface{}) {
 	fmt.Println("Pod deleted:\n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name
@@ -75,7 +143,7 @@ func handleDelete(obj interface{}) {
 
 }
 
-func handleUpdate(obj interface{}) {
+func handlePodUpdate(obj interface{}) {
 	fmt.Println("Pod updated: \n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name

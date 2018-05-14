@@ -88,10 +88,6 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shared.UpsertEntity(&shared.StorageEntity{
-		Name:   name,
-		Status: shared.TerminatingState,
-	})
 	err = servicesClient.Delete(name, nil)
 	if err != nil {
 		log.Fatal("Cannot delete service due to ", err)
@@ -105,7 +101,7 @@ func getRunningPodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entities := shared.GetRunningEntities()
+	entities := ""
 	result, err := json.Marshal(entities)
 	if err != nil {
 		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
@@ -126,11 +122,6 @@ func setSessionsHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Error setting sessions: " + err.Error()))
 		return
 	}
-
-	shared.UpsertEntity(&shared.StorageEntity{
-		Name:           serverSessions.Name,
-		ActiveSessions: &serverSessions.ActiveSessions,
-	})
 
 	w.Write([]byte(fmt.Sprintf("Set sessions OK for pod: %s\n", serverSessions.Name)))
 }

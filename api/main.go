@@ -16,7 +16,6 @@ const namespace string = core.NamespaceDefault
 
 var clientset, dedicatedgameserverclientset = shared.GetClientSet()
 var podsClient = clientset.Core().Pods(namespace)
-var servicesClient = clientset.Core().Services(namespace)
 var secretsClient = clientset.Core().Secrets(namespace)
 var endpointsClient = clientset.Core().Endpoints(namespace)
 
@@ -80,20 +79,15 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 
 	var err error
-	err = podsClient.Delete(name, nil)
+	err = dedicatedgameserverclientset.Azure().DedicatedGameServers(namespace).Delete(name, nil)
 	if err != nil {
-		output := fmt.Sprintf("Cannot delete pod due to %s", err.Error())
+		output := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
 		fmt.Println(output)
 		w.Write([]byte(output))
 		return
 	}
 
-	err = servicesClient.Delete(name, nil)
-	if err != nil {
-		log.Fatal("Cannot delete service due to ", err)
-	}
-
-	w.Write([]byte(name + " were deleted"))
+	w.Write([]byte(name + " was deleted"))
 }
 
 func getRunningPodsHandler(w http.ResponseWriter, r *http.Request) {

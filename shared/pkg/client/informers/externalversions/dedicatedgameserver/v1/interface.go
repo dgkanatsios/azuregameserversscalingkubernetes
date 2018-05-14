@@ -24,8 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// MultiplayerGameServers returns a MultiplayerGameServerInformer.
-	MultiplayerGameServers() MultiplayerGameServerInformer
+	// DedicatedGameServers returns a DedicatedGameServerInformer.
+	DedicatedGameServers() DedicatedGameServerInformer
 }
 
 type version struct {
@@ -39,7 +39,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// MultiplayerGameServers returns a MultiplayerGameServerInformer.
-func (v *version) MultiplayerGameServers() MultiplayerGameServerInformer {
-	return &multiplayerGameServerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// DedicatedGameServers returns a DedicatedGameServerInformer.
+func (v *version) DedicatedGameServers() DedicatedGameServerInformer {
+	return &dedicatedGameServerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -21,69 +21,69 @@ package v1
 import (
 	time "time"
 
-	multiplayergameserver_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/multiplayergameserver/v1"
+	dedicatedgameserver_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	versioned "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/multiplayergameserver/v1"
+	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/dedicatedgameserver/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// MultiplayerGameServerInformer provides access to a shared informer and lister for
-// MultiplayerGameServers.
-type MultiplayerGameServerInformer interface {
+// DedicatedGameServerInformer provides access to a shared informer and lister for
+// DedicatedGameServers.
+type DedicatedGameServerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.MultiplayerGameServerLister
+	Lister() v1.DedicatedGameServerLister
 }
 
-type multiplayerGameServerInformer struct {
+type dedicatedGameServerInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewMultiplayerGameServerInformer constructs a new informer for MultiplayerGameServer type.
+// NewDedicatedGameServerInformer constructs a new informer for DedicatedGameServer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewMultiplayerGameServerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredMultiplayerGameServerInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewDedicatedGameServerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredDedicatedGameServerInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredMultiplayerGameServerInformer constructs a new informer for MultiplayerGameServer type.
+// NewFilteredDedicatedGameServerInformer constructs a new informer for DedicatedGameServer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredMultiplayerGameServerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredDedicatedGameServerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AzureV1().MultiplayerGameServers(namespace).List(options)
+				return client.AzureV1().DedicatedGameServers(namespace).List(options)
 			},
 			WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AzureV1().MultiplayerGameServers(namespace).Watch(options)
+				return client.AzureV1().DedicatedGameServers(namespace).Watch(options)
 			},
 		},
-		&multiplayergameserver_v1.MultiplayerGameServer{},
+		&dedicatedgameserver_v1.DedicatedGameServer{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *multiplayerGameServerInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredMultiplayerGameServerInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *dedicatedGameServerInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredDedicatedGameServerInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *multiplayerGameServerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&multiplayergameserver_v1.MultiplayerGameServer{}, f.defaultInformer)
+func (f *dedicatedGameServerInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&dedicatedgameserver_v1.DedicatedGameServer{}, f.defaultInformer)
 }
 
-func (f *multiplayerGameServerInformer) Lister() v1.MultiplayerGameServerLister {
-	return v1.NewMultiplayerGameServerLister(f.Informer().GetIndexer())
+func (f *dedicatedGameServerInformer) Lister() v1.DedicatedGameServerLister {
+	return v1.NewDedicatedGameServerLister(f.Informer().GetIndexer())
 }

@@ -1,3 +1,3 @@
-package multiplayergameserver
+package dedicatedgameserver
 
 const GroupName = "azure.com"

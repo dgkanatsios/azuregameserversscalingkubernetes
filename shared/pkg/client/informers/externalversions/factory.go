@@ -24,8 +24,8 @@ import (
 	time "time"
 
 	versioned "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
+	dedicatedgameserver "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/dedicatedgameserver"
 	internalinterfaces "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/internalinterfaces"
-	multiplayergameserver "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/multiplayergameserver"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Azure() multiplayergameserver.Interface
+	Azure() dedicatedgameserver.Interface
 }
 
-func (f *sharedInformerFactory) Azure() multiplayergameserver.Interface {
-	return multiplayergameserver.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Azure() dedicatedgameserver.Interface {
+	return dedicatedgameserver.New(f, f.namespace, f.tweakListOptions)
 }

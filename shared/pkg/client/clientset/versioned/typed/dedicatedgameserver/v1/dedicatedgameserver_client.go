@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/multiplayergameserver/v1"
+	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
@@ -27,7 +27,7 @@ import (
 
 type AzureV1Interface interface {
 	RESTClient() rest.Interface
-	MultiplayerGameServersGetter
+	DedicatedGameServersGetter
 }
 
 // AzureV1Client is used to interact with features provided by the azure.com group.
@@ -35,8 +35,8 @@ type AzureV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *AzureV1Client) MultiplayerGameServers(namespace string) MultiplayerGameServerInterface {
-	return newMultiplayerGameServers(c, namespace)
+func (c *AzureV1Client) DedicatedGameServers(namespace string) DedicatedGameServerInterface {
+	return newDedicatedGameServers(c, namespace)
 }
 
 // NewForConfig creates a new AzureV1Client for the given config.

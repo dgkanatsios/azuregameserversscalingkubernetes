@@ -1,17 +1,16 @@
 package v1
 
 import (
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared/pkg/apis/multiplayergameserver"
 )
 
 // SchemeGroupVersion is the identifier for the API which includes
 // the name of the group and the version of the API
 var SchemeGroupVersion = schema.GroupVersion{
-	Group:   multiplayergameserver.GroupName,
+	Group:   dedicatedgameserver.GroupName,
 	Version: "v1",
 }
 
@@ -29,8 +28,8 @@ func Resource(resource string) schema.GroupResource {
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		SchemeGroupVersion,
-		&MultiplayerGameServer{},
-		&MultiplayerGameServerList{},
+		&DedicatedGameServer{},
+		&DedicatedGameServerList{},
 	)
 
 	// register the type in the scheme

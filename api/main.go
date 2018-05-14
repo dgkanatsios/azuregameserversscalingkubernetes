@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	"github.com/gorilla/mux"
 	core "k8s.io/api/core/v1"
 )
 
 const namespace string = core.NamespaceDefault
 
-var clientset = shared.GetClientSet()
+var clientset, dedicatedgameserverclientset = shared.GetClientSet()
 var podsClient = clientset.Core().Pods(namespace)
 var servicesClient = clientset.Core().Services(namespace)
 var secretsClient = clientset.Core().Secrets(namespace)
@@ -43,53 +43,32 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	podname, _ := createPodAndService()
-	w.Write([]byte("pod " + podname + " and relevant Service were created"))
+	podname := createDedicatedGameServer()
+	w.Write([]byte("DedicatedGameServer " + podname + " was created"))
 }
 
-func createPodAndService() (podName string, serviceName string) {
-
+func createDedicatedGameServer() string {
 	name := "openarena-" + shared.RandString(6)
 
 	var port int
-	//get a random port
+	//get a random port - FIX
 	port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
-	for {
-		if shared.IsPortUsed(port) {
-			port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
-		} else {
-			break
-		}
-	}
 
-	fmt.Println("Creating pod...")
-
-	shared.UpsertEntity(&shared.StorageEntity{
-		Name:   name,
-		Status: shared.CreatingState,
-		Port:   strconv.Itoa(port),
-	})
+	fmt.Println("Creating DedicatedGameServer...")
 
 	if setSessionsURL == "" {
 		initializeSetSessionsURL()
 	}
 
-	pod := shared.NewPod(name, int32(port), setSessionsURL)
-	service := shared.NewService(shared.GetServiceNameFromPodName(name), int32(port))
+	dgs := shared.NewDedicatedGameServer(name, int32(port), setSessionsURL)
 
-	result, err := podsClient.Create(pod)
+	dgsInstance, err := dedicatedgameserverclientset.Azure().DedicatedGameServers(namespace).Create(dgs)
+
 	if err != nil {
-		panic(err)
+		fmt.Println("error")
 	}
-	fmt.Printf("Created pod %q.\n", result.GetObjectMeta().GetName())
+	return dgsInstance.ObjectMeta.Name
 
-	result2, err := servicesClient.Create(service)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Created service %q.\n", result2.GetObjectMeta().GetName())
-
-	return pod.ObjectMeta.Name, service.ObjectMeta.Name
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {

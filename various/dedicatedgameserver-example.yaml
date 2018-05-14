@@ -1,5 +1,5 @@
 apiVersion: azure.com/v1
-kind: MultiplayerGameServer
+kind: DedicatedGameServer
 metadata:
   name: example-myresource
 spec:

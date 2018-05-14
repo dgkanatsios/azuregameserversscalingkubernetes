@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	azurev1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/multiplayergameserver/v1"
+	azurev1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

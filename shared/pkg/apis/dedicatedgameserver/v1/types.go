@@ -8,8 +8,8 @@ import (
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// MultiplayerGameServer describes a MultiplayerGameServer resource
-type MultiplayerGameServer struct {
+// DedicatedGameServer describes a DedicatedGameServer resource
+type DedicatedGameServer struct {
 	// TypeMeta is the metadata for the resource, like kind and apiversion
 	meta_v1.TypeMeta `json:",inline"`
 	// ObjectMeta contains the metadata for the particular object, including
@@ -22,11 +22,11 @@ type MultiplayerGameServer struct {
 	meta_v1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec is the custom resource spec
-	Spec MultiplayerGameServerSpec `json:"spec"`
+	Spec DedicatedGameServerSpec `json:"spec"`
 }
 
-// MultiplayerGameServerSpec is the spec for a MultiplayerGameServer resource
-type MultiplayerGameServerSpec struct {
+// DedicatedGameServerSpec is the spec for a DedicatedGameServerSpec resource
+type DedicatedGameServerSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
@@ -37,10 +37,10 @@ type MultiplayerGameServerSpec struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// MultiplayerGameServerList is a list of MultiplayerGameServer resources
-type MultiplayerGameServerList struct {
+// DedicatedGameServerList is a list of DedicatedGameServerList resources
+type DedicatedGameServerList struct {
 	meta_v1.TypeMeta `json:",inline"`
 	meta_v1.ListMeta `json:"metadata"`
 
-	Items []MultiplayerGameServer `json:"items"`
+	Items []DedicatedGameServer `json:"items"`
 }

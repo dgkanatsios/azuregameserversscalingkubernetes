@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/multiplayergameserver/v1"
+	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -53,8 +53,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=azure.com, Version=v1
-	case v1.SchemeGroupVersion.WithResource("multiplayergameservers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Azure().V1().MultiplayerGameServers().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("dedicatedgameservers"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Azure().V1().DedicatedGameServers().Informer()}, nil
 
 	}
 

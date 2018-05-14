@@ -5,7 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgkanatsios/AzureGameServersScalingKubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	dgs_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	apiv1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -19,7 +20,7 @@ func main() {
 
 	client, _ := shared.GetClientSet()
 
-	controllerPods := createPodController(client, namespace)
+	controllerPods := createDedicatedGameServerController(client, namespace)
 
 	stop := make(chan struct{})
 
@@ -32,53 +33,49 @@ func main() {
 	}
 }
 
-func createPodController(client kubernetes.Interface, namespace string) cache.Controller {
-	watchlist := cache.NewListWatchFromClient(client.Core().RESTClient(), "pods", namespace, fields.Everything())
+func createDedicatedGameServerController(client kubernetes.Interface, namespace string) cache.Controller {
+	watchlist := cache.NewListWatchFromClient(client.Core().RESTClient(), "dedicatedgameservers", namespace, fields.Everything())
 	_, controller := cache.NewInformer(
 		watchlist,
-		&apiv1.Pod{},
+		&dgs_v1.DedicatedGameServer{},
 		time.Second*0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				handlePodAdd(obj)
+				handleAdd(obj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				handlePodDelete(obj)
+				handleDelete(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				handlePodUpdate(newObj)
+				handleUpdate(newObj)
 			},
 		},
 	)
 	return controller
 }
 
-func handlePodAdd(obj interface{}) {
+func handleAdd(obj interface{}) {
 	fmt.Println("Pod added:\n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name
 	if !isOpenArena(name) {
 		return
 	}
-	status := pod.Status.Phase
-	shared.UpsertEntity(&shared.StorageEntity{
-		Name:     name,
-		NodeName: pod.Spec.NodeName,
-		Status:   string(status),
-	})
+	//_ := pod.Status.Phase
+
 }
 
-func handlePodDelete(obj interface{}) {
+func handleDelete(obj interface{}) {
 	fmt.Println("Pod deleted:\n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name
 	if !isOpenArena(name) {
 		return
 	}
-	shared.DeleteEntity(name)
+
 }
 
-func handlePodUpdate(obj interface{}) {
+func handleUpdate(obj interface{}) {
 	fmt.Println("Pod updated: \n", obj)
 	pod := obj.(*apiv1.Pod)
 	name := pod.ObjectMeta.Name
@@ -86,11 +83,6 @@ func handlePodUpdate(obj interface{}) {
 		return
 	}
 	status := pod.Status.Phase
-	shared.UpsertEntity(&shared.StorageEntity{
-		Name:     name,
-		NodeName: pod.Spec.NodeName,
-		Status:   string(status),
-	})
 
 	if !isOpenArena(name) {
 		fmt.Println("Pod ", name, " is now ", status)

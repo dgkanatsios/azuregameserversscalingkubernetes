@@ -19,8 +19,8 @@ limitations under the License.
 package azure
 
 import (
+	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/dedicatedgameserver/v1"
 	internalinterfaces "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/multiplayergameserver/v1"
 )
 
 // Interface provides access to each of this group's versions.

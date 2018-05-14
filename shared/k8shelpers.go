@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	multiplayergameserverclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
+	dedicatedgameserverclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
+	//dedicatedgameserverclientset_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/dedicatedgameserver/v1"
+	dgs_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -16,6 +18,21 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
+
+func NewDedicatedGameServer(name string, port int32, setSessionsURL string) *dgs_v1.DedicatedGameServer {
+	dedicatedgameserver := &dgs_v1.DedicatedGameServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{"server": name},
+		},
+		Spec: dgs_v1.DedicatedGameServerSpec{
+			Image:    "OpenArena",
+			Port:     &port,
+			StartMap: "",
+		},
+	}
+	return dedicatedgameserver
+}
 
 // NewPod returns a Kubernetes Pod struct
 func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
@@ -104,27 +121,8 @@ func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
 	return pod
 }
 
-// NewService returns a Kubernetes Service struct
-func NewService(name string, port int32) *core.Service {
-	service := &core.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: core.ServiceSpec{
-			Ports: []core.ServicePort{{
-				Name:     "port1",
-				Protocol: core.ProtocolUDP,
-				Port:     port,
-			}},
-			Selector: map[string]string{"server": name},
-			Type:     "LoadBalancer",
-		},
-	}
-	return service
-}
-
 // GetClientSet returns a Kubernetes interface object that will allow us to give commands to the K8s API
-func GetClientSet() (kubernetes.Interface, multiplayergameserverclientset.Interface) {
+func GetClientSet() (kubernetes.Interface, dedicatedgameserverclientset.Interface) {
 	if runInK8s := os.Getenv("RUN_IN_K8S"); runInK8s == "" || runInK8s == "true" {
 		config, err := rest.InClusterConfig()
 
@@ -137,16 +135,16 @@ func GetClientSet() (kubernetes.Interface, multiplayergameserverclientset.Interf
 			fmt.Println(err)
 		}
 
-		multiplayergameserverclientset, err := multiplayergameserverclientset.NewForConfig(config)
+		dedicatedgameserverclientset, err := dedicatedgameserverclientset.NewForConfig(config)
 		if err != nil {
 			log.Fatalf("getClusterConfig: %v", err)
 		}
 
-		return clientset, multiplayergameserverclientset
+		return clientset, dedicatedgameserverclientset
 	}
 	//else...
-	clientset, multiplayergameserverclientset := GetClientOutOfCluster()
-	return clientset, multiplayergameserverclientset
+	clientset, dedicatedgameserverclientset := GetClientOutOfCluster()
+	return clientset, dedicatedgameserverclientset
 
 }
 
@@ -160,7 +158,7 @@ func buildOutOfClusterConfig() (*rest.Config, error) {
 }
 
 // GetClientOutOfCluster returns a k8s clientset to the request from outside of cluster
-func GetClientOutOfCluster() (kubernetes.Interface, multiplayergameserverclientset.Interface) {
+func GetClientOutOfCluster() (kubernetes.Interface, dedicatedgameserverclientset.Interface) {
 	config, err := buildOutOfClusterConfig()
 	if err != nil {
 		log.Fatalf("Can not get kubernetes config: %v", err)
@@ -172,12 +170,12 @@ func GetClientOutOfCluster() (kubernetes.Interface, multiplayergameserverclients
 		log.Fatalf("Can not create clientset for config: %v", err)
 	}
 
-	multiplayergameserverclientset, err := multiplayergameserverclientset.NewForConfig(config)
+	dedicatedgameserverclientset, err := dedicatedgameserverclientset.NewForConfig(config)
 	if err != nil {
 		log.Fatalf("GetClientOutOfCluster: %v", err)
 	}
 
-	return clientset, multiplayergameserverclientset
+	return clientset, dedicatedgameserverclientset
 }
 
 //CreateKubeConfig authenticates to the local cluster

@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/multiplayergameserver/v1"
+	v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/dedicatedgameserver/v1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
@@ -28,8 +28,8 @@ type FakeAzureV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeAzureV1) MultiplayerGameServers(namespace string) v1.MultiplayerGameServerInterface {
-	return &FakeMultiplayerGameServers{c, namespace}
+func (c *FakeAzureV1) DedicatedGameServers(namespace string) v1.DedicatedGameServerInterface {
+	return &FakeDedicatedGameServers{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

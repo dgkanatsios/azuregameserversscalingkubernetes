@@ -5,7 +5,7 @@ RUN apk add --no-cache git
 WORKDIR /build
 COPY . .
 RUN cd cmd/eventhandler && go get -d -v 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app cmd/eventhandler
 
 #final stage
 FROM alpine:latest

@@ -8,7 +8,7 @@
 
 ~ HEAVY WORK IN PROGRESS DO NOT USE ~
 
-Create a new AKS cluster:
+Create a new AKS cluster: 
 
 ```bash
 AKS_RESOURCE_GROUP=aksopenarenarg

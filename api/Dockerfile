@@ -4,7 +4,7 @@ FROM golang:1.10.1-alpine3.7 AS builder
 RUN apk add --no-cache git
 WORKDIR /build
 COPY . .
-RUN go get -d -v 
+RUN cd cmd/api && go get -d -v 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
 #final stage

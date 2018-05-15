@@ -5,7 +5,7 @@ RUN apk add --no-cache git
 WORKDIR /build
 COPY . .
 RUN cd cmd/api && go get -d -v 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/api
 
 #final stage
 FROM alpine:latest

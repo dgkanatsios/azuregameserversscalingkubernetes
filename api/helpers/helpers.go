@@ -1,15 +1,22 @@
-package main
+package helpers
 
 import (
 	"log"
 	"net/http"
 
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	core "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var accesscode string
+var Clientset, Dedicatedgameserverclientset = shared.GetClientSet()
 
-func isAPICallAuthorized(w http.ResponseWriter, r *http.Request) bool {
+const Namespace string = core.NamespaceDefault
+
+var secretsClient = Clientset.Core().Secrets(Namespace)
+
+func IsAPICallAuthorized(w http.ResponseWriter, r *http.Request) bool {
 	code := r.FormValue("code")
 
 	if !authenticateCode(code) {

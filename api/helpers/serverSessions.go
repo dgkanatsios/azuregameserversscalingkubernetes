@@ -1,8 +1,10 @@
-package main
+package helpers
 
 import (
 	"fmt"
 )
+
+var SetSessionsURL string
 
 // ServerSessions is a struct that represents active sessions (connected players) per pod
 type ServerSessions struct {
@@ -10,9 +12,9 @@ type ServerSessions struct {
 	ActiveSessions int    `json:"activeSessions"`
 }
 
-func initializeSetSessionsURL() {
+func InitializeSetSessionsURL() {
 
-	setSessionsURL = "http://docker-openarena-k8s-api/setsessions?code=" + getAccessCode()
+	SetSessionsURL = "http://docker-openarena-k8s-api/setsessions?code=" + getAccessCode()
 
-	fmt.Println("Initializes setSessionsURL:", setSessionsURL)
+	fmt.Println("Initializes setSessionsURL:", SetSessionsURL)
 }

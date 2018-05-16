@@ -67,13 +67,13 @@ Create a Kubernetes secret that will hold our access code for the API
 kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 ```
 
-Create `api` and `eventhandler` K8s deployments
+Create `api` and `controller` K8s deployments
 ```bash
 cd various
 kubectl apply -f various/deployapihandler.yaml
 ```
 
-To update your API and EventHandler deployments using an ugly and non-recommended hack:
+To update your API and Controller deployments using an ugly and non-recommended hack:
 ```bash
 cd various
 ./updatedeployments.sh

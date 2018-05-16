@@ -35,9 +35,9 @@ spec:
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: docker-openarena-k8s-eventhandler
+  name: docker-openarena-k8s-controller
   labels:
-    name: docker-openarena-k8s-eventhandler
+    name: docker-openarena-k8s-controller
 spec:
   strategy:
     type: Recreate
@@ -45,23 +45,12 @@ spec:
   template:
     metadata:
       labels:
-        name: docker-openarena-k8s-eventhandler
+        name: docker-openarena-k8s-controller
     spec:
       containers:
-      - name: docker-openarena-k8s-eventhandler
-        image: docker.io/dgkanatsios/docker_openarena_k8s_eventhandler:latest
+      - name: docker-openarena-k8s-controller
+        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:latest
         imagePullPolicy: Always
-        env:
-          - name: STORAGE_ACCOUNT_NAME
-            valueFrom:
-              secretKeyRef:
-                name: openarena-storage-secret
-                key: azurestorageaccountname
-          - name: STORAGE_ACCOUNT_KEY
-            valueFrom:
-              secretKeyRef:
-                name: openarena-storage-secret
-                key: azurestorageaccountkey
 ---
 apiVersion: v1
 kind: Service

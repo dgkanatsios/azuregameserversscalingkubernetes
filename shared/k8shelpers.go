@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	dedicatedgameserverclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
-	//dedicatedgameserverclientset_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/dedicatedgameserver/v1"
+	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
+
 	dgs_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +122,7 @@ func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
 }
 
 // GetClientSet returns a Kubernetes interface object that will allow us to give commands to the K8s API
-func GetClientSet() (kubernetes.Interface, dedicatedgameserverclientset.Interface) {
+func GetClientSet() (*kubernetes.Clientset, *dgsclientset.Clientset) {
 	if runInK8s := os.Getenv("RUN_IN_K8S"); runInK8s == "" || runInK8s == "true" {
 		config, err := rest.InClusterConfig()
 
@@ -135,13 +135,14 @@ func GetClientSet() (kubernetes.Interface, dedicatedgameserverclientset.Interfac
 			fmt.Println(err)
 		}
 
-		dedicatedgameserverclientset, err := dedicatedgameserverclientset.NewForConfig(config)
+		dedicatedgameserverclientset, err := dgsclientset.NewForConfig(config)
 		if err != nil {
 			log.Fatalf("getClusterConfig: %v", err)
 		}
 
 		return clientset, dedicatedgameserverclientset
 	}
+
 	//else...
 	clientset, dedicatedgameserverclientset := GetClientOutOfCluster()
 	return clientset, dedicatedgameserverclientset
@@ -151,14 +152,14 @@ func GetClientSet() (kubernetes.Interface, dedicatedgameserverclientset.Interfac
 func buildOutOfClusterConfig() (*rest.Config, error) {
 	kubeconfigPath := os.Getenv("KUBECONFIG")
 	if kubeconfigPath == "" {
-		kubeconfigPath = "~/.kube/config"
+		kubeconfigPath = "/home/dgkanatsios/.kube/config"
 		//kubeconfigPath = "C:\\users\\dgkanatsios\\.kube\\config"
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 }
 
 // GetClientOutOfCluster returns a k8s clientset to the request from outside of cluster
-func GetClientOutOfCluster() (kubernetes.Interface, dedicatedgameserverclientset.Interface) {
+func GetClientOutOfCluster() (*kubernetes.Clientset, *dgsclientset.Clientset) {
 	config, err := buildOutOfClusterConfig()
 	if err != nil {
 		log.Fatalf("Can not get kubernetes config: %v", err)
@@ -170,7 +171,7 @@ func GetClientOutOfCluster() (kubernetes.Interface, dedicatedgameserverclientset
 		log.Fatalf("Can not create clientset for config: %v", err)
 	}
 
-	dedicatedgameserverclientset, err := dedicatedgameserverclientset.NewForConfig(config)
+	dedicatedgameserverclientset, err := dgsclientset.NewForConfig(config)
 	if err != nil {
 		log.Fatalf("GetClientOutOfCluster: %v", err)
 	}

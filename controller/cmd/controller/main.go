@@ -15,7 +15,7 @@ func main() {
 
 	sharedInformers := informers.NewSharedInformerFactory(client, 24*time.Hour)
 	dgsSharedInformers := dgsinformers.NewSharedInformerFactory(dgsclient, 24*time.Hour)
-	controller := controller.NewDedicatedGameServerController(clientset, dedicatedgameserverclientset,
+	controller := controller.NewDedicatedGameServerController(client, dgsclient,
 		sharedInformers.Core().V1().Pods(), dgsSharedInformers.Azure().V1().DedicatedGameServers())
 
 	sharedInformers.Start(nil)

@@ -15,6 +15,9 @@ import (
 var podsClient = helpers.Clientset.Core().Pods(helpers.Namespace)
 var endpointsClient = helpers.Clientset.Core().Endpoints(helpers.Namespace)
 
+const startmap = "dm4ish"
+const dockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:latest"
+
 func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createHandler).Queries("code", "{code}").Methods("GET")
@@ -53,7 +56,7 @@ func createDedicatedGameServer() string {
 		helpers.InitializeSetSessionsURL()
 	}
 
-	dgs := shared.NewDedicatedGameServer(name, int32(port), helpers.SetSessionsURL)
+	dgs := shared.NewDedicatedGameServer(name, int32(port), helpers.SetSessionsURL, startmap, dockerImage)
 
 	dgsInstance, err := helpers.Dedicatedgameserverclientset.Azure().DedicatedGameServers(helpers.Namespace).Create(dgs)
 

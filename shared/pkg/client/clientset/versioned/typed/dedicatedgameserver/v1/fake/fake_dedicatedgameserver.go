@@ -62,7 +62,7 @@ func (c *FakeDedicatedGameServers) List(opts v1.ListOptions) (result *dedicatedg
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &dedicatedgameserver_v1.DedicatedGameServerList{}
+	list := &dedicatedgameserver_v1.DedicatedGameServerList{ListMeta: obj.(*dedicatedgameserver_v1.DedicatedGameServerList).ListMeta}
 	for _, item := range obj.(*dedicatedgameserver_v1.DedicatedGameServerList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)

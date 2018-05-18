@@ -6,12 +6,13 @@ import (
 	"sync"
 	"time"
 
-	dgs_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
+	apiv1 "k8s.io/api/core/v1"
+
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
 	dgsv1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/dedicatedgameserver/v1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/dedicatedgameserver/v1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/dedicatedgameserver/v1"
-	apiv1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
@@ -22,19 +23,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var namespace = apiv1.NamespaceDefault
-
-const (
-	secretSyncAnnotation      = "eightypercent.net/secretsync"
-	secretSyncSourceNamespace = "secretsync"
-	secretSyncKey             = "do it"
-)
-
-var namespaceBlacklist = map[string]bool{
-	"kube-public":             true,
-	"kube-system":             true,
-	secretSyncSourceNamespace: true,
-}
+const namespace = apiv1.NamespaceDefault
 
 type DedicatedGameServerController struct {
 	podGetter             corev1.PodsGetter
@@ -59,53 +48,38 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 		dgsLister:       dgsInformer.Lister(),
 		podListerSynced: podInformer.Informer().HasSynced,
 		dgsListerSynced: dgsInformer.Informer().HasSynced,
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "secretsync"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
 	}
-
-	podInformer.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				log.Print("pod added " + getPod(obj).Name)
-
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("pod updated " + getPod(newObj).Name)
-
-			},
-			DeleteFunc: func(obj interface{}) {
-				log.Print("pod deleted " + getPod(obj).Name)
-
-			},
-		},
-	)
 
 	dgsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServer added " + getDGS(obj).Name)
-
+				handleDedicatedGameServerAdd(obj, c.podLister, client)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("DedicatedGameServer updated " + getDGS(newObj).Name)
-
+				handleDedicatedGameServerUpdate(oldObj, newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServer deleted " + getDGS(obj).Name)
+				handleDedicatedGameServerDelete(obj, client)
+			},
+		},
+	)
 
+	podInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				handlePodAdd(obj, client, dgsclient)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				handlePodUpdate(oldObj, newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				handlePodDelete(obj)
 			},
 		},
 	)
 
 	return c
-}
-
-func getPod(obj interface{}) *apiv1.Pod {
-	pod := obj.(*apiv1.Pod)
-	return pod
-}
-func getDGS(obj interface{}) *dgs_v1.DedicatedGameServer {
-	dgs := obj.(*dgs_v1.DedicatedGameServer)
-	return dgs
 }
 
 func (c *DedicatedGameServerController) Run(stop <-chan struct{}) {
@@ -191,10 +165,6 @@ func (c *DedicatedGameServerController) processNextWorkItem() bool {
 	c.queue.AddRateLimited(key)
 
 	return true
-}
-
-func (c *DedicatedGameServerController) ScheduleSecretSync() {
-	c.queue.Add(secretSyncKey)
 }
 
 // func (c *DedicatedGameServerController) getSecretsInNS(ns string) ([]*core.Secret, error) {

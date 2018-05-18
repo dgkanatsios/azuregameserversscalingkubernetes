@@ -10,3 +10,5 @@ Some useful resources regarding Kubernetes Operators, CRDs, etc.
 - Comparing Kubernetes Operator Pattern with alternatives: https://medium.com/@cloudark/why-to-write-kubernetes-operators-9b1e32a24814
 - Analyzing value of Operator Framework for Kubernetes community: https://itnext.io/analyzing-value-of-operator-framework-for-kubernetes-community-5a65abc259ec
 - Steps to generate CRD/Operator code: https://github.com/cloud-ark/kubeplus/issues/14
+- kubebuilder: https://github.com/kubernetes-sigs/kubebuilder
+- CoreOS operator framework: https://coreos.com/blog/introducing-operator-framework

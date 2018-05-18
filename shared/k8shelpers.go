@@ -19,23 +19,23 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-func NewDedicatedGameServer(name string, port int32, setSessionsURL string) *dgs_v1.DedicatedGameServer {
+func NewDedicatedGameServer(name string, port int32, setSessionsURL string, startmap string, image string) *dgs_v1.DedicatedGameServer {
 	dedicatedgameserver := &dgs_v1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: map[string]string{"server": name},
 		},
 		Spec: dgs_v1.DedicatedGameServerSpec{
-			Image:    "OpenArena",
+			Image:    image,
 			Port:     &port,
-			StartMap: "",
+			StartMap: startmap,
 		},
 	}
 	return dedicatedgameserver
 }
 
 // NewPod returns a Kubernetes Pod struct
-func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
+func NewPod(name string, port int32, setSessionsURL string, startmap string, image string) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -44,8 +44,8 @@ func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
 		Spec: core.PodSpec{
 			Containers: []core.Container{
 				{
-					Name:  "gameserver",
-					Image: "docker.io/dgkanatsios/docker_openarena_k8s:latest",
+					Name:  "dedicatedgameserver",
+					Image: image,
 					Ports: []core.ContainerPort{
 						{
 							Name:          "port1",
@@ -56,7 +56,7 @@ func NewPod(name string, port int32, setSessionsURL string) *core.Pod {
 					Env: []core.EnvVar{
 						{
 							Name:  "OA_STARTMAP",
-							Value: "dm4ish",
+							Value: startmap,
 						},
 						{
 							Name:  "OA_PORT",

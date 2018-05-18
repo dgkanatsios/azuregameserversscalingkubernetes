@@ -1,8 +1,9 @@
 apiVersion: azure.com/v1
 kind: DedicatedGameServer
 metadata:
-  name: example-myresource
+  #generateName: openarena-
+  name: openarena-example
 spec:
-  image: hello world
-  port: 13
-  startmap: lala
+  image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+  port: 27960
+  startmap: dm4ish

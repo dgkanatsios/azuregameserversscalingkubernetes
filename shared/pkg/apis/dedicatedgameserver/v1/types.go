@@ -33,6 +33,7 @@ type DedicatedGameServerSpec struct {
 	Image    string `json:"image"`
 	Port     *int32 `json:"port"`
 	StartMap string `json:startmap`
+	PublicIP string `json:publicIP`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

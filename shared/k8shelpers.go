@@ -2,13 +2,13 @@ package shared
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	dgs_v1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
 	core "k8s.io/api/core/v1"
@@ -27,7 +27,7 @@ func NewDedicatedGameServer(name string, port int32, setSessionsURL string, star
 		},
 		Spec: dgs_v1.DedicatedGameServerSpec{
 			Image:    image,
-			Port:     &port,
+			Port:     port,
 			StartMap: startmap,
 		},
 	}
@@ -35,32 +35,39 @@ func NewDedicatedGameServer(name string, port int32, setSessionsURL string, star
 }
 
 // NewPod returns a Kubernetes Pod struct
-func NewPod(name string, port int32, setSessionsURL string, startmap string, image string) *core.Pod {
+func NewPod(dgs *dgs_v1.DedicatedGameServer) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{"server": name},
+			Name:   dgs.Name,
+			Labels: map[string]string{"server": dgs.Name},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
+					Group:   dgs_v1.SchemeGroupVersion.Group,
+					Version: dgs_v1.SchemeGroupVersion.Version,
+					Kind:    "DedicatedGameServer",
+				}),
+			},
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{
 				{
 					Name:  "dedicatedgameserver",
-					Image: image,
+					Image: dgs.Spec.Image,
 					Ports: []core.ContainerPort{
 						{
 							Name:          "port1",
 							Protocol:      core.ProtocolUDP,
-							ContainerPort: port,
+							ContainerPort: dgs.Spec.Port,
 						},
 					},
 					Env: []core.EnvVar{
 						{
 							Name:  "OA_STARTMAP",
-							Value: startmap,
+							Value: dgs.Spec.StartMap,
 						},
 						{
 							Name:  "OA_PORT",
-							Value: strconv.Itoa(int(port)),
+							Value: strconv.Itoa(int(dgs.Spec.Port)),
 						},
 						{
 							Name: "STORAGE_ACCOUNT_NAME",
@@ -86,11 +93,11 @@ func NewPod(name string, port int32, setSessionsURL string, startmap string, ima
 						},
 						{
 							Name:  "SERVER_NAME",
-							Value: name,
+							Value: dgs.Name,
 						},
 						{
 							Name:  "SET_SESSIONS_URL",
-							Value: setSessionsURL,
+							Value: "",
 						},
 					},
 					VolumeMounts: []core.VolumeMount{
@@ -127,12 +134,12 @@ func GetClientSet() (*kubernetes.Clientset, *dgsclientset.Clientset) {
 		config, err := rest.InClusterConfig()
 
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 
 		clientset, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 
 		dedicatedgameserverclientset, err := dgsclientset.NewForConfig(config)

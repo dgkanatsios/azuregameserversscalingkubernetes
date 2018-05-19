@@ -70,10 +70,16 @@ kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 Create `api` and `controller` K8s deployments
 ```bash
 cd various
-kubectl apply -f various/deployapihandler.yaml
+kubectl apply -f deployapihandler.yaml
 ```
 
-To update your API and Controller deployments using an ugly and non-recommended hack:
+Create DedicatedGameServer Custom Resource Definition
+```bash
+cd various
+kubectl apply -f dedicatedgameserver-crd.yaml
+```
+
+To update your API and Controller deployments:
 ```bash
 cd various
 ./updatedeployments.sh

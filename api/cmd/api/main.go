@@ -27,7 +27,7 @@ func main() {
 
 	port := 8000
 
-	fmt.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
+	log.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router))
 }
@@ -50,7 +50,7 @@ func createDedicatedGameServer() string {
 	//get a random port - FIX
 	port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
 
-	fmt.Println("Creating DedicatedGameServer...")
+	log.Println("Creating DedicatedGameServer...")
 
 	if helpers.SetSessionsURL == "" {
 		helpers.InitializeSetSessionsURL()
@@ -61,7 +61,7 @@ func createDedicatedGameServer() string {
 	dgsInstance, err := helpers.Dedicatedgameserverclientset.Azure().DedicatedGameServers(helpers.Namespace).Create(dgs)
 
 	if err != nil {
-		fmt.Println("error")
+		log.Printf("error encountered: %s", err.Error())
 	}
 	return dgsInstance.ObjectMeta.Name
 
@@ -78,8 +78,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	err = helpers.Dedicatedgameserverclientset.Azure().DedicatedGameServers(helpers.Namespace).Delete(name, nil)
 	if err != nil {
-		output := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
-		fmt.Println(output)
+		log.Printf("Cannot delete DedicatedGameServer due to %s", err.Error())
 		w.Write([]byte(output))
 		return
 	}

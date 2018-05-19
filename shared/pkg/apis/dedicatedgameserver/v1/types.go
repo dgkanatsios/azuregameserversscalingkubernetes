@@ -31,7 +31,7 @@ type DedicatedGameServerSpec struct {
 	//
 	// this is where you would put your custom resource data
 	Image    string `json:"image"`
-	Port     *int32 `json:"port"`
+	Port     int32  `json:"port"`
 	StartMap string `json:startmap`
 	PublicIP string `json:publicIP`
 }

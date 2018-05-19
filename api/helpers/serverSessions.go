@@ -1,8 +1,6 @@
 package helpers
 
-import (
-	"fmt"
-)
+import "log"
 
 var SetSessionsURL string
 
@@ -16,5 +14,5 @@ func InitializeSetSessionsURL() {
 
 	SetSessionsURL = "http://docker-openarena-k8s-api/setsessions?code=" + getAccessCode()
 
-	fmt.Println("Initializes setSessionsURL:", SetSessionsURL)
+	log.Println("Initializes setSessionsURL:", SetSessionsURL)
 }

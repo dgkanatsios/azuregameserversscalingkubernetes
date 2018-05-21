@@ -1,5 +1,8 @@
 package controller
 
+//based on Kubernetes sample-controller sample
+//https://github.com/kubernetes/sample-controller/blob/master/controller.go
+
 import (
 	"fmt"
 	"strconv"

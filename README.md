@@ -6,7 +6,9 @@
 
 # AzureGameServersScalingKubernetes
 
-~ HEAVY WORK IN PROGRESS DO NOT USE ~
+Scaling dedicated game servers is hard. They're stateful, can't be shut down on demand (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal network overhead. This repo aims to provide a solution of managing containerized dedicated servers on Azure Platform using the managed Azure Kubernetes Service (AKS). It is based on Kubernetes Custom Resource Definition objects. 
+
+~ HEAVY WORK IN PROGRESS. NOT RECOMMENDED FOR USE ~
 
 Create a new AKS cluster: 
 
@@ -54,17 +56,17 @@ echo $STORAGE_ACCOUNT_KEY
 
 If you want to test the project locally, you should create a new .env file (based on the controller/cmd/controller/.env.sample one) and paste these values ver there.
 
-Mount to copy the files (e.g. from a Linux machine) - [instructions](https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-linux)
+Mount to copy the files (e.g. from a Linux machine) - [instructions](https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-linux):
 ```bash
 sudo mount -t cifs //$STORAGE_ACCOUNT_NAME.file.core.windows.net/$AKS_PERS_SHARE_NAME /path -o vers=3.0,username=$STORAGE_ACCOUNT_NAME,password=$STORAGE_ACCOUNT_KEY,dir_mode=0777,file_mode=0777
 ```
 
-Create a Kubernetes secret that will hold our storage account credentials
+Create a Kubernetes secret that will hold our storage account credentials:
 ```bash
 kubectl create secret generic openarena-storage-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_ACCOUNT_KEY
 ```
 
-Create a Kubernetes secret that will hold our access code for the API
+Create a Kubernetes secret that will hold our access code for the API:
 ```bash
 kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 ```
@@ -78,19 +80,19 @@ To update port mapping for VMs and set a Public IP:
 - To add a Public IP to the VM, to to the page of your Network Interface (should have a name like aks-nodepool1-XXXXXX-nic-0)
 - On IP Configurations, select the one ip configuration (probably called ipconfig1), set Public IP Address to enabled, Create New IP address -> Basic -> OK -> Save
 
-Create DedicatedGameServer Custom Resource Definition
+Create DedicatedGameServer Custom Resource Definition:
 ```bash
 cd various
 kubectl apply -f dedicatedgameserver-crd.yaml
 ```
 
-Create `api` and `controller` K8s deployments
+Create `api` and `controller` K8s deployments:
 ```bash
 cd various
 kubectl apply -f deployapihandler.yaml
 ```
 
-To update your API and Controller deployments
+To update your API and Controller deployments:
 ```bash
 cd various
 ./updatedeployments.sh

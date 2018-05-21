@@ -17,22 +17,21 @@ var endpointsClient = helpers.Clientset.Core().Endpoints(helpers.Namespace)
 
 const startmap = "dm4ish"
 const dockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:latest"
+const port = 8000
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/create", createHandler).Queries("code", "{code}").Methods("GET")
-	router.HandleFunc("/delete", deleteHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
-	router.HandleFunc("/running", getRunningPodsHandler).Queries("code", "{code}").Methods("GET")
-	router.HandleFunc("/setsessions", setSessionsHandler).Methods("POST")
-
-	port := 8000
+	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
+	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
+	router.HandleFunc("/running", getRunningDGSHandler).Queries("code", "{code}").Methods("GET")
+	router.HandleFunc("/setsessions", setActiveSessionsHandler).Methods("POST")
 
 	log.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router))
 }
 
-func createHandler(w http.ResponseWriter, r *http.Request) {
+func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
 
 	if !helpers.IsAPICallAuthorized(w, r) {
@@ -47,8 +46,15 @@ func createDedicatedGameServer() string {
 	name := "openarena-" + shared.RandString(6)
 
 	var port int
-	//get a random port - FIX
+	//get a random port
 	port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
+	for {
+		if shared.IsPortUsed(port) {
+			port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
+		} else {
+			break
+		}
+	}
 
 	log.Println("Creating DedicatedGameServer...")
 
@@ -67,7 +73,7 @@ func createDedicatedGameServer() string {
 
 }
 
-func deleteHandler(w http.ResponseWriter, r *http.Request) {
+func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !helpers.IsAPICallAuthorized(w, r) {
 		return
@@ -78,15 +84,16 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	err = helpers.Dedicatedgameserverclientset.Azure().DedicatedGameServers(helpers.Namespace).Delete(name, nil)
 	if err != nil {
-		log.Printf("Cannot delete DedicatedGameServer due to %s", err.Error())
-		w.Write([]byte(output))
+		msg := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
+		log.Print(msg)
+		w.Write([]byte(msg))
 		return
 	}
 
 	w.Write([]byte(name + " was deleted"))
 }
 
-func getRunningPodsHandler(w http.ResponseWriter, r *http.Request) {
+func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
 	if !helpers.IsAPICallAuthorized(w, r) {
 		return
 	}
@@ -99,7 +106,7 @@ func getRunningPodsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func setSessionsHandler(w http.ResponseWriter, r *http.Request) {
+func setActiveSessionsHandler(w http.ResponseWriter, r *http.Request) {
 	if !helpers.IsAPICallAuthorized(w, r) {
 		return
 	}

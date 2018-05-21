@@ -35,7 +35,7 @@ func NewDedicatedGameServer(name string, port int32, setSessionsURL string, star
 }
 
 // NewPod returns a Kubernetes Pod struct
-func NewPod(dgs *dgs_v1.DedicatedGameServer) *core.Pod {
+func NewPod(dgs *dgs_v1.DedicatedGameServer, setSessionsURL string) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   dgs.Name,
@@ -97,7 +97,7 @@ func NewPod(dgs *dgs_v1.DedicatedGameServer) *core.Pod {
 						},
 						{
 							Name:  "SET_SESSIONS_URL",
-							Value: "",
+							Value: setSessionsURL,
 						},
 					},
 					VolumeMounts: []core.VolumeMount{

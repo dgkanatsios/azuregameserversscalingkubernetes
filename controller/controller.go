@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"strconv"
 
 	"time"
 
@@ -37,24 +38,25 @@ const namespace = apiv1.NamespaceDefault
 const controllerAgentName = "dedigated-game-server-controller"
 
 const (
-	// SuccessSynced is used as part of the Event 'reason' when a Dedicated Game Server is synced
+	// SuccessSynced is used as part of the Event 'reason' when a DedicatedGameServer is synced
 	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a Dedicated Game Server fails
-	// to sync due to a Deployment of the same name already existing.
+	// ErrResourceExists is used as part of the Event 'reason' when a DedicatedGameServer fails
+	// to sync due to a Pod of the same name already existing.
 	ErrResourceExists = "ErrResourceExists"
 
 	// MessageResourceExists is the message used for Events when a resource
-	// fails to sync due to a Deployment already existing
-	MessageResourceExists = "Resource %q already exists and is not managed by Dedicated Game Server"
-	// MessageResourceSynced is the message used for an Event fired when a Dedicated Game Server
+	// fails to sync due to a Pod already existing
+	MessageResourceExists = "Resource %q already exists and is not managed by DedicatedGameServer"
+	// MessageResourceSynced is the message used for an Event fired when a DedicatedGameServer
 	// is synced successfully
-	MessageResourceSynced = "Dedicated Game Server synced successfully"
+	MessageResourceSynced = "DedicatedGameServer synced successfully"
 )
 
 type DedicatedGameServerController struct {
 	nodeGetter            typedcorev1.NodesGetter
 	podGetter             typedcorev1.PodsGetter
 	dgsGetter             dgsv1.DedicatedGameServersGetter
+	nodeLister            listercorev1.NodeLister
 	podLister             listercorev1.PodLister
 	dgsLister             listerdgs.DedicatedGameServerLister
 	podListerSynced       cache.InformerSynced
@@ -75,11 +77,11 @@ type DedicatedGameServerController struct {
 }
 
 func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
-	podInformer informercorev1.PodInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerController {
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerController {
 
 	// Create event broadcaster
-	// Add sample-controller types to the default Kubernetes Scheme so Events can be
-	// logged for sample-controller types.
+	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
+	// logged for DedicatedGameServerController types.
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	log.Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
@@ -91,6 +93,7 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 		nodeGetter:      client.CoreV1(),
 		podGetter:       client.CoreV1(), //getter hits the live API server (can also create/update objects)
 		dgsGetter:       dgsclient.AzureV1(),
+		nodeLister:      nodeInformer.Lister(),
 		podLister:       podInformer.Lister(), //lister hits the cache
 		dgsLister:       dgsInformer.Lister(),
 		podListerSynced: podInformer.Informer().HasSynced,
@@ -101,13 +104,23 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 
 	log.Info("Setting up event handlers")
 
-	dgsInformer.Informer().AddEventHandler(
+	nodeInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.enqueueDedicatedGameServer(obj)
+				//do nothing
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.enqueueDedicatedGameServer(newObj)
+				newNode := newObj.(*apiv1.Node)
+				oldNode := oldObj.(*apiv1.Node)
+				if newNode.ResourceVersion == oldNode.ResourceVersion {
+					// Periodic resync will send update events for all known objects.
+					// Two different versions of the same Deployment will always have different RVs.
+					return
+				}
+				//do nothing
+			},
+			DeleteFunc: func(obj interface{}) {
+				//do nothing
 			},
 		},
 	)
@@ -115,20 +128,31 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 	podInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.handleObject(obj)
+				c.handlePod(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				newPod := newObj.(*apiv1.Pod)
 				oldPod := oldObj.(*apiv1.Pod)
 				if newPod.ResourceVersion == oldPod.ResourceVersion {
-					// Periodic resync will send update events for all known Deployments. Maybe same for Pods?
+					// Periodic resync will send update events for all known Pods.
 					// Two different versions of the same Deployment will always have different RVs.
 					return
 				}
-				c.handleObject(newObj)
+				c.handlePod(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.handleObject(obj)
+				c.handlePod(obj)
+			},
+		},
+	)
+
+	dgsInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.enqueueDedicatedGameServer(obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				c.enqueueDedicatedGameServer(newObj)
 			},
 		},
 	)
@@ -145,7 +169,7 @@ func (c *DedicatedGameServerController) Run(threadiness int, stopCh <-chan struc
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	log.Info("Starting Dedicated Game Server controller")
+	log.Info("Starting DedicatedGameServer controller")
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
@@ -154,7 +178,7 @@ func (c *DedicatedGameServerController) Run(threadiness int, stopCh <-chan struc
 	}
 
 	log.Info("Starting workers")
-	// Launch two workers to process Dedicated Game Server resources
+	// Launch two workers to process DedicatedGameServer resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
@@ -211,7 +235,7 @@ func (c *DedicatedGameServerController) processNextWorkItem() bool {
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Dedicated Game Server resource to be synced.
+		// DedicatedGameServer resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
 		}
@@ -230,114 +254,10 @@ func (c *DedicatedGameServerController) processNextWorkItem() bool {
 	return true
 }
 
-// syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Dedicated Game Server resource
-// with the current status of the resource.
-func (c *DedicatedGameServerController) syncHandler(key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil
-	}
-
-	// Get the DedicatedGameServer resource with this namespace/name
-	dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
-	if err != nil {
-		// The Dedicated Game Server resource may no longer exist, in which case we stop
-		// processing.
-		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("Dedicated Game Server '%s' in work queue no longer exists", key))
-			return nil
-		}
-
-		return err
-	}
-
-	podName := dgs.Name
-	if podName == "" {
-		// We choose to absorb the error here as the worker would requeue the
-		// resource otherwise. Instead, the next time the resource is updated
-		// the resource will be queued again.
-		runtime.HandleError(fmt.Errorf("%s: Dedicated Game Server name must be specified", key))
-		return nil
-	}
-
-	// Get the deployment with the name specified in Dedicated Game Server.spec
-	pod, err := c.podLister.Pods(namespace).Get(podName)
-	// If the resource doesn't exist, we'll create it
-	if errors.IsNotFound(err) {
-
-		newPod := shared.NewPod(dgs)
-
-		pod, err = c.podGetter.Pods(namespace).Create(newPod)
-	}
-
-	// If an error occurs during Get/Create, we'll requeue the item so we can
-	// attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
-	if err != nil {
-		return err
-	}
-
-	// If the Deployment is not controlled by this Dedicated Game Server resource, we should log
-	// a warning to the event recorder and ret
-	if !metav1.IsControlledBy(pod, dgs) {
-		msg := fmt.Sprintf(MessageResourceExists, pod.Name)
-		c.recorder.Event(dgs, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return fmt.Errorf(msg)
-	}
-
-	// If an error occurs during Update, we'll requeue the item so we can
-	// attempt processing again later. THis could have been caused by a
-	// temporary network failure, or any other transient reason.
-	if err != nil {
-		return err
-	}
-
-	// Finally, we update the status block of the Dedicated Game Server resource to reflect the
-	// current state of the world
-	err = c.updateDedicatedGameServerStatus(dgs, pod)
-	if err != nil {
-		return err
-	}
-
-	c.recorder.Event(dgs, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
-	return nil
-}
-
-func (c *DedicatedGameServerController) updateDedicatedGameServerStatus(dgs *apidgsv1.DedicatedGameServer, pod *apiv1.Pod) error {
-	// NEVER modify objects from the store. It's a read-only, local cache.
-	// You can use DeepCopy() to make a deep copy of original object and modify this copy
-	// Or create a copy manually for better performance
-	// Dedicated Game ServerCopy := Dedicated Game Server.DeepCopy()
-	// Dedicated Game ServerCopy.Status.AvailableReplicas = deployment.Status.AvailableReplicas
-	// // If the CustomResourceSubresources feature gate is not enabled,
-	// // we must use Update instead of UpdateStatus to update the Status block of the Dedicated Game Server resource.
-	// // UpdateStatus will not allow changes to the Spec of the resource,
-	// // which is ideal for ensuring nothing other than resource status has been updated.
-	// _, err := c.sampleclientset.SamplecontrollerV1alpha1().Dedicated Game Servers(Dedicated Game Server.Namespace).Update(Dedicated Game ServerCopy)
-	// return err
-	return nil
-}
-
-// enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
-// string which is then put onto the work queue. This method should *not* be
-// passed resources of any type other than Dedicated Game Server.
-func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface{}) {
-	var key string
-	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	c.workqueue.AddRateLimited(key)
-}
-
 // handleObject will take any resource implementing metav1.Object and attempt
-// to find the Dedicated Game Server resource that 'owns' it. It does this by looking at the
+// to find the DedicatedGameServer resource that 'owns' it. It does this by looking at the
 // objects metadata.ownerReferences field for an appropriate OwnerReference.
-// It then enqueues that Dedicated Game Server resource to be processed. If the object does not
+// It then enqueues that DedicatedGameServer resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
 func (c *DedicatedGameServerController) handleObject(obj interface{}) {
 	var object metav1.Object
@@ -357,19 +277,193 @@ func (c *DedicatedGameServerController) handleObject(obj interface{}) {
 	}
 	log.Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		// If this object is not owned by a Dedicated Game Server, we should not do anything more
+		// If this object is not owned by a DedicatedGameServer, we should not do anything more
 		// with it.
-		if ownerRef.Kind != "Dedicated Game Server" {
+		if ownerRef.Kind != "DedicatedGameServer" {
 			return
 		}
 
 		dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(ownerRef.Name)
 		if err != nil {
-			log.Infof("ignoring orphaned object '%s' of Dedicated Game Server '%s'", object.GetSelfLink(), ownerRef.Name)
+			log.Infof("ignoring orphaned object '%s' of DedicatedGameServer '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
 		c.enqueueDedicatedGameServer(dgs)
 		return
 	}
+}
+
+// enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
+// string which is then put onto the work queue. This method should *not* be
+// passed resources of any type other than DedicatedGameServer.
+func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface{}) {
+	var key string
+	var err error
+	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.workqueue.AddRateLimited(key)
+}
+
+func (c *DedicatedGameServerController) handlePod(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+	}
+	log.Infof("Processing object: %s", object.GetName())
+	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
+		// If this object is not owned by a DedicatedGameServer, we should not do anything more
+		// with it.
+		if ownerRef.Kind != "DedicatedGameServer" {
+			return
+		}
+
+		_, err := c.dgsLister.DedicatedGameServers(namespace).Get(ownerRef.Name)
+		if err != nil {
+			log.Infof("Ignoring orphaned pod '%s' of DedicatedGameServer '%s'.Deleting it from table storage", object.GetSelfLink(), ownerRef.Name)
+			err := shared.DeleteEntity(object.GetName())
+			if err != nil {
+				log.Errorf("Cannot delete pod %s entry from table storage due to %s", object.GetName(), err.Error())
+			}
+			return
+		}
+
+		c.enqueuePod(obj.(*apiv1.Pod))
+		return
+	}
+}
+
+func (c *DedicatedGameServerController) enqueuePod(pod *apiv1.Pod) {
+	var key string
+	var err error
+	if key, err = cache.MetaNamespaceKeyFunc(pod); err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.workqueue.AddRateLimited(key)
+}
+
+// syncHandler compares the actual state with the desired, and attempts to
+// converge the two. It then updates the Status block of the DedicatedGameServer resource
+// with the current status of the resource.
+func (c *DedicatedGameServerController) syncHandler(key string) error {
+	// Convert the namespace/name string into a distinct namespace and name
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
+		return nil
+	}
+
+	dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
+	if err != nil {
+		//DedicatedGameServer no longer exists, no need to process any more
+		if errors.IsNotFound(err) {
+
+			runtime.HandleError(fmt.Errorf("Dedicated Game Server '%s' in work queue no longer exists", key))
+			return nil
+		}
+
+		return err
+	}
+
+	pod, err := c.podLister.Pods(namespace).Get(dgs.Name)
+
+	// If the pod doesn't exist, we'll create it
+	if errors.IsNotFound(err) {
+		// Get the Dedicated Game Server with the same name as the Pod
+		newPod := shared.NewPod(dgs, "TODO:SETSESSIONSURL")
+		pod, err = c.podGetter.Pods(namespace).Create(newPod)
+
+		//add stuff to table storage for the newly created Pod
+		podEntity := &shared.StorageEntity{
+			Name:   dgs.Name,
+			Status: string(shared.CreatingState),
+			Port:   strconv.Itoa(int(dgs.Spec.Port)),
+		}
+		shared.UpsertEntity(podEntity)
+	}
+
+	// If an error occurs during Get/Create, we'll requeue the item so we can
+	// attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	// If the Pod is not controlled by this DedicatedGameServer resource, we should log
+	// a warning to the event recorder and return
+	if !metav1.IsControlledBy(pod, dgs) {
+		msg := fmt.Sprintf(MessageResourceExists, pod.Name)
+		c.recorder.Event(dgs, corev1.EventTypeWarning, ErrResourceExists, msg)
+		return fmt.Errorf(msg)
+	}
+
+	// If an error occurs during Update, we'll requeue the item so we can
+	// attempt processing again later. THis could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	// Finally, we update the status block of the DedicatedGameServer resource to reflect the
+	// current state of the world
+	err = c.updatePodStatus(dgs, pod)
+	if err != nil {
+		return err
+	}
+
+	c.recorder.Event(dgs, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
+	return nil
+}
+
+func (c *DedicatedGameServerController) updatePodStatus(dgs *apidgsv1.DedicatedGameServer, pod *apiv1.Pod) error {
+
+	//not sure if this is needed, but just in case
+	if pod.Status.Phase == "Terminating" || pod.Status.Phase == "Failed" {
+		return shared.DeleteEntity(pod.Name)
+	}
+
+	podEntity := &shared.StorageEntity{
+		Name:     pod.Name,
+		NodeName: pod.Spec.NodeName,
+		Status:   string(pod.Status.Phase),
+	}
+
+	if pod.Status.Phase == "Running" { //only update PublicIP for a running Node
+		podEntity.PublicIP = c.getNodeExternalIP(pod.Spec.NodeName)
+	}
+
+	var err error
+	if err = shared.UpsertEntity(podEntity); err != nil {
+		log.Errorf("Cannot upsert entity due to %s", err.Error())
+	}
+	return err
+}
+
+func (c *DedicatedGameServerController) getNodeExternalIP(nodename string) string {
+
+	node, err := c.nodeLister.Get(nodename)
+	if err != nil {
+		log.Errorf("Error in getting IP for node %s because of error %s", nodename, err.Error())
+		return ""
+	}
+	for _, address := range node.Status.Addresses {
+		if address.Type == apiv1.NodeExternalIP {
+			return address.Address
+		}
+	}
+	return ""
 }

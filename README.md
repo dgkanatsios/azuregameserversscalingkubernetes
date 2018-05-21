@@ -13,7 +13,7 @@ Create a new AKS cluster:
 ```bash
 AKS_RESOURCE_GROUP=aksopenarenarg
 AKS_NAME=aksopenarena
-AKS_LOCATION=eastus 
+AKS_LOCATION=westeurope 
 
 az provider register -n Microsoft.ContainerService
 az login
@@ -52,6 +52,8 @@ STORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group $AKS_RESOURC
 echo $STORAGE_ACCOUNT_KEY
 ```
 
+If you want to test the project locally, you should create a new .env file (based on the controller/cmd/controller/.env.sample one) and paste these values ver there.
+
 Mount to copy the files (e.g. from a Linux machine) - [instructions](https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-linux)
 ```bash
 sudo mount -t cifs //$STORAGE_ACCOUNT_NAME.file.core.windows.net/$AKS_PERS_SHARE_NAME /path -o vers=3.0,username=$STORAGE_ACCOUNT_NAME,password=$STORAGE_ACCOUNT_KEY,dir_mode=0777,file_mode=0777
@@ -67,11 +69,14 @@ Create a Kubernetes secret that will hold our access code for the API
 kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 ```
 
-Create `api` and `controller` K8s deployments
-```bash
-cd various
-kubectl apply -f deployapihandler.yaml
-```
+To update port mapping for VMs and set a Public IP:
+- Visit the portal
+- To add port mapping for the game ports (20000-30000), find the resource group where your K8s objects are stored (should be called something like MC_aksopenarenarg_aksopenarena_westeurope)
+- Go to the page of your Network Security Group (should have a name like aks-agentpool-XXXXXXX-nsg)
+- Inbound security rules -> Add 
+- Source port ranges and destination port ranges: 2000-3000, protocol UDP -> Add
+- To add a Public IP to the VM, to to the page of your Network Interface (should have a name like aks-nodepool1-XXXXXX-nic-0)
+- On IP Configurations, select the one ip configuration (probably called ipconfig1), set Public IP Address to enabled, Create New IP address -> Basic -> OK -> Save
 
 Create DedicatedGameServer Custom Resource Definition
 ```bash
@@ -79,7 +84,13 @@ cd various
 kubectl apply -f dedicatedgameserver-crd.yaml
 ```
 
-To update your API and Controller deployments:
+Create `api` and `controller` K8s deployments
+```bash
+cd various
+kubectl apply -f deployapihandler.yaml
+```
+
+To update your API and Controller deployments
 ```bash
 cd various
 ./updatedeployments.sh

@@ -46,14 +46,14 @@ type dedicatedGameServerInformer struct {
 
 // NewDedicatedGameServerInformer constructs a new informer for DedicatedGameServer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
-// one. This reduces memory Dedicated Game Servertprint and number of connections to the server.
+// one. This reduces memory footprint and number of connections to the server.
 func NewDedicatedGameServerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewFilteredDedicatedGameServerInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
 // NewFilteredDedicatedGameServerInformer constructs a new informer for DedicatedGameServer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
-// one. This reduces memory Dedicated Game Servertprint and number of connections to the server.
+// one. This reduces memory footprint and number of connections to the server.
 func NewFilteredDedicatedGameServerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{

@@ -1,0 +1,18 @@
+# do not forget to set 1. public IPs for the VMs and 2. set the necessary rules on the Network Security Group
+apiVersion: v1
+kind: Pod
+metadata:
+  name: iperf
+  labels:
+    name: iperf
+spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  containers:
+  - name: iperf
+    image: mlabbe/iperf
+    args: ["-s", "-p", "25000", "-u"]
+    #args: ["-s"]
+    ports:
+    - containerPort: 25000
+      protocol: UDP

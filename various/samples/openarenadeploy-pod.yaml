@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openarena
+  labels:
+    name: openarena
+spec:
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  containers:
+  - name: openarena
+    image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+    env:
+    - name: OA_STARTMAP
+      value: "dm4ish"
+    - name: OA_PORT
+      value: "27960"
+    volumeMounts:
+      - name: openarenavolume
+        mountPath: /data
+    ports:
+    - containerPort: 27960
+      protocol: UDP  
+  volumes:
+  - name: openarenavolume
+    azureFile:
+      secretName: openarena-storage-secret
+      shareName: openarenadata
+      readOnly: false

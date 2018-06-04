@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: iperf2-with-service
+  labels:
+    name: iperf2-with-service
+spec:
+  containers:
+  - name: iperf2-with-service
+    image: mlabbe/iperf
+    args: ["-s","-p", "25001","-u"] #https://iperf.fr/iperf-doc.php#doc
+    ports:
+    - containerPort: 25001
+      protocol: UDP  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iperf2-service
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 25001
+      targetPort: 25001
+      protocol: UDP 
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: iperf2-with-service
+  type: LoadBalancer

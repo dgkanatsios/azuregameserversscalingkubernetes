@@ -1,0 +1,31 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: dedicatedgameservercollections.azuregaming.com
+spec:
+  group: azuregaming.com
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: DedicatedGameServerCollection
+    plural: dedicatedgameservercollections
+    singular: dedicatedgameservercollection
+    shortNames:
+    - dgsc
+  validation:
+   # openAPIV3Schema is the schema for validating custom objects.
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            Image:
+              type: string
+              pattern: '^(?!\s*$).+' # non-empty string
+            StartMap:
+              type: string
+              pattern: '^(?!\s*$).+'
+            Replicas:
+              type: integer
+              minimum: 1
+              maximum: 100
+  

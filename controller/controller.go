@@ -17,12 +17,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	apidgsv1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/dedicatedgameserver/v1"
+	apidgsv1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/azuregaming/v1alpha1"
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
-	dgsv1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/dedicatedgameserver/v1"
-	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/dedicatedgameserver/v1"
-	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/dedicatedgameserver/v1"
+	dgsv1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/azuregaming/v1alpha1"
+	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/azuregaming/v1alpha1"
 
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/scheme"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,8 +37,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-const namespace = apiv1.NamespaceDefault
-const controllerAgentName = "dedigated-game-server-controller"
+const (
+	dgsControllerAgentName2 = "dedigated-game-server-controller"
+)
 
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a DedicatedGameServer is synced
@@ -55,18 +56,19 @@ const (
 	MessageResourceSynced = "DedicatedGameServer synced successfully"
 )
 
-type DedicatedGameServerController struct {
-	nodeGetter            typedcorev1.NodesGetter
-	podGetter             typedcorev1.PodsGetter
-	dgsGetter             dgsv1.DedicatedGameServersGetter
-	nodeLister            listercorev1.NodeLister
-	podLister             listercorev1.PodLister
-	dgsLister             listerdgs.DedicatedGameServerLister
-	podListerSynced       cache.InformerSynced
-	dgsListerSynced       cache.InformerSynced
-	namespaceGetter       typedcorev1.NamespacesGetter
-	namespaceLister       listercorev1.NamespaceLister
-	namespaceListerSynced cache.InformerSynced
+type DedicatedGameServerController2 struct {
+	nodeClient         typedcorev1.NodesGetter
+	podClient          typedcorev1.PodsGetter
+	dgsClient          dgsv1.DedicatedGameServersGetter
+	dgsColClient       dgsv1.DedicatedGameServerCollectionsGetter
+	nodeLister         listercorev1.NodeLister
+	podLister          listercorev1.PodLister
+	dgsLister          listerdgs.DedicatedGameServerLister
+	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
+	nodeListerSynced   cache.InformerSynced
+	podListerSynced    cache.InformerSynced
+	dgsListerSynced    cache.InformerSynced
+	dgscolListerSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -79,8 +81,9 @@ type DedicatedGameServerController struct {
 	recorder record.EventRecorder
 }
 
-func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
-	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerController {
+func NewDedicatedGameServerController2(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer,
+	dgsInformer informerdgs.DedicatedGameServerInformer, dgscolInformer informerdgs.DedicatedGameServerCollectionInformer) *DedicatedGameServerController2 {
 
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
@@ -90,19 +93,23 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, apiv1.EventSource{Component: controllerAgentName})
+	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, apiv1.EventSource{Component: dgsControllerAgentName2})
 
-	c := &DedicatedGameServerController{
-		nodeGetter:      client.CoreV1(),
-		podGetter:       client.CoreV1(), //getter hits the live API server (can also create/update objects)
-		dgsGetter:       dgsclient.AzureV1(),
-		nodeLister:      nodeInformer.Lister(),
-		podLister:       podInformer.Lister(), //lister hits the cache
-		dgsLister:       dgsInformer.Lister(),
-		podListerSynced: podInformer.Informer().HasSynced,
-		dgsListerSynced: dgsInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
-		recorder:        recorder,
+	c := &DedicatedGameServerController2{
+		nodeClient:         client.CoreV1(),
+		podClient:          client.CoreV1(), //getter hits the live API server (can also create/update objects)
+		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
+		nodeLister:         nodeInformer.Lister(),
+		podLister:          podInformer.Lister(), //lister hits the cache
+		dgsLister:          dgsInformer.Lister(),
+		dgsColLister:       dgscolInformer.Lister(),
+		nodeListerSynced:   nodeInformer.Informer().HasSynced,
+		podListerSynced:    podInformer.Informer().HasSynced,
+		dgsListerSynced:    dgsInformer.Informer().HasSynced,
+		dgscolListerSynced: dgscolInformer.Informer().HasSynced,
+		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
+		recorder:           recorder,
 	}
 
 	log.Info("Setting up event handlers")
@@ -160,6 +167,18 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 		},
 	)
 
+	dgscolInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				log.Print("lala")
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				//c.enqueueDedicatedGameServer(newObj)
+				log.Print("lala2")
+			},
+		},
+	)
+
 	return c
 }
 
@@ -167,7 +186,7 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-func (c *DedicatedGameServerController) Run(threadiness int, stopCh <-chan struct{}) error {
+func (c *DedicatedGameServerController2) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
@@ -176,7 +195,7 @@ func (c *DedicatedGameServerController) Run(threadiness int, stopCh <-chan struc
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.dgsListerSynced, c.podListerSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.dgsListerSynced, c.podListerSynced, c.nodeListerSynced, c.dgscolListerSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -196,7 +215,7 @@ func (c *DedicatedGameServerController) Run(threadiness int, stopCh <-chan struc
 // runWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
-func (c *DedicatedGameServerController) runWorker() {
+func (c *DedicatedGameServerController2) runWorker() {
 	// hot loop until we're told to stop.  processNextWorkItem will
 	// automatically wait until there's work available, so we don't worry
 	// about secondary waits
@@ -206,7 +225,7 @@ func (c *DedicatedGameServerController) runWorker() {
 
 // processNextWorkItem deals with one key off the queue.  It returns false
 // when it's time to quit.
-func (c *DedicatedGameServerController) processNextWorkItem() bool {
+func (c *DedicatedGameServerController2) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
 	if shutdown {
@@ -262,7 +281,7 @@ func (c *DedicatedGameServerController) processNextWorkItem() bool {
 // objects metadata.ownerReferences field for an appropriate OwnerReference.
 // It then enqueues that DedicatedGameServer resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
-func (c *DedicatedGameServerController) handleObject(obj interface{}) {
+func (c *DedicatedGameServerController2) handleObject(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -286,7 +305,7 @@ func (c *DedicatedGameServerController) handleObject(obj interface{}) {
 			return
 		}
 
-		dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(ownerRef.Name)
+		dgs, err := c.dgsLister.DedicatedGameServers(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
 			log.Infof("ignoring orphaned object '%s' of DedicatedGameServer '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
@@ -300,7 +319,7 @@ func (c *DedicatedGameServerController) handleObject(obj interface{}) {
 // enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServer.
-func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface{}) {
+func (c *DedicatedGameServerController2) enqueueDedicatedGameServer(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -310,7 +329,7 @@ func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface
 	c.workqueue.AddRateLimited(key)
 }
 
-func (c *DedicatedGameServerController) handlePod(obj interface{}) {
+func (c *DedicatedGameServerController2) handlePod(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -334,7 +353,7 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 			return
 		}
 
-		_, err := c.dgsLister.DedicatedGameServers(namespace).Get(ownerRef.Name)
+		_, err := c.dgsLister.DedicatedGameServers(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
 			log.Infof("Ignoring orphaned pod '%s' of DedicatedGameServer '%s'.Deleting it from table storage", object.GetSelfLink(), ownerRef.Name)
 			err := shared.DeleteEntity(object.GetName())
@@ -349,7 +368,7 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 	}
 }
 
-func (c *DedicatedGameServerController) enqueuePod(pod *apiv1.Pod) {
+func (c *DedicatedGameServerController2) enqueuePod(pod *apiv1.Pod) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(pod); err != nil {
@@ -362,7 +381,7 @@ func (c *DedicatedGameServerController) enqueuePod(pod *apiv1.Pod) {
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
-func (c *DedicatedGameServerController) syncHandler(key string) error {
+func (c *DedicatedGameServerController2) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -388,7 +407,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	if errors.IsNotFound(err) {
 		// Get the Dedicated Game Server with the same name as the Pod
 		newPod := shared.NewPod(dgs, "TODO:SETSESSIONSURL")
-		pod, err = c.podGetter.Pods(namespace).Create(newPod)
+		pod, err = c.podClient.Pods(namespace).Create(newPod)
 
 		//add stuff to table storage for the newly created Pod
 		podEntity := &shared.StorageEntity{
@@ -432,7 +451,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	return nil
 }
 
-func (c *DedicatedGameServerController) updatePodStatus(dgs *apidgsv1.DedicatedGameServer, pod *apiv1.Pod) error {
+func (c *DedicatedGameServerController2) updatePodStatus(dgs *apidgsv1.DedicatedGameServer, pod *apiv1.Pod) error {
 
 	//not sure if this is needed, but just in case
 	if pod.Status.Phase == "Terminating" || pod.Status.Phase == "Failed" {
@@ -456,7 +475,7 @@ func (c *DedicatedGameServerController) updatePodStatus(dgs *apidgsv1.DedicatedG
 	return err
 }
 
-func (c *DedicatedGameServerController) getNodeExternalIP(nodename string) string {
+func (c *DedicatedGameServerController2) getNodeExternalIP(nodename string) string {
 
 	node, err := c.nodeLister.Get(nodename)
 	if err != nil {

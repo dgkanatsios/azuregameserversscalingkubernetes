@@ -4,5 +4,6 @@
     "git.enableSmartCommit": true,
     "git.autofetch": true,
     "javascript.implicitProjectConfig.checkJs": true,
-    "editor.minimap.enabled": false    
+    "editor.minimap.enabled": false,
+    "go.autocompleteUnimportedPackages": true
 }

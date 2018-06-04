@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openarena-service1
+  labels:
+    name: openarena-pod
+spec:
+  containers:
+  - name: openarena-pod
+    image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+    env:
+    - name: OA_STARTMAP
+      value: "dm4ish"
+    - name: OA_PORT
+      value: "27961"
+    volumeMounts:
+      - name: openarenavolume
+        mountPath: /data
+    ports:
+    - containerPort: 27961
+      protocol: UDP  
+      name: port27961
+  volumes:
+  - name: openarenavolume
+    azureFile:
+      secretName: openarena-storage-secret
+      shareName: openarenadata
+      readOnly: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openarena-service2
+  labels:
+    name: openarena-pod
+spec:
+  containers:
+  - name: openarena-service
+    image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+    env:
+    - name: OA_STARTMAP
+      value: "dm4ish"
+    - name: OA_PORT
+      value: "27962"
+    volumeMounts:
+      - name: openarenavolume
+        mountPath: /data
+    ports:
+    - containerPort: 27962
+      protocol: UDP  
+      name: port27962
+  volumes:
+  - name: openarenavolume
+    azureFile:
+      secretName: openarena-storage-secret
+      shareName: openarenadata
+      readOnly: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openarena-service
+  labels:
+    name: openarena-service
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 27961
+      targetPort: port27961
+      protocol: UDP 
+      name: port27961
+    - port: 27962
+      targetPort: port27962
+      protocol: UDP 
+      name: port27962
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: openarena-pod
+  type: LoadBalancer
+  #externalTrafficPolicy: Local

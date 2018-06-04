@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openarena-service1
+  labels:
+    name: openarena-pod
+spec:
+  containers:
+  - name: openarena-pod
+    image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+    env:
+    - name: OA_STARTMAP
+      value: "dm4ish"
+    - name: OA_PORT
+      value: "27960"
+    volumeMounts:
+      - name: openarenavolume
+        mountPath: /data
+    ports:
+    - containerPort: 27960
+      protocol: UDP  
+      name: port27960
+  volumes:
+  - name: openarenavolume
+    azureFile:
+      secretName: openarena-storage-secret
+      shareName: openarenadata
+      readOnly: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openarena-service
+  labels:
+    name: openarena-service
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 27960
+      targetPort: port27960
+      protocol: UDP 
+      name: port27960
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: openarena-pod
+  type: LoadBalancer
+  #externalTrafficPolicy: Local

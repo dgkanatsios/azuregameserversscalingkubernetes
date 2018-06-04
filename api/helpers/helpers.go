@@ -5,14 +5,13 @@ import (
 	"net/http"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
-	core "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var accesscode string
 var Clientset, Dedicatedgameserverclientset = shared.GetClientSet()
 
-const Namespace string = core.NamespaceDefault
+const Namespace string = "game"
 
 var secretsClient = Clientset.Core().Secrets(Namespace)
 

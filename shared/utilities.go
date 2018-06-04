@@ -35,3 +35,36 @@ func GetPodNameFromServiceName(serviceName string) string {
 func GetRandomInt(min int, max int) int {
 	return rand.Intn(max-min) + min
 }
+
+// GetRandomIndexes will return *count* random integers from a hypothetical slice of *length*
+// For example, we'll take two random indexes from a length-five slice
+func GetRandomIndexes(length int, count int) []int {
+
+	if count > length {
+		panic("Count > length, something is really wrong here")
+	}
+
+	sliceToReturn := make([]int, count)
+
+	for i := 0; i < count; i++ {
+		var rand int
+		rand = GetRandomInt(0, length-1)
+
+		for {
+			found := false
+			for j := 0; j < i; j++ {
+				if sliceToReturn[j] == rand {
+					found = true
+					break
+				}
+			}
+			if !found {
+				break
+			} else {
+				rand = GetRandomInt(0, length-1)
+			}
+		}
+		sliceToReturn[i] = rand
+	}
+	return sliceToReturn
+}

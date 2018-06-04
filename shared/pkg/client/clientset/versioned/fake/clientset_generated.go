@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
-	azurev1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/dedicatedgameserver/v1"
-	fakeazurev1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/dedicatedgameserver/v1/fake"
+	azuregamingv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	fakeazuregamingv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,12 +71,12 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// AzureV1 retrieves the AzureV1Client
-func (c *Clientset) AzureV1() azurev1.AzureV1Interface {
-	return &fakeazurev1.FakeAzureV1{Fake: &c.Fake}
+// AzuregamingV1alpha1 retrieves the AzuregamingV1alpha1Client
+func (c *Clientset) AzuregamingV1alpha1() azuregamingv1alpha1.AzuregamingV1alpha1Interface {
+	return &fakeazuregamingv1alpha1.FakeAzuregamingV1alpha1{Fake: &c.Fake}
 }
 
-// Azure retrieves the AzureV1Client
-func (c *Clientset) Azure() azurev1.AzureV1Interface {
-	return &fakeazurev1.FakeAzureV1{Fake: &c.Fake}
+// Azuregaming retrieves the AzuregamingV1alpha1Client
+func (c *Clientset) Azuregaming() azuregamingv1alpha1.AzuregamingV1alpha1Interface {
+	return &fakeazuregamingv1alpha1.FakeAzuregamingV1alpha1{Fake: &c.Fake}
 }

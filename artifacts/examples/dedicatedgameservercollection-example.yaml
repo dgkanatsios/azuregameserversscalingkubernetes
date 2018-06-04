@@ -1,0 +1,9 @@
+apiVersion: azuregaming.com/v1alpha1
+kind: DedicatedGameServerCollection
+metadata:
+  #generateName: openarena-
+  name: openarena-collection-example
+spec:
+  image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+  replicas: 2
+  startmap: dm4ish

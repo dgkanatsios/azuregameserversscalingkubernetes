@@ -62,9 +62,9 @@ func createDedicatedGameServer() string {
 		helpers.InitializeSetSessionsURL()
 	}
 
-	dgs := shared.NewDedicatedGameServer(name, int32(port), helpers.SetSessionsURL, startmap, dockerImage)
+	dgs := shared.NewDedicatedGameServer(nil, name, port, helpers.SetSessionsURL, startmap, dockerImage)
 
-	dgsInstance, err := helpers.Dedicatedgameserverclientset.Azure().DedicatedGameServers(helpers.Namespace).Create(dgs)
+	dgsInstance, err := helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(helpers.Namespace).Create(dgs)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -82,7 +82,7 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 
 	var err error
-	err = helpers.Dedicatedgameserverclientset.Azure().DedicatedGameServers(helpers.Namespace).Delete(name, nil)
+	err = helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(helpers.Namespace).Delete(name, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
 		log.Print(msg)

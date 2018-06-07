@@ -31,9 +31,9 @@ type DedicatedGameServerSpec struct {
 	//
 	// this is where you would put your custom resource data
 	Image         string `json:"image"`
-	Port          int32  `json:"port"`
+	Port          int    `json:"port"`
 	StartMap      string `json:"startmap"`
-	ActivePlayers int32  `json:"activePlayers"`
+	ActivePlayers int    `json:"activePlayers"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

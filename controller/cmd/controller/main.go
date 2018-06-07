@@ -37,7 +37,8 @@ func main() {
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
 
-	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
+		sharedInformers.Core().V1().Pods())
 
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)
@@ -63,7 +64,7 @@ func runAllControllers(controllers []controllerHelper, controllerThreadiness int
 	// Start the informer factories to begin populating the informer caches
 	log.Info("Starting controllers")
 
-	// Wait for the caches to be synced before starting workers
+	// Wait for the caches for all controllers to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
 	for _, c := range controllers {
 		if ok := cache.WaitForCacheSync(stopCh, c.ListersSynced()...); !ok {
@@ -72,9 +73,12 @@ func runAllControllers(controllers []controllerHelper, controllerThreadiness int
 	}
 
 	log.Info("Starting workers")
-	// Launch two workers to process DedicatedGameServer resources
+	// for all our controllers
 	for _, c := range controllers {
+		// Launch a number of workers to process resources
 		for i := 0; i < controllerThreadiness; i++ {
+			// runWorker will loop until "something bad" happens.  The .Until will
+			// then rekick the worker after one second
 			go wait.Until(c.RunWorker, time.Second, stopCh)
 		}
 	}

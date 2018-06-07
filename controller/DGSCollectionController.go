@@ -96,6 +96,9 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 				c.enqueueDedicatedGameServerCollection(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
+				// IndexerInformer uses a delta nodeQueue, therefore for deletes we have to use this
+				// key function.
+				//key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				log.Print("DedicatedGameServerCollection controller - delete")
 			},
 		},
@@ -212,7 +215,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	// if there are less DGS than the ones we requested
 	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
 		for i := 0; i < int(dgsCol.Spec.Replicas)-dgsExistingCount; i++ {
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), 21000, "sessionUrlexample", "startmapexample", "imageexample")
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), shared.GetRandomPort(), "sessionUrlexample", "startmapexample", "imageexample")
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {

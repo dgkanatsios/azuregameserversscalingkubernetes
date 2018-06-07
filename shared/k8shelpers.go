@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, port int32, setSessionsURL string, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
+func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, port int, setSessionsURL string, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -55,7 +55,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setSessionsURL string) *core.P
 						{
 							Name:          "port1",
 							Protocol:      core.ProtocolUDP,
-							ContainerPort: dgs.Spec.Port,
+							ContainerPort: int32(dgs.Spec.Port),
 						},
 					},
 					Env: []core.EnvVar{

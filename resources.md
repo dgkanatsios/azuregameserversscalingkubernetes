@@ -13,6 +13,7 @@ Some useful resources regarding Kubernetes Operators, CRDs, etc.
 - A thread on Reddit: https://www.reddit.com/r/kubernetes/comments/8ien90/if_i_were_to_build_an_operator_what_should_i_use/
 - Heptio blog post: https://blog.heptio.com/an-introduction-to-extending-kubernetes-with-customresourcedefinitions-76deb675b27a
 - Openshift CRD Deep Dive: https://blog.openshift.com/kubernetes-deep-dive-code-generation-customresources/
+- Guidelines: https://github.com/kubernetes/community/blob/master/contributors/devel/controllers.md
 
 Interesting blog posts from Cloudark
 - https://medium.com/@cloudark/kubernetes-custom-controllers-b6c7d0668fdf

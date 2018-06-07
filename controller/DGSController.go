@@ -7,25 +7,32 @@ import (
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/scheme"
-	dgsv1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/azuregaming/v1alpha1"
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	informercorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	listercorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	record "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 )
 
 const dgsControllerAgentName = "dedigated-game-server-controller"
+const setSessionsURL = "lala"
 
 type DedicatedGameServerController struct {
-	dgsClient       dgsv1.DedicatedGameServersGetter
+	dgsClient       dgsv1alpha1.DedicatedGameServersGetter
+	podClient       typedcorev1.PodsGetter
 	dgsLister       listerdgs.DedicatedGameServerLister
+	podLister       listercorev1.PodLister
 	dgsListerSynced cache.InformerSynced
+	podListerSynced cache.InformerSynced
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -38,7 +45,7 @@ type DedicatedGameServerController struct {
 }
 
 func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
-	dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerController {
+	dgsInformer informerdgs.DedicatedGameServerInformer, podInformer informercorev1.PodInformer) *DedicatedGameServerController {
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
@@ -51,8 +58,11 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 
 	c := &DedicatedGameServerController{
 		dgsClient:       dgsclient.AzuregamingV1alpha1(),
+		podClient:       client.CoreV1(), //getter hits the live API server (can also create/update objects)
 		dgsLister:       dgsInformer.Lister(),
+		podLister:       podInformer.Lister(), //lister hits the cache
 		dgsListerSynced: dgsInformer.Informer().HasSynced,
+		podListerSynced: podInformer.Informer().HasSynced,
 		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
 		recorder:        recorder,
 	}
@@ -63,13 +73,16 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				log.Print("DedicatedGameServer controller - add")
-				//c.enqueueDedicatedGameServer(obj)
+				c.enqueueDedicatedGameServer(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("DedicatedGameServer controller - update")
-				//c.enqueueDedicatedGameServer(newObj)
+				c.enqueueDedicatedGameServer(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
+				// IndexerInformer uses a delta nodeQueue, therefore for deletes we have to use this
+				// key function.
+				//key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				log.Print("DedicatedGameServer controller - delete")
 			},
 		},
@@ -154,15 +167,61 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		return nil
 	}
 
+	// try to get the DedicatedGameServer
 	dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
 
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// DedicatedGameServer not found
+			runtime.HandleError(fmt.Errorf("DedicatedGameServer '%s' in work queue no longer exists", key))
+			return nil
+		}
 		log.Print(err.Error())
 		return err
 	}
 
+	// DedicatedGameServer exists. Let's see if the corresponding pod exists
+	pod, err := c.podLister.Pods(namespace).Get(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			pod = shared.NewPod(dgs, setSessionsURL)
+			createdPod, err2 := c.podClient.Pods(namespace).Create(pod)
+
+			if err2 != nil {
+				return err2
+			}
+
+			err2 = shared.UpsertEntity(&shared.StorageEntity{
+				Name:     createdPod.Name,
+				NodeName: createdPod.Spec.NodeName,
+				Port:     string(dgs.Spec.Port),
+			})
+
+			if err2 != nil {
+				return err2
+			}
+
+			return nil
+		} else {
+			return err
+		}
+	}
+
 	c.recorder.Event(dgs, corev1.EventTypeNormal, shared.SuccessSynced, shared.MessageResourceSynced)
 	return nil
+}
+
+// enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
+// string which is then put onto the work queue. This method should *not* be
+// passed resources of any type other than DedicatedGameServer.
+func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface{}) {
+	var key string
+	var err error
+	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
+		runtime.HandleError(err)
+		return
+	}
+	c.workqueue.AddRateLimited(key)
 }
 
 func (c *DedicatedGameServerController) Workqueue() workqueue.RateLimitingInterface {
@@ -170,5 +229,5 @@ func (c *DedicatedGameServerController) Workqueue() workqueue.RateLimitingInterf
 }
 
 func (c *DedicatedGameServerController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.dgsListerSynced}
+	return []cache.InformerSynced{c.dgsListerSynced, c.podListerSynced}
 }

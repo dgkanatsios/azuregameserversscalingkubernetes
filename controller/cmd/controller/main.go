@@ -40,10 +40,12 @@ func main() {
 	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformers.Core().V1().Pods())
 
+	podController := controller.NewPodController(client, sharedInformers.Core().V1().Pods())
+
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)
 
-	controllers := []controllerHelper{dgsColController, dgsController}
+	controllers := []controllerHelper{dgsColController, dgsController, podController}
 
 	if err := runAllControllers(controllers, 1, stopCh); err != nil {
 		log.Fatalf("Error running controllers: %s", err.Error())

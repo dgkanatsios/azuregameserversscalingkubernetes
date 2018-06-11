@@ -22,10 +22,11 @@ type DedicatedGameServer struct {
 	meta_v1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec is the custom resource spec
-	Spec DedicatedGameServerSpec `json:"spec"`
+	Spec   DedicatedGameServerSpec   `json:"spec"`
+	Status DedicatedGameServerStatus `json:"status"`
 }
 
-// DedicatedGameServerSpec is the spec for a DedicatedGameServerSpec resource
+// DedicatedGameServerSpec is the spec for a DedicatedGameServer resource
 type DedicatedGameServerSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
@@ -34,6 +35,11 @@ type DedicatedGameServerSpec struct {
 	Port          int    `json:"port"`
 	StartMap      string `json:"startmap"`
 	ActivePlayers int    `json:"activePlayers"`
+}
+
+// DedicatedGameServerStatus is the status for a DedicatedGameServer resource
+type DedicatedGameServerStatus struct {
+	State string `json:"state"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

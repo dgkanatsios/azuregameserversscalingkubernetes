@@ -25,14 +25,20 @@ type DedicatedGameServerCollection struct {
 	Spec DedicatedGameServerCollectionSpec `json:"spec"`
 }
 
-// DedicatedGameServerCollectionSpec is the spec for a DedicatedGameServerCollectionSpec resource
+// DedicatedGameServerCollectionSpec is the spec for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Replicas int32  `json:"replicas"`
-	Image    string `json:"image"`
-	StartMap string `json:"startmap"`
+	Replicas int32                               `json:"replicas"`
+	Image    string                              `json:"image"`
+	StartMap string                              `json:"startmap"`
+	Status   DedicatedGameServerCollectionStatus `json:"status"`
+}
+
+// DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource
+type DedicatedGameServerCollectionStatus struct {
+	AvailableReplicas int32 `json:"availableReplicas"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

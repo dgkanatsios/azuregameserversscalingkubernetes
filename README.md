@@ -6,9 +6,9 @@
 
 # AzureGameServersScalingKubernetes
 
-Scaling dedicated game servers is hard. They're stateful, can't be shut down on demand (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal network overhead. This repo aims to provide a solution of managing containerized dedicated servers on Azure Platform using the managed Azure Kubernetes Service (AKS). It is based on Kubernetes Custom Resource Definition objects. 
+Scaling dedicated game servers is hard. They're stateful, can't be shut down on demand (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal network overhead and latency. This repo aims to provide a solution of managing containerized dedicated servers on Azure Platform using the managed Azure Kubernetes Service (AKS). It is based on Kubernetes Custom Resource Definition objects. 
 
-~ HEAVY WORK IN PROGRESS. NOT RECOMMENDED FOR USE ~
+~ HEAVY AMOUNT OF WORK IN PROGRESS. ABSOLYTELY NOT RECOMMENDED FOR USE ~
 
 Create a new AKS cluster: 
 

@@ -37,7 +37,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setSessionsURL string) *core.P
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   dgs.Name,
-			Labels: map[string]string{"server": dgs.Name},
+			Labels: map[string]string{"DedicatedGameServer": dgs.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,

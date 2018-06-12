@@ -1,6 +1,8 @@
 package shared
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -14,15 +16,21 @@ import (
 // StorageEntity represents a pod
 type StorageEntity struct {
 	Name           string
+	Namespace      string
 	PublicIP       string
 	NodeName       string
 	Status         string
 	Port           string
-	ActiveSessions *int
+	ActiveSessions string
 }
 
 // UpsertEntity upserts entity
 func UpsertEntity(pod *StorageEntity) error {
+
+	if pod.Name == "" || pod.Namespace == "" {
+		return errors.New("New pod should include both Name and Namespace properties")
+	}
+
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -31,7 +39,7 @@ func UpsertEntity(pod *StorageEntity) error {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	//partition key is the same as row key (pod's name)
-	entity := table.GetEntityReference(pod.Name, pod.Name)
+	entity := table.GetEntityReference(pod.Namespace, pod.Name)
 
 	props := make(map[string]interface{})
 
@@ -47,12 +55,14 @@ func UpsertEntity(pod *StorageEntity) error {
 		props["Status"] = pod.Status
 	}
 
+	fmt.Println("port lala" + pod.Port)
+
 	if pod.Port != "" {
 		props["Port"] = pod.Port
 	}
 
-	if pod.ActiveSessions != nil {
-		props["ActiveSessions"] = *pod.ActiveSessions
+	if pod.ActiveSessions != "" {
+		props["ActiveSessions"] = pod.ActiveSessions
 	}
 
 	entity.Properties = props
@@ -61,7 +71,7 @@ func UpsertEntity(pod *StorageEntity) error {
 }
 
 // GetEntity gets table entity
-func GetEntity(name string) (*storage.Entity, error) {
+func GetEntity(namespace, name string) (*storage.Entity, error) {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -69,8 +79,7 @@ func GetEntity(name string) (*storage.Entity, error) {
 	table := tableservice.GetTableReference(TableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
-	//partition key is the same as row key (pod's name)
-	entity := table.GetEntityReference(name, name)
+	entity := table.GetEntityReference(namespace, name)
 
 	err := entity.Get(Timeout, storage.MinimalMetadata, nil)
 
@@ -78,7 +87,7 @@ func GetEntity(name string) (*storage.Entity, error) {
 }
 
 // DeleteEntity deletes table entity. Will suppress 404 errors
-func DeleteEntity(name string) error {
+func DeleteEntity(namespace, name string) error {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -87,7 +96,7 @@ func DeleteEntity(name string) error {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	//partition key is the same as row key (pod's name)
-	entity := table.GetEntityReference(name, name)
+	entity := table.GetEntityReference(namespace, name)
 
 	err := entity.Delete(true, nil)
 

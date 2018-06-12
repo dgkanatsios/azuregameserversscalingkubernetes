@@ -2,13 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 
-	apiv1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -58,7 +56,7 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, apiv1.EventSource{Component: dgsColControllerAgentName})
+	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsColControllerAgentName})
 
 	c := &DedicatedGameServerCollectionController{
 		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
@@ -77,7 +75,7 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				log.Print("DedicatedGameServerCollection controller - add")
-				c.enqueueDedicatedGameServerCollection(obj)
+				c.handleDedicatedGameServerCollection(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("DedicatedGameServerCollection controller - update")
@@ -93,7 +91,7 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 					return
 				}
 
-				c.enqueueDedicatedGameServerCollection(newObj)
+				c.handleDedicatedGameServerCollection(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
 				// IndexerInformer uses a delta nodeQueue, therefore for deletes we have to use this
@@ -211,11 +209,11 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	}
 
 	dgsExistingCount := len(dgsExisting)
-	log.Print("existing: " + strconv.Itoa(dgsExistingCount))
+
 	// if there are less DGS than the ones we requested
 	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
 		for i := 0; i < int(dgsCol.Spec.Replicas)-dgsExistingCount; i++ {
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), shared.GetRandomPort(), "sessionUrlexample", "startmapexample", "imageexample")
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), shared.GetRandomPort(), "sessionUrlexample", dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -246,8 +244,28 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		}
 	}
 
-	c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.SuccessSynced, shared.MessageResourceSynced)
+	c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServerCollection", dgsCol.Name))
 	return nil
+}
+
+func (c *DedicatedGameServerCollectionController) handleDedicatedGameServerCollection(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+	}
+
+	c.enqueueDedicatedGameServerCollection(obj)
 }
 
 // enqueueDedicatedGameServerCollection takes a DedicatedGameServerCollection resource and converts it into a namespace/name

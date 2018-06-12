@@ -5,13 +5,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
-	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/scheme"
-	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listercorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -39,20 +39,18 @@ type PodController struct {
 
 func NewPodController(client *kubernetes.Clientset, podInformer informercorev1.PodInformer) *PodController {
 	// Create event broadcaster
-	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
-	// logged for DedicatedGameServerController types.
-	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	log.Info("Creating event broadcaster for Pod controller")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, apiv1.EventSource{Component: podControllerAgentName})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: podControllerAgentName})
 
 	c := &PodController{
-		podClient: client.CoreV1(),
-		podLister: podInformer.Lister(),
-		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
-		recorder:  recorder,
+		podClient:       client.CoreV1(),
+		podLister:       podInformer.Lister(),
+		podListerSynced: podInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
+		recorder:        recorder,
 	}
 
 	log.Info("Setting up event handlers for Pod Controller")
@@ -60,20 +58,21 @@ func NewPodController(client *kubernetes.Clientset, podInformer informercorev1.P
 	podInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.enqueuePod(obj)
+
+				c.handlePod(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				newPod := newObj.(*apiv1.Pod)
-				oldPod := oldObj.(*apiv1.Pod)
+				newPod := newObj.(*corev1.Pod)
+				oldPod := oldObj.(*corev1.Pod)
 				if newPod.ResourceVersion == oldPod.ResourceVersion {
 					// Periodic resync will send update events for all known Pods.
-					// Two different versions of the same Deployment will always have different RVs.
+					// Two different versions of the same Pod will always have different RVs.
 					return
 				}
-				c.enqueuePod(newObj)
+				c.handlePod(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.enqueuePod(obj)
+				c.handlePod(obj)
 			},
 		},
 	)
@@ -146,38 +145,92 @@ func (c *PodController) processNextWorkItem() bool {
 	return true
 }
 
+func podBelongsToDedicatedGameServer(pod *corev1.Pod) bool {
+	podLabels := pod.ObjectMeta.Labels
+
+	for labelKey := range podLabels {
+		if labelKey == "DedicatedGameServer" {
+			return true
+		}
+	}
+	return false
+}
+
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the DedicatedGameServer resource
+// converge the two. It then updates the Status block of the Pod resource
 // with the current status of the resource.
 func (c *PodController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+
+	if namespace == "kube-system" {
+		msg := fmt.Sprintf("Skipping kube-system pod %s", name)
+		log.Print(msg)
+		return nil
+	}
+
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
 
-	// try to get the DedicatedGameServer
+	// try to get the Pod
 	pod, err := c.podLister.Pods(namespace).Get(name)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Pod not found
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
+			// delete it from table storage
+			shared.DeleteEntity(namespace, name)
 			return nil
 		}
 		log.Print(err.Error())
 		return err
 	}
 
-	c.recorder.Event(pod, corev1.EventTypeNormal, shared.SuccessSynced, shared.MessageResourceSynced)
+	// pod exists, so let's update status if it has changed
+	shared.UpsertEntity(&shared.StorageEntity{
+		Name:      pod.Name,
+		Namespace: pod.Namespace,
+		Status:    string(pod.Status.Phase),
+	})
+
+	c.recorder.Event(pod, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "Pod", pod.Name))
 	return nil
+}
+
+func (c *PodController) handlePod(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding Pod object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding Pod object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted Pod object '%s' from tombstone", object.GetName())
+	}
+
+	pod := obj.(*corev1.Pod)
+	if !podBelongsToDedicatedGameServer(pod) {
+		log.Printf("Ignoring non-DedicatedGameServer pod %s", pod.Name)
+		return
+	}
+
+	c.enqueuePod(pod)
 }
 
 // enqueuePod takes a Pod resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than Pod.
 func (c *PodController) enqueuePod(obj interface{}) {
+
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {

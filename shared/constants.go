@@ -25,7 +25,7 @@ const (
 	// MessageResourceExists is the message used for Events when a resource
 	// fails to sync due to a Deployment already existing
 	MessageResourceExists = "Resource %q already exists and is not managed by CRD"
-	// MessageResourceSynced is the message used for an Event fired when a CRD
+	// MessageResourceSynced is the message used for an Event fired when a resource
 	// is synced successfully
-	MessageResourceSynced = "CRD synced successfully"
+	MessageResourceSynced = "%s with name %s synced successfully"
 )

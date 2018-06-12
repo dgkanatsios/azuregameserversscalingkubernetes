@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
@@ -10,9 +11,9 @@ import (
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/azuregaming/v1alpha1"
-	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -54,7 +55,7 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, apiv1.EventSource{Component: dgsControllerAgentName})
+	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
 	c := &DedicatedGameServerController{
 		dgsClient:       dgsclient.AzuregamingV1alpha1(),
@@ -73,11 +74,11 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				log.Print("DedicatedGameServer controller - add")
-				c.enqueueDedicatedGameServer(obj)
+				c.handleDedicatedGameServer(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("DedicatedGameServer controller - update")
-				c.enqueueDedicatedGameServer(newObj)
+				c.handleDedicatedGameServer(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
 				// IndexerInformer uses a delta nodeQueue, therefore for deletes we have to use this
@@ -89,6 +90,26 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 	)
 
 	return c
+}
+
+func (c *DedicatedGameServerController) handleDedicatedGameServer(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted DedicatedGameServer object '%s' from tombstone", object.GetName())
+	}
+
+	c.enqueueDedicatedGameServer(obj)
 }
 
 // RunWorker is a long-running function that will continually call the
@@ -192,9 +213,10 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			}
 
 			err2 = shared.UpsertEntity(&shared.StorageEntity{
-				Name:     createdPod.Name,
-				NodeName: createdPod.Spec.NodeName,
-				Port:     string(dgs.Spec.Port),
+				Name:      createdPod.Name,
+				Namespace: createdPod.Namespace,
+				NodeName:  createdPod.Spec.NodeName,
+				Port:      strconv.Itoa(dgs.Spec.Port),
 			})
 
 			if err2 != nil {
@@ -207,7 +229,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		}
 	}
 
-	c.recorder.Event(dgs, corev1.EventTypeNormal, shared.SuccessSynced, shared.MessageResourceSynced)
+	c.recorder.Event(dgs, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServer", dgs.Name))
 	return nil
 }
 

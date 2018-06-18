@@ -58,7 +58,6 @@ func NewPodController(client *kubernetes.Clientset, podInformer informercorev1.P
 	podInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-
 				c.handlePod(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -182,7 +181,8 @@ func (c *PodController) syncHandler(key string) error {
 			// Pod not found
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
 			// delete it from table storage
-			shared.DeleteEntity(namespace, name)
+			shared.DeleteDedicatedGameServerEntity(namespace, name)
+
 			return nil
 		}
 		log.Print(err.Error())
@@ -190,7 +190,7 @@ func (c *PodController) syncHandler(key string) error {
 	}
 
 	// pod exists, so let's update status if it has changed
-	shared.UpsertEntity(&shared.StorageEntity{
+	shared.UpsertGameServerEntity(&shared.GameServerEntity{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
 		Status:    string(pod.Status.Phase),

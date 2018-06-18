@@ -212,7 +212,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 				return err2
 			}
 
-			err2 = shared.UpsertEntity(&shared.StorageEntity{
+			err2 = shared.UpsertGameServerEntity(&shared.GameServerEntity{
 				Name:      createdPod.Name,
 				Namespace: createdPod.Namespace,
 				NodeName:  createdPod.Spec.NodeName,

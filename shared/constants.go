@@ -1,8 +1,10 @@
 package shared
 
 const (
-	// TableName is the name for the Azure Storage Table
-	TableName = "aksdetails"
+	// PortTableName contains the ports
+	PortTableName = "ports"
+	// GameServersTableName is the name for the Azure Storage Table
+	GameServersTableName = "gameservers"
 	// Timeout for Azure Table Storage operations
 	Timeout = 30
 	// MinPort is minimum Port Number

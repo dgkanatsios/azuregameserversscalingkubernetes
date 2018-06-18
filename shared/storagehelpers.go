@@ -6,15 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
-
 	storage "github.com/Azure/azure-sdk-for-go/storage"
 )
 
 //good samples here: https://github.com/luigialves/sample-golang-with-azure-table-storage/blob/master/sample.go
 
-// StorageEntity represents a pod
-type StorageEntity struct {
+// GameServerEntity represents a pod
+type GameServerEntity struct {
 	Name           string
 	Namespace      string
 	PublicIP       string
@@ -24,8 +22,25 @@ type StorageEntity struct {
 	ActiveSessions string
 }
 
-// UpsertEntity upserts entity
-func UpsertEntity(pod *StorageEntity) error {
+func CreatePort(port int) (bool, error) {
+	storageclient := GetStorageClient()
+	tableservice := storageclient.GetTableService()
+	table := tableservice.GetTableReference(PortTableName)
+	table.Create(Timeout, storage.MinimalMetadata, nil)
+	stringPort := strconv.Itoa(port)
+	entity := table.GetEntityReference(stringPort, stringPort)
+	err := entity.Insert(storage.MinimalMetadata, nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "StatusCode=409") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// UpsertGameServerEntity upserts entity
+func UpsertGameServerEntity(pod *GameServerEntity) error {
 
 	if pod.Name == "" || pod.Namespace == "" {
 		return errors.New("New pod should include both Name and Namespace properties")
@@ -35,7 +50,7 @@ func UpsertEntity(pod *StorageEntity) error {
 
 	tableservice := storageclient.GetTableService()
 
-	table := tableservice.GetTableReference(TableName)
+	table := tableservice.GetTableReference(GameServersTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	//partition key is the same as row key (pod's name)
@@ -76,7 +91,7 @@ func GetEntity(namespace, name string) (*storage.Entity, error) {
 
 	tableservice := storageclient.GetTableService()
 
-	table := tableservice.GetTableReference(TableName)
+	table := tableservice.GetTableReference(GameServersTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	entity := table.GetEntityReference(namespace, name)
@@ -86,22 +101,38 @@ func GetEntity(namespace, name string) (*storage.Entity, error) {
 	return entity, err
 }
 
-// DeleteEntity deletes table entity. Will suppress 404 errors
-func DeleteEntity(namespace, name string) error {
+// DeleteDedicatedGameServerEntity deletes DedicatedGameServer table entity. Will suppress 404 errors
+func DeleteDedicatedGameServerEntity(namespace, name string) error {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
 
-	table := tableservice.GetTableReference(TableName)
+	table := tableservice.GetTableReference(GameServersTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
-	//partition key is the same as row key (pod's name)
-	entity := table.GetEntityReference(namespace, name)
+	// retrieve entire object
+	entity, err := GetEntity(namespace, name)
 
-	err := entity.Delete(true, nil)
-
-	if err != nil && !strings.Contains(err.Error(), "StatusCode=404, ErrorCode=ResourceNotFound") {
+	if err != nil {
 		return err
+	}
+
+	port, errAtoi := strconv.Atoi(entity.Properties["Port"].(string))
+
+	if errAtoi != nil {
+		return err
+	}
+
+	errDeletePort := DeletePort(port)
+
+	if errDeletePort != nil {
+		return errDeletePort
+	}
+
+	errDelete := entity.Delete(true, nil)
+
+	if errDelete != nil && !strings.Contains(err.Error(), "StatusCode=404, ErrorCode=ResourceNotFound") {
+		return errDelete
 	}
 	return nil
 }
@@ -112,7 +143,7 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 
 	tableservice := storageclient.GetTableService()
 
-	table := tableservice.GetTableReference(TableName)
+	table := tableservice.GetTableReference(GameServersTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
@@ -122,22 +153,23 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 	return result.Entities, err
 }
 
-// IsPortUsed reports whether a specified port is used by a pod
-func IsPortUsed(port int) bool {
+// DeletePort deletes Port table entity. Will suppress 404 errors
+func DeletePort(port int) error {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
 
-	table := tableservice.GetTableReference(TableName)
+	table := tableservice.GetTableReference(PortTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
-	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: "Port eq '" + strconv.Itoa(port) + "'",
-	})
+	stringPort := strconv.Itoa(port)
 
-	if err != nil {
-		log.Fatalf("Cannot get entities due to %s", err)
+	entity := table.GetEntityReference(stringPort, stringPort)
+
+	err := entity.Delete(true, nil)
+
+	if err != nil && !strings.Contains(err.Error(), "StatusCode=404, ErrorCode=ResourceNotFound") {
+		return err
 	}
-
-	return len(result.Entities) > 0
+	return nil
 }

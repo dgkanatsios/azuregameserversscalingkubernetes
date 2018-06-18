@@ -13,14 +13,13 @@ Scaling dedicated game servers is hard. They're stateful, can't be shut down on 
 Create a new AKS cluster: 
 
 ```bash
+az login # ignore this if you're using Azure Cloud shell
 AKS_RESOURCE_GROUP=aksopenarenarg
 AKS_NAME=aksopenarena
 AKS_LOCATION=westeurope 
 
-az provider register -n Microsoft.ContainerService
-az login
 az group create --name $AKS_RESOURCE_GROUP --location $AKS_LOCATION
-az aks create --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME --node-count 1 --ssh-key-value ~/.ssh/id_rsa.pub --node-vm-size Standard_A1_v2 --kubernetes-version 1.9.6 #this will take some time...
+az aks create --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME --node-count 1 --ssh-key-value ~/.ssh/id_rsa.pub --node-vm-size Standard_A1_v2 --kubernetes-version 1.9.6 --enable-rbac #this will take some time...
 sudo az aks install-cli
 az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
 ```

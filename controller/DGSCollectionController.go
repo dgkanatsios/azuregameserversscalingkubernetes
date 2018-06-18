@@ -213,7 +213,13 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	// if there are less DGS than the ones we requested
 	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
 		for i := 0; i < int(dgsCol.Spec.Replicas)-dgsExistingCount; i++ {
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), shared.GetRandomPort(), "sessionUrlexample", dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+
+			port, errPort := shared.GetRandomPort()
+			if errPort != nil {
+				return errPort
+			}
+
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), port, "sessionUrlexample", dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {

@@ -38,22 +38,24 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	podname := createDedicatedGameServer()
-	w.Write([]byte("DedicatedGameServer " + podname + " was created"))
+	podname, err := createDedicatedGameServer()
+
+	if err != nil {
+		log.Printf("error encountered: %s", err.Error())
+		w.Write([]byte(fmt.Sprintf("Error %s encountered", err.Error())))
+	} else {
+		w.Write([]byte("DedicatedGameServer " + podname + " was created"))
+	}
 }
 
-func createDedicatedGameServer() string {
+func createDedicatedGameServer() (string, error) {
 	name := "openarena-" + shared.RandString(6)
 
-	var port int
 	//get a random port
-	port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
-	for {
-		if shared.IsPortUsed(port) {
-			port = shared.GetRandomInt(shared.MinPort, shared.MaxPort)
-		} else {
-			break
-		}
+	port, err := shared.GetRandomPort()
+
+	if err != nil {
+		return "", err
 	}
 
 	log.Println("Creating DedicatedGameServer...")
@@ -67,9 +69,9 @@ func createDedicatedGameServer() string {
 	dgsInstance, err := helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(helpers.Namespace).Create(dgs)
 
 	if err != nil {
-		log.Printf("error encountered: %s", err.Error())
+		return "", nil
 	}
-	return dgsInstance.ObjectMeta.Name
+	return dgsInstance.ObjectMeta.Name, nil
 
 }
 

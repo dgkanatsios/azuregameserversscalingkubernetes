@@ -1,8 +1,8 @@
 package shared
 
 const (
-	// PortTableName contains the ports
-	PortTableName = "ports"
+	// PortsTableName contains the ports
+	PortsTableName = "ports"
 	// GameServersTableName is the name for the Azure Storage Table
 	GameServersTableName = "gameservers"
 	// Timeout for Azure Table Storage operations

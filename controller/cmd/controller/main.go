@@ -8,8 +8,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/controller"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
-	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions"
-	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/signals"
+	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers"
@@ -37,10 +37,11 @@ func main() {
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
 
-	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
-		sharedInformers.Core().V1().Pods())
+	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
+		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformers.Core().V1().Pods())
 
-	podController := controller.NewPodController(client, sharedInformers.Core().V1().Pods())
+	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
+		sharedInformers.Core().V1().Pods())
 
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)

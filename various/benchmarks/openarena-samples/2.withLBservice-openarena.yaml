@@ -77,4 +77,3 @@ spec:
   selector:
     name: openarena-pod
   type: LoadBalancer
-  #externalTrafficPolicy: Local

@@ -5,7 +5,7 @@ import (
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
-	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,18 +16,18 @@ import (
 	record "k8s.io/client-go/tools/record"
 	workqueue "k8s.io/client-go/util/workqueue"
 
-	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
+	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	kubernetes "k8s.io/client-go/kubernetes"
 
-	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/azuregaming/v1alpha1"
-	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/azuregaming/v1alpha1"
+	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
+	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 
 	log "github.com/Sirupsen/logrus"
-	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/scheme"
+	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	apidgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/apis/azuregaming/v1alpha1"
+	apidgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -231,6 +231,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		// we need to decrease our DGS for this collection
 		// to accomplish this, we'll first find the number of DGS we need to decrease
 		decreaseCount := dgsExistingCount - int(dgsCol.Spec.Replicas)
+		// we'll remove random instances of DGS from our DGSCol
 		indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
 		for i := 0; i < len(indexesToDecrease); i++ {
@@ -247,6 +248,22 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				log.Error(err.Error())
 				return err
 			}
+		}
+
+		// we now have to update the available replicas
+		dgsColCopy, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			log.Error(err.Error())
+			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot get DedicatedGameServerCollection to update AvailableReplicas", err.Error())
+			return err
+		}
+
+		dgsColCopy.Status.AvailableReplicas -= int32(decreaseCount)
+		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColCopy)
+		if err != nil {
+			log.Error(err.Error())
+			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot update DedicatedGameServerCollection for AvailableReplicas", err.Error())
+			return err
 		}
 	}
 

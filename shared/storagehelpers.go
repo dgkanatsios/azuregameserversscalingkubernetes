@@ -25,7 +25,7 @@ type GameServerEntity struct {
 func CreatePort(port int) (bool, error) {
 	storageclient := GetStorageClient()
 	tableservice := storageclient.GetTableService()
-	table := tableservice.GetTableReference(PortTableName)
+	table := tableservice.GetTableReference(PortsTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 	stringPort := strconv.Itoa(port)
 	entity := table.GetEntityReference(stringPort, stringPort)
@@ -159,7 +159,7 @@ func DeletePort(port int) error {
 
 	tableservice := storageclient.GetTableService()
 
-	table := tableservice.GetTableReference(PortTableName)
+	table := tableservice.GetTableReference(PortsTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	stringPort := strconv.Itoa(port)

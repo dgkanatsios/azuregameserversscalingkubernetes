@@ -5,6 +5,12 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	dgstypes "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
+	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
+	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,8 +28,11 @@ import (
 const podControllerAgentName = "pod-controller"
 
 type PodController struct {
+	dgsClient       dgsv1alpha1.DedicatedGameServersGetter
 	podClient       typedcorev1.PodsGetter
+	dgsLister       listerdgs.DedicatedGameServerLister
 	podLister       listercorev1.PodLister
+	dgsListerSynced cache.InformerSynced
 	podListerSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
@@ -37,7 +46,9 @@ type PodController struct {
 	recorder record.EventRecorder
 }
 
-func NewPodController(client *kubernetes.Clientset, podInformer informercorev1.PodInformer) *PodController {
+func NewPodController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+	dgsInformer informerdgs.DedicatedGameServerInformer, podInformer informercorev1.PodInformer) *PodController {
+	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	// Create event broadcaster
 	log.Info("Creating event broadcaster for Pod controller")
 	eventBroadcaster := record.NewBroadcaster()
@@ -46,8 +57,11 @@ func NewPodController(client *kubernetes.Clientset, podInformer informercorev1.P
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: podControllerAgentName})
 
 	c := &PodController{
-		podClient:       client.CoreV1(),
-		podLister:       podInformer.Lister(),
+		dgsClient:       dgsclient.AzuregamingV1alpha1(),
+		podClient:       client.CoreV1(), //getter hits the live API server (can also create/update objects)
+		dgsLister:       dgsInformer.Lister(),
+		podLister:       podInformer.Lister(), //lister hits the cache
+		dgsListerSynced: dgsInformer.Informer().HasSynced,
 		podListerSynced: podInformer.Informer().HasSynced,
 		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
 		recorder:        recorder,
@@ -178,23 +192,39 @@ func (c *PodController) syncHandler(key string) error {
 
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Pod not found
+			// Pod not found, already deleted
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
-			// delete it from table storage
+			// so, delete it from table storage
 			shared.DeleteDedicatedGameServerEntity(namespace, name)
 
 			return nil
 		}
 		log.Print(err.Error())
+		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the Pod", err.Error())
 		return err
 	}
 
-	// pod exists, so let's update status if it has changed
+	// pod exists, let's update status if it has changed
 	shared.UpsertGameServerEntity(&shared.GameServerEntity{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
 		Status:    string(pod.Status.Phase),
 	})
+
+	// also update CRD
+	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(pod.Name, metav1.GetOptions{})
+	if err != nil {
+		log.Print(err.Error())
+		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the DedicatedGameServer", err.Error())
+	}
+	dgsCopy := dgs.DeepCopy()
+	dgsCopy.Status = dgstypes.DedicatedGameServerStatus{State: string(pod.Status.Phase)}
+	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
+
+	if err != nil {
+		log.Print(err.Error())
+		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in updating the DedicatedGameServer", err.Error())
+	}
 
 	c.recorder.Event(pod, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "Pod", pod.Name))
 	return nil
@@ -245,5 +275,5 @@ func (c *PodController) Workqueue() workqueue.RateLimitingInterface {
 }
 
 func (c *PodController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.podListerSynced}
+	return []cache.InformerSynced{c.podListerSynced, c.dgsListerSynced}
 }

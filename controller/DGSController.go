@@ -5,12 +5,13 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
+	dgstypes "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
+	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
+	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
-	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned"
-	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/scheme"
-	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
-	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/informers/externalversions/azuregaming/v1alpha1"
-	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared/pkg/client/listers/azuregaming/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,12 +29,15 @@ const dgsControllerAgentName = "dedigated-game-server-controller"
 const setSessionsURL = "lala"
 
 type DedicatedGameServerController struct {
-	dgsClient       dgsv1alpha1.DedicatedGameServersGetter
-	podClient       typedcorev1.PodsGetter
-	dgsLister       listerdgs.DedicatedGameServerLister
-	podLister       listercorev1.PodLister
-	dgsListerSynced cache.InformerSynced
-	podListerSynced cache.InformerSynced
+	dgsColClient       dgsv1alpha1.DedicatedGameServerCollectionsGetter
+	dgsClient          dgsv1alpha1.DedicatedGameServersGetter
+	podClient          typedcorev1.PodsGetter
+	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
+	dgsLister          listerdgs.DedicatedGameServerLister
+	podLister          listercorev1.PodLister
+	dgsColListerSynced cache.InformerSynced
+	dgsListerSynced    cache.InformerSynced
+	podListerSynced    cache.InformerSynced
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -46,7 +50,8 @@ type DedicatedGameServerController struct {
 }
 
 func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
-	dgsInformer informerdgs.DedicatedGameServerInformer, podInformer informercorev1.PodInformer) *DedicatedGameServerController {
+	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer,
+	podInformer informercorev1.PodInformer) *DedicatedGameServerController {
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
@@ -58,14 +63,17 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
 	c := &DedicatedGameServerController{
-		dgsClient:       dgsclient.AzuregamingV1alpha1(),
-		podClient:       client.CoreV1(), //getter hits the live API server (can also create/update objects)
-		dgsLister:       dgsInformer.Lister(),
-		podLister:       podInformer.Lister(), //lister hits the cache
-		dgsListerSynced: dgsInformer.Informer().HasSynced,
-		podListerSynced: podInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
-		recorder:        recorder,
+		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
+		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		podClient:          client.CoreV1(), //getter hits the live API server (can also create/update objects)
+		dgsColLister:       dgsColInformer.Lister(),
+		dgsLister:          dgsInformer.Lister(),
+		podLister:          podInformer.Lister(), //lister hits the cache
+		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
+		dgsListerSynced:    dgsInformer.Informer().HasSynced,
+		podListerSynced:    podInformer.Informer().HasSynced,
+		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
+		recorder:           recorder,
 	}
 
 	log.Info("Setting up event handlers for DedicatedGameServer controller")
@@ -78,6 +86,10 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("DedicatedGameServer controller - update")
+
+				// get the previous state
+				newObj.(*dgstypes.DedicatedGameServer).Status.PreviousState = oldObj.(*dgstypes.DedicatedGameServer).Status.State
+
 				c.handleDedicatedGameServer(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
@@ -201,17 +213,22 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		return err
 	}
 
-	// DedicatedGameServer exists. Let's see if the corresponding pod exists
+	// check the dedicated game server status
+	// if it's "Running", we need to increase
+
+	// Let's see if the corresponding pod exists
 	pod, err := c.podLister.Pods(namespace).Get(name)
 	if err != nil {
+		// if pod does not exist
 		if errors.IsNotFound(err) {
 			pod = shared.NewPod(dgs, setSessionsURL)
+			// we'll create it
 			createdPod, err2 := c.podClient.Pods(namespace).Create(pod)
 
 			if err2 != nil {
 				return err2
 			}
-
+			// and notify table storage accordingly
 			err2 = shared.UpsertGameServerEntity(&shared.GameServerEntity{
 				Name:      createdPod.Name,
 				Namespace: createdPod.Namespace,
@@ -227,6 +244,33 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		} else {
 			return err
 		}
+	}
+
+	// if pod exists, let's see if the DedicatedGameServerCollection (if one exists and the pod isn't orphan) State needs updating
+	if len(dgs.OwnerReferences) > 0 && dgs.Status.State != dgs.Status.PreviousState {
+		// state changed, so let's update DedicatedGameServerCollection
+		dgsColName := dgs.OwnerReferences[0].Name
+		dgsCol, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+		if err != nil {
+			c.recorder.Event(dgs, corev1.EventTypeWarning, "Error retrieving DedicatedGameServerCollection", err.Error())
+			return err
+		}
+		dgsColCopy := dgsCol.DeepCopy()
+
+		// if current state is Running, then we have a new running DedicatedGameServer
+		// else, we lost one
+		if dgs.Status.State == "Running" {
+			dgsColCopy.Status.AvailableReplicas++
+		} else if dgs.Status.PreviousState == "Running" {
+			dgsColCopy.Status.AvailableReplicas--
+		}
+
+		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColCopy)
+		if err != nil {
+			c.recorder.Event(dgs, corev1.EventTypeWarning, "Error updating DedicatedGameServerCollection", err.Error())
+			return err
+		}
+
 	}
 
 	c.recorder.Event(dgs, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServer", dgs.Name))
@@ -251,5 +295,5 @@ func (c *DedicatedGameServerController) Workqueue() workqueue.RateLimitingInterf
 }
 
 func (c *DedicatedGameServerController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.dgsListerSynced, c.podListerSynced}
+	return []cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced, c.podListerSynced}
 }

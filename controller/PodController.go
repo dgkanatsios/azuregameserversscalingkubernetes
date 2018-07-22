@@ -204,6 +204,8 @@ func (c *PodController) syncHandler(key string) error {
 		return err
 	}
 
+	// pod status values: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+
 	// pod exists, let's update status if it has changed
 	shared.UpsertGameServerEntity(&shared.GameServerEntity{
 		Name:      pod.Name,

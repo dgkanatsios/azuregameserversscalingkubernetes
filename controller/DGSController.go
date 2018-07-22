@@ -217,11 +217,11 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	// if it's "Running", we need to increase
 
 	// Let's see if the corresponding pod exists
-	pod, err := c.podLister.Pods(namespace).Get(name)
+	_, err = c.podLister.Pods(namespace).Get(name)
 	if err != nil {
 		// if pod does not exist
 		if errors.IsNotFound(err) {
-			pod = shared.NewPod(dgs, setSessionsURL)
+			pod := shared.NewPod(dgs, setSessionsURL)
 			// we'll create it
 			createdPod, err2 := c.podClient.Pods(namespace).Create(pod)
 

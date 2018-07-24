@@ -16,7 +16,7 @@ var podsClient = helpers.Clientset.Core().Pods(helpers.Namespace)
 var endpointsClient = helpers.Clientset.Core().Endpoints(helpers.Namespace)
 
 const startmap = "dm4ish"
-const dockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:latest"
+const dockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.1"
 const port = 8000
 
 func main() {

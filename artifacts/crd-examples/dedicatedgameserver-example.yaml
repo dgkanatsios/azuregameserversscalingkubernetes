@@ -4,6 +4,6 @@ metadata:
   #generateName: openarena-
   name: openarena-example
 spec:
-  image: docker.io/dgkanatsios/docker_openarena_k8s:latest
+  image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.1
   port: 27960
   startmap: dm4ish

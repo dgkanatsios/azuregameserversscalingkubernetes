@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: docker-openarena-k8s-api
-        image: docker.io/dgkanatsios/docker_openarena_k8s_api:latest
+        image: docker.io/dgkanatsios/docker_openarena_k8s_api:0.0.1
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME
@@ -54,7 +54,7 @@ spec:
     spec:
       containers:
       - name: docker-openarena-k8s-controller
-        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:latest
+        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.1
         imagePullPolicy: Always
 ---
 apiVersion: v1

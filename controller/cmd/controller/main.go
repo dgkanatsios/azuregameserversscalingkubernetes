@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/controller"
-	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
+	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers"

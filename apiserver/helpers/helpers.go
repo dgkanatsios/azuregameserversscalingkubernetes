@@ -1,8 +1,9 @@
 package helpers
 
 import (
-	"log"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +35,7 @@ func getAccessCode() string {
 	if accesscode == "" { //if we haven't accessed the code
 		secret, err := secretsClient.Get("apiaccesscode", meta_v1.GetOptions{})
 		if err != nil {
-			log.Fatal("Cannot get code due to ", err)
+			log.Fatalf("Cannot get code due to %s", err.Error())
 		}
 		accesscode = string(secret.Data["code"])
 	}

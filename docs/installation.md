@@ -14,7 +14,7 @@ AKS_LOCATION=westeurope
 # create a resource group
 az group create --name $AKS_RESOURCE_GROUP --location $AKS_LOCATION
 # create a new AKS cluster
-az aks create --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME --node-count 1 --ssh-key-value ~/.ssh/id_rsa.pub --node-vm-size Standard_A1_v2 --kubernetes-version 1.9.6 --enable-rbac # this will take some time...
+az aks create --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME --node-count 1 --ssh-key-value ~/.ssh/id_rsa.pub --node-vm-size Standard_A1_v2 --kubernetes-version 1.10.5 --enable-rbac # this will take some time...
 sudo az aks install-cli
 az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
 ```
@@ -35,7 +35,7 @@ Alternatively, you can use the following command, after setting the `$RESOURCE_G
 az network nsg rule create \
   --resource-group $RESOURCE_GROUP_WITH_AKS_RESOURCES \
   --nsg-name $NSG_NAME \
-  --name AzureAKSRule \
+  --name AKSDedicatedGameServerRule \
   --access Allow \
   --protocol "*" \
   --direction Inbound \
@@ -46,16 +46,16 @@ az network nsg rule create \
 
 ## Assigning Public IPs to the existing Nodes and to potential new ones
 
-As of now, AKS Nodes don't get a Public IP by default (even though you could use [acs-engine](https://github.com/Azure/acs-engine) to achieve that). To assign Public IPs to a Node/VM, you can find the Resource Group where the AKS resources are installerd on the [portal](https://portal.azure.com) (it should have a name like `MC_resourceGroupName_AKSName_location`). Then, you can follow the instructions [here](https://blogs.technet.microsoft.com/srinathv/2018/02/07/how-to-add-a-public-ip-address-to-azure-vm-for-vm-failed-over-using-asr/) to create a new Public IP and assign it to the Node/VM. For more information on Public IPs for VM NICs, see [this document](https://docs.microsoft.com/azure/virtual-network/virtual-network-network-interface-addresses). 
+As of now, AKS Nodes don't get a Public IP by default (even though you could use [acs-engine](https://github.com/Azure/acs-engine) to achieve that). To assign Public IPs to a Node/VM, you can find the Resource Group where the AKS resources are installed on the [portal](https://portal.azure.com) (it should have a name like `MC_resourceGroupName_AKSName_location`). Then, you can follow the instructions [here](https://blogs.technet.microsoft.com/srinathv/2018/02/07/how-to-add-a-public-ip-address-to-azure-vm-for-vm-failed-over-using-asr/) to create a new Public IP and assign it to the Node/VM. For more information on Public IPs for VM NICs, see [this document](https://docs.microsoft.com/azure/virtual-network/virtual-network-network-interface-addresses). 
 
-Alternatively, you can use [this](https://github.com/dgkanatsios/AksNodePublicIP) project which will take care of
+Alternatively, you can use [this](https://github.com/dgkanatsios/AksNodePublicIPController) project which will take care of
 - Creating and assigning Public IPs to existing Nodes
 - Creating and assigning Public IPs to new Nodes, e.g. in case of a cluster scale out
 - Deleting Public IPs for Nodes that get removed from the cluster, e.g. cluster scale in
 
 ## Necessary stuff to test OpenArena game
 
-To test the installation with OpenArena game, create a storage account to copy the OpenArena files. This will allow us to use the Docker image on the `/openarena` folder on this repo, which access the game files from a volume mount. This makes for a faster to load Docker image, thus a smaller dedicated game server boot time.
+To test the project's installation using the OpenArena game, you should create a storage account to copy the OpenArena files. This will allow us to use the Docker image on the `/openarena` folder on this repo, which access the game files from a volume mount. This makes for a Docker image that is faster to load, thus a smaller dedicated game server boot time.
 
 ```bash
 # Change these parameters as needed
@@ -108,10 +108,9 @@ kubectl apply -f dedicatedgameservercollection-crd.yaml
 kubectl apply -f dedicatedgameserver-crd.yaml
 ```
 
-Create `api` and `controller` K8s deployments:
+Create `apiserver` and `controller` K8s deployments:
 ```bash
-cd various
-kubectl apply -f deployapihandler.yaml
+kubectl apply -f deploy.apiserver-controller.yaml
 ```
 
 To update your API and Controller deployments:

@@ -22,8 +22,8 @@ import (
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 
-	log "github.com/Sirupsen/logrus"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
+	log "github.com/sirupsen/logrus"
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 

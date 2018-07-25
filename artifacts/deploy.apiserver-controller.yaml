@@ -3,12 +3,12 @@ kind: Namespace
 metadata:
   name: game
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: docker-openarena-k8s-api
+  name: docker-openarena-k8s-apiserver
   labels:
-    name: docker-openarena-k8s-api
+    name: docker-openarena-k8s-apiserver
 spec:
   strategy:
     type: Recreate
@@ -16,11 +16,11 @@ spec:
   template:
     metadata:
       labels:
-        name: docker-openarena-k8s-api
+        name: docker-openarena-k8s-apiserver
     spec:
       containers:
-      - name: docker-openarena-k8s-api
-        image: docker.io/dgkanatsios/docker_openarena_k8s_api:0.0.1
+      - name: docker-openarena-k8s-apiserver
+        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.1
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME
@@ -37,7 +37,7 @@ spec:
         - containerPort: 8000
           protocol: TCP
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: docker-openarena-k8s-controller
@@ -45,7 +45,7 @@ metadata:
     name: docker-openarena-k8s-controller
 spec:
   strategy:
-    type: Recreate
+    type: RollingUpdate
   replicas: 1
   template:
     metadata:
@@ -60,9 +60,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: docker-openarena-k8s-api
+  name: docker-openarena-k8s-apiserver
   labels:
-    name: docker-openarena-k8s-api
+    name: docker-openarena-k8s-apiserver
 spec:
   ports:
     # the port that this service should serve on
@@ -72,5 +72,5 @@ spec:
       name: http
   # label keys and values that must match in order to receive traffic for this service
   selector:
-    name: docker-openarena-k8s-api
+    name: docker-openarena-k8s-apiserver
   type: LoadBalancer

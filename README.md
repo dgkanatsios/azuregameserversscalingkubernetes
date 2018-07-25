@@ -12,7 +12,7 @@ Scaling dedicated game servers is hard. They're stateful, can't be shut down on 
 
 ## Documentation
 
-- [Installation](docs/install.md)
+- [Installation](docs/installation.md)
 - [FAQ](docs/FAQ.md)
 - [TODO stuff](docs/TODO.md)
 - [Kubernetes resources](docs/resources.md)
@@ -20,5 +20,5 @@ Scaling dedicated game servers is hard. They're stateful, can't be shut down on 
 ## Docker Hub Images
 
 - [OpenArena for Kubernetes](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s/)
-- [API Server](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s_api/)
+- [API Server](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s_apiserver/)
 - [Custom Kubernetes Controller](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s_controller/)

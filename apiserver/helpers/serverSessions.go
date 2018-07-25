@@ -1,6 +1,6 @@
 package helpers
 
-import "log"
+import log "github.com/sirupsen/logrus"
 
 var SetSessionsURL string
 
@@ -12,7 +12,7 @@ type ServerSessions struct {
 
 func InitializeSetSessionsURL() {
 
-	SetSessionsURL = "http://docker-openarena-k8s-api/setsessions?code=" + getAccessCode()
+	SetSessionsURL = "http://docker-openarena-k8s-apiserver/setsessions?code=" + getAccessCode()
 
-	log.Println("Initializes setSessionsURL:", SetSessionsURL)
+	log.Println("Initialized setSessionsURL:", SetSessionsURL)
 }

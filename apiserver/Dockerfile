@@ -14,4 +14,4 @@ WORKDIR /app
 COPY --from=builder /build/app .
 CMD ["./app"]
 EXPOSE 8000
-LABEL Name=docker_openarena_k8s_api Version=0.0.2
+LABEL Name=docker_openarena_k8s_apiserver

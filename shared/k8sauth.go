@@ -2,10 +2,11 @@ package shared
 
 import (
 	"flag"
-	"log"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+
+	log "github.com/sirupsen/logrus"
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 

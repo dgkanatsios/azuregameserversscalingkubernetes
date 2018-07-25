@@ -1,25 +1,34 @@
-package main
+package webserver
 
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
-	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/api/helpers"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	"github.com/gorilla/mux"
+
+	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 )
 
 var podsClient = helpers.Clientset.Core().Pods(helpers.Namespace)
 var endpointsClient = helpers.Clientset.Core().Endpoints(helpers.Namespace)
 
-const startmap = "dm4ish"
-const dockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.1"
-const port = 8000
+var (
+	startmap    string
+	dockerImage string
+	port        int
+)
 
-func main() {
+func Run(startmap_, dockerImage_ string, port_ int) error {
+
+	startmap = startmap_
+	dockerImage = dockerImage_
+	port = port_
+
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
@@ -28,7 +37,7 @@ func main() {
 
 	log.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router))
+	return http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router)
 }
 
 func createDGSHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +47,7 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	podname, err := createDedicatedGameServer()
+	podname, err := createDedicatedGameServerCRD()
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -48,7 +57,7 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createDedicatedGameServer() (string, error) {
+func createDedicatedGameServerCRD() (string, error) {
 	name := "openarena-" + shared.RandString(6)
 
 	//get a random port

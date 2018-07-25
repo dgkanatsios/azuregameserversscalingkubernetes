@@ -228,12 +228,7 @@ func (c *PodController) syncHandler(key string) error {
 		PublicIP:  ip,
 	}
 
-	if tableEntity.Status == shared.PendingState {
-		tableEntity.ActiveSessions = "0"
-	}
-
 	// pod status values: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
-	// pod exists, let's update status
 	shared.UpsertGameServerEntity(tableEntity)
 
 	// also update CRD

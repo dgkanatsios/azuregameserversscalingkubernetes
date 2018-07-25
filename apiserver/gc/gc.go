@@ -9,8 +9,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Run starts Garbage Collector
-func Run() {
+// Run starts Garbage Collector, it will check for MarkedForDeletion and 0 sessions every 'd' Duration
+func Run(d time.Duration) {
 	log.Println("Starting Garbage Collector")
 	for {
 		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero sessions
@@ -30,6 +30,6 @@ func Run() {
 			}
 		}
 
-		time.Sleep(1 * time.Minute)
+		time.Sleep(d)
 	}
 }

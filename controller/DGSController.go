@@ -234,6 +234,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 				Namespace: createdPod.Namespace,
 				NodeName:  createdPod.Spec.NodeName,
 				Port:      strconv.Itoa(dgs.Spec.Port),
+				ActiveSessions: "0",
 			})
 
 			if err2 != nil {

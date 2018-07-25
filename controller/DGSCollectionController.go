@@ -240,6 +240,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				log.Error(err.Error())
 				return err
 			}
+			// update the DGS so it has no owners
 			dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
 			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
 			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, labelDGSCol)
@@ -248,6 +249,14 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				log.Error(err.Error())
 				return err
 			}
+
+			// update the entry on Table Storage so the dgs will be deleted by the Garbage Collector eventually
+			shared.UpsertGameServerEntity(&shared.GameServerEntity{
+				Name:      dgsExisting[indexesToDecrease[i]].Name,
+				Namespace: dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
+				Status:    shared.MarkedForDeletionState,
+			})
+
 		}
 
 		// we now have to update the DedicatedGameServerCollection instance with the new number of available replicas
@@ -288,7 +297,7 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServerColle
 		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
-	c.enqueueDedicatedGameServerCollection(obj)
+	c.enqueueDedicatedGameServerCollection(object)
 }
 
 // enqueueDedicatedGameServerCollection takes a DedicatedGameServerCollection resource and converts it into a namespace/name

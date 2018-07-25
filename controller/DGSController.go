@@ -121,7 +121,7 @@ func (c *DedicatedGameServerController) handleDedicatedGameServer(obj interface{
 		log.Infof("Recovered deleted DedicatedGameServer object '%s' from tombstone", object.GetName())
 	}
 
-	c.enqueueDedicatedGameServer(obj)
+	c.enqueueDedicatedGameServer(object)
 }
 
 // RunWorker is a long-running function that will continually call the

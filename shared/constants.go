@@ -11,10 +11,10 @@ const (
 	MinPort = 20000
 	// MaxPort is maximum Port Number
 	MaxPort = 30000
-	// CreatingState = "Creating"
-	CreatingState = "Creating"
 	// TerminatingState = "Terminating"
-	TerminatingState = "Terminating"
+	TerminatingState       = "Terminating"
+	PendingState           = "Pending"
+	MarkedForDeletionState = "MarkedForDeletion"
 )
 
 const (

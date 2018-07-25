@@ -41,7 +41,7 @@ func main() {
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformers.Core().V1().Pods())
 
 	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
-		sharedInformers.Core().V1().Pods())
+		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
 
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)

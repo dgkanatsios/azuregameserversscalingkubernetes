@@ -28,12 +28,15 @@ import (
 const podControllerAgentName = "pod-controller"
 
 type PodController struct {
-	dgsClient       dgsv1alpha1.DedicatedGameServersGetter
-	podClient       typedcorev1.PodsGetter
-	dgsLister       listerdgs.DedicatedGameServerLister
-	podLister       listercorev1.PodLister
-	dgsListerSynced cache.InformerSynced
-	podListerSynced cache.InformerSynced
+	dgsClient        dgsv1alpha1.DedicatedGameServersGetter
+	podClient        typedcorev1.PodsGetter
+	nodeClient       typedcorev1.NodesGetter
+	dgsLister        listerdgs.DedicatedGameServerLister
+	podLister        listercorev1.PodLister
+	nodeLister       listercorev1.NodeLister
+	dgsListerSynced  cache.InformerSynced
+	podListerSynced  cache.InformerSynced
+	nodeListerSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -47,7 +50,7 @@ type PodController struct {
 }
 
 func NewPodController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
-	dgsInformer informerdgs.DedicatedGameServerInformer, podInformer informercorev1.PodInformer) *PodController {
+	dgsInformer informerdgs.DedicatedGameServerInformer, podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer) *PodController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	// Create event broadcaster
 	log.Info("Creating event broadcaster for Pod controller")
@@ -57,14 +60,17 @@ func NewPodController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clie
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: podControllerAgentName})
 
 	c := &PodController{
-		dgsClient:       dgsclient.AzuregamingV1alpha1(),
-		podClient:       client.CoreV1(), //getter hits the live API server (can also create/update objects)
-		dgsLister:       dgsInformer.Lister(),
-		podLister:       podInformer.Lister(), //lister hits the cache
-		dgsListerSynced: dgsInformer.Informer().HasSynced,
-		podListerSynced: podInformer.Informer().HasSynced,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
-		recorder:        recorder,
+		dgsClient:        dgsclient.AzuregamingV1alpha1(),
+		podClient:        client.CoreV1(), //getter hits the live API server (can also create/update objects)
+		nodeClient:       client.CoreV1(),
+		dgsLister:        dgsInformer.Lister(),
+		podLister:        podInformer.Lister(), //lister hits the cache
+		nodeLister:       nodeInformer.Lister(),
+		dgsListerSynced:  dgsInformer.Informer().HasSynced,
+		podListerSynced:  podInformer.Informer().HasSynced,
+		nodeListerSynced: nodeInformer.Informer().HasSynced,
+		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
+		recorder:         recorder,
 	}
 
 	log.Info("Setting up event handlers for Pod Controller")
@@ -204,20 +210,38 @@ func (c *PodController) syncHandler(key string) error {
 		return err
 	}
 
-	// pod status values: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+	// get the Node for this Pod
+	nodeName := pod.Spec.NodeName
 
-	// pod exists, let's update status if it has changed
-	shared.UpsertGameServerEntity(&shared.GameServerEntity{
+	ip, err := c.getPublicIPForNode(nodeName)
+
+	if err != nil {
+		log.Print(err.Error())
+		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
+		return err
+	}
+
+	tableEntity := &shared.GameServerEntity{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
 		Status:    string(pod.Status.Phase),
-	})
+		PublicIP:  ip,
+	}
+
+	if tableEntity.Status == shared.PendingState {
+		tableEntity.ActiveSessions = "0"
+	}
+
+	// pod status values: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+	// pod exists, let's update status
+	shared.UpsertGameServerEntity(tableEntity)
 
 	// also update CRD
 	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(pod.Name, metav1.GetOptions{})
 	if err != nil {
 		log.Print(err.Error())
 		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the DedicatedGameServer", err.Error())
+		return err
 	}
 	dgsCopy := dgs.DeepCopy()
 	dgsCopy.Status = dgstypes.DedicatedGameServerStatus{State: string(pod.Status.Phase)}
@@ -226,6 +250,7 @@ func (c *PodController) syncHandler(key string) error {
 	if err != nil {
 		log.Print(err.Error())
 		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in updating the DedicatedGameServer", err.Error())
+		return err
 	}
 
 	c.recorder.Event(pod, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "Pod", pod.Name))
@@ -249,7 +274,7 @@ func (c *PodController) handlePod(obj interface{}) {
 		log.Infof("Recovered deleted Pod object '%s' from tombstone", object.GetName())
 	}
 
-	pod := obj.(*corev1.Pod)
+	pod := object.(*corev1.Pod)
 	if !podBelongsToDedicatedGameServer(pod) {
 		log.Printf("Ignoring non-DedicatedGameServer pod %s", pod.Name)
 		return
@@ -277,5 +302,20 @@ func (c *PodController) Workqueue() workqueue.RateLimitingInterface {
 }
 
 func (c *PodController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.podListerSynced, c.dgsListerSynced}
+	return []cache.InformerSynced{c.podListerSynced, c.dgsListerSynced, c.nodeListerSynced}
+}
+
+func (c *PodController) getPublicIPForNode(nodeName string) (string, error) {
+	node, err := c.nodeLister.Get(nodeName)
+	if err != nil {
+		return "", err
+	}
+
+	for _, x := range node.Status.Addresses {
+		if x.Type == corev1.NodeExternalIP {
+			return x.Address, nil
+		}
+	}
+
+	return "", fmt.Errorf("node with name %s does not have a Public IP", nodeName)
 }

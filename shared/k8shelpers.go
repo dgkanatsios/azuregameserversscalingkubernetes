@@ -10,6 +10,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32) *dgsv1alpha1.DedicatedGameServerCollection {
+	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{"collection": name},
+		},
+		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
+			Image:    image,
+			Replicas: replicas,
+			StartMap: startmap,
+		},
+	}
+	return dedicatedgameservercollection
+}
+
 func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, port int, setSessionsURL string, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{

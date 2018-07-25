@@ -5,12 +5,12 @@ RUN apk add --no-cache git
 WORKDIR /build
 COPY . .
 RUN cd cmd/controller && go get -d -v 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/controller
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o controller ./cmd/controller
 
 #final stage
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
-COPY --from=builder /build/app .
-CMD ["./app"]
-LABEL Name=docker_openarena_k8s_controller Version=0.0.2
+COPY --from=builder /build/controller .
+CMD ["./controller"]
+LABEL Name=docker_openarena_k8s_controller

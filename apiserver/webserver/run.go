@@ -31,6 +31,7 @@ func Run(startmap_, dockerImage_ string, port_ int) error {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
+	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
 	router.HandleFunc("/running", getRunningDGSHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/setsessions", setActiveSessionsHandler).Methods("POST")
@@ -57,6 +58,23 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("createcollection was called")
+
+	if !helpers.IsAPICallAuthorized(w, r) {
+		return
+	}
+
+	colname, err := createDedicatedGameServerCollectionCRD()
+
+	if err != nil {
+		log.Printf("error encountered: %s", err.Error())
+		w.Write([]byte(fmt.Sprintf("Error %s encountered", err.Error())))
+	} else {
+		w.Write([]byte("DedicatedGameServerCollection " + colname + " was created"))
+	}
+}
+
 func createDedicatedGameServerCRD() (string, error) {
 	name := "openarena-" + shared.RandString(6)
 
@@ -78,9 +96,29 @@ func createDedicatedGameServerCRD() (string, error) {
 	dgsInstance, err := helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(helpers.Namespace).Create(dgs)
 
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return dgsInstance.ObjectMeta.Name, nil
+
+}
+
+func createDedicatedGameServerCollectionCRD() (string, error) {
+	name := "openarenacollection-" + shared.RandString(6)
+
+	log.Println("Creating DedicatedGameServerCollection...")
+
+	if helpers.SetSessionsURL == "" {
+		helpers.InitializeSetSessionsURL()
+	}
+
+	dgsCol := shared.NewDedicatedGameServerCollection(name, startmap, dockerImage, 5)
+
+	dgsColInstance, err := helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServerCollections(helpers.Namespace).Create(dgsCol)
+
+	if err != nil {
+		return "", err
+	}
+	return dgsColInstance.ObjectMeta.Name, nil
 
 }
 

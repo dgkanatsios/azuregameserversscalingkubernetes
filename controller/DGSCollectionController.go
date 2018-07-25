@@ -195,7 +195,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		return err
 	}
 
-	// Find out how many DedicatedGameServerReplicas exist for this DedicatedGameServerCollection
+	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
 
 	set := labels.Set{
 		labelDGSCol: dgsCol.Name,
@@ -210,7 +210,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 	dgsExistingCount := len(dgsExisting)
 
-	// if there are less DGS than the ones we requested
+	// if there are less DedicatedGameServers than the ones we requested
 	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
 		for i := 0; i < int(dgsCol.Spec.Replicas)-dgsExistingCount; i++ {
 
@@ -219,7 +219,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				return errPort
 			}
 
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), port, "sessionUrlexample", dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), port, "TOSET:sessionUrlexample", dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -250,7 +250,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			}
 		}
 
-		// we now have to update the available replicas
+		// we now have to update the DedicatedGameServerCollection instance with the new number of available replicas
 		dgsColCopy, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			log.Error(err.Error())

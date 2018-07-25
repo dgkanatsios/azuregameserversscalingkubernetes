@@ -153,6 +153,22 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 	return result.Entities, err
 }
 
+// GetEntitiesMarkedForDeletionWithZeroSessions returns all entities in the marked for deletion state with 0 active sessions
+func GetEntitiesMarkedForDeletionWithZeroSessions() ([]*storage.Entity, error) {
+	storageclient := GetStorageClient()
+
+	tableservice := storageclient.GetTableService()
+
+	table := tableservice.GetTableReference(GameServersTableName)
+	table.Create(Timeout, storage.MinimalMetadata, nil)
+
+	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
+		Filter: fmt.Sprintf("Status eq '%s' and ActiveSessions eq '0'", MarkedForDeletionState),
+	})
+
+	return result.Entities, err
+}
+
 // DeletePort deletes Port table entity. Will suppress 404 errors
 func DeletePort(port int) error {
 	storageclient := GetStorageClient()

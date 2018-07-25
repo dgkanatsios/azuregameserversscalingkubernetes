@@ -70,8 +70,6 @@ func UpsertGameServerEntity(pod *GameServerEntity) error {
 		props["Status"] = pod.Status
 	}
 
-	fmt.Println("port lala" + pod.Port)
-
 	if pod.Port != "" {
 		props["Port"] = pod.Port
 	}
@@ -150,7 +148,11 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 		Filter: "Status eq 'Running'",
 	})
 
-	return result.Entities, err
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Entities, nil
 }
 
 // GetEntitiesMarkedForDeletionWithZeroSessions returns all entities in the marked for deletion state with 0 active sessions
@@ -166,7 +168,11 @@ func GetEntitiesMarkedForDeletionWithZeroSessions() ([]*storage.Entity, error) {
 		Filter: fmt.Sprintf("Status eq '%s' and ActiveSessions eq '0'", MarkedForDeletionState),
 	})
 
-	return result.Entities, err
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Entities, nil
 }
 
 // DeletePort deletes Port table entity. Will suppress 404 errors

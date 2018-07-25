@@ -13,6 +13,7 @@ import (
 func Run(d time.Duration) {
 	log.Println("Starting Garbage Collector")
 	for {
+
 		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero sessions
 		entities, err := shared.GetEntitiesMarkedForDeletionWithZeroSessions()
 

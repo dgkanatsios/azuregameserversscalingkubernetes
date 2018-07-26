@@ -8,7 +8,7 @@ const (
 )
 
 const (
-	GameNamespace = "game"
+	GameNamespace = "default"
 	// PortsTableName contains the ports
 	PortsTableName = "ports"
 	// GameServersTableName is the name for the Azure Storage Table

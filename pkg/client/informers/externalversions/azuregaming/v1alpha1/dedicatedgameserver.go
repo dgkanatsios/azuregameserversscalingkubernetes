@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	time "time"
 
-	azuregaming_v1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	azuregamingv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	versioned "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
@@ -70,7 +70,7 @@ func NewFilteredDedicatedGameServerInformer(client versioned.Interface, namespac
 				return client.AzuregamingV1alpha1().DedicatedGameServers(namespace).Watch(options)
 			},
 		},
-		&azuregaming_v1alpha1.DedicatedGameServer{},
+		&azuregamingv1alpha1.DedicatedGameServer{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *dedicatedGameServerInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *dedicatedGameServerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&azuregaming_v1alpha1.DedicatedGameServer{}, f.defaultInformer)
+	return f.factory.InformerFor(&azuregamingv1alpha1.DedicatedGameServer{}, f.defaultInformer)
 }
 
 func (f *dedicatedGameServerInformer) Lister() v1alpha1.DedicatedGameServerLister {

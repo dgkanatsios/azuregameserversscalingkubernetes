@@ -1,5 +1,7 @@
 package shared
 
+const GameDockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.2"
+
 const (
 	setActivePlayersURLPrefix = "http://docker-openarena-k8s-apiserver/setactiveplayers?code="
 	setServerStatusURLPrefix  = "http://docker-openarena-k8s-apiserver/setserverstatus?code="

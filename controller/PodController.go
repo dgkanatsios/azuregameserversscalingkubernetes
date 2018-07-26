@@ -168,7 +168,7 @@ func podBelongsToDedicatedGameServer(pod *corev1.Pod) bool {
 	podLabels := pod.ObjectMeta.Labels
 
 	for labelKey := range podLabels {
-		if labelKey == "DedicatedGameServer" {
+		if labelKey == shared.DedicatedGameServerLabel {
 			return true
 		}
 	}
@@ -224,7 +224,7 @@ func (c *PodController) syncHandler(key string) error {
 	tableEntity := &shared.GameServerEntity{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
-		Status:    string(pod.Status.Phase),
+		PodStatus: string(pod.Status.Phase),
 		PublicIP:  ip,
 	}
 

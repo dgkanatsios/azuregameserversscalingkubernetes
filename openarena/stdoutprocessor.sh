@@ -7,6 +7,16 @@ do
  
     echo $line
     
+
+    #this is the server initialization
+    init=$(echo $line | grep '------- Game Initialization -------' | wc -l)
+    if [ $init -eq 1 ]
+    then
+        echo "About to send data for server status: {\"serverName\":\"$SERVER_NAME\", \"status\":\"Running\", \"podNamespace\": \"$POD_NAMESPACE\"}"
+        #wget -O- --post-data="[{\"resourceGroup\":\"$RESOURCE_GROUP\", \"containerGroupName\":\"$CONTAINER_GROUP_NAME\", \"activePlayers\":$connected}]" --header=Content-Type:application/json "$SET_ACTIVE_PLAYERS_URL"
+        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"status\":\"Running\", \"podNamespace\": \"$POD_NAMESPACE\"}" --header=Content-Type:application/json "$SET_SERVER_STATUS_URL"
+    fi
+
     #client connection
     x=$(echo $line | grep 'ClientBegin:' | wc -l)
     toAdd=0
@@ -37,14 +47,9 @@ do
         connected=$(($connected+$toAdd))
         echo $connected > /tmp/connected
 
-        #following are specified on Docker image creation
-        #SET_SESSIONS_URL=https://acimanagement.azurewebsites.net/api/ACISetSessions?code=<KEY>
-        #RESOURCE_GROUP='openarena'
-        #CONTAINER_GROUP_NAME='openarenarver1'
-
-        echo "About to send data: {\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}"
-        #wget -O- --post-data="[{\"resourceGroup\":\"$RESOURCE_GROUP\", \"containerGroupName\":\"$CONTAINER_GROUP_NAME\", \"activeSessions\":$connected}]" --header=Content-Type:application/json "$SET_SESSIONS_URL"
-        wget -O- --post-data="{\"name\":\"$SERVER_NAME\", \"activeSessions\":$connected}" --header=Content-Type:application/json "$SET_SESSIONS_URL"
+        echo "About to send data for active players: {\"serverName\":\"$SERVER_NAME\", \"playerCount\":$connected, \"podNamespace\": \"$POD_NAMESPACE\"}"
+        #wget -O- --post-data="[{\"resourceGroup\":\"$RESOURCE_GROUP\", \"containerGroupName\":\"$CONTAINER_GROUP_NAME\", \"activePlayers\":$connected}]" --header=Content-Type:application/json "$SET_ACTIVE_PLAYERS_URL"
+        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"playerCount\":$connected, \"podNamespace\": \"$POD_NAMESPACE\"}" --header=Content-Type:application/json "$SET_ACTIVE_PLAYERS_URL"
 
     fi 
 done

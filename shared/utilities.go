@@ -41,7 +41,7 @@ func GetRandomPort() (int, error) {
 	//get a random port
 	port = GetRandomInt(MinPort, MaxPort)
 	for {
-		result, err := CreatePort(port)
+		result, err := CreatePortEntity(port)
 
 		if err != nil {
 			return 0, err

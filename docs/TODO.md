@@ -11,5 +11,5 @@ This document contains open questions and goals regarding the development of thi
 - Can the user arbitrarily delete DedicatedGameServers that are members of a DedicatedGameServerCollection?
 - Should we use hostPort? hostNetwork?
 - Multiple ports per game server?
-- setSessionsURL?
+- setActivePlayersURL?
 - Image updates - how?

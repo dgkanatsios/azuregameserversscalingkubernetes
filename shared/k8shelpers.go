@@ -14,7 +14,7 @@ func NewDedicatedGameServerCollection(name string, startmap string, image string
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
-			Labels: map[string]string{"collection": name},
+			Labels: map[string]string{DedicatedGameServerCollectionNameLabel: name},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
 			Image:    image,
@@ -25,11 +25,11 @@ func NewDedicatedGameServerCollection(name string, startmap string, image string
 	return dedicatedgameservercollection
 }
 
-func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, port int, setSessionsURL string, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
+func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, port int, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
-			Labels: map[string]string{"server": name, "dgsCol": dgsCol.Name},
+			Labels: map[string]string{ServerNameLabel: name, DedicatedGameServerCollectionNameLabel: dgsCol.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgsCol, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -48,11 +48,12 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 }
 
 // NewPod returns a Kubernetes Pod struct
-func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setSessionsURL string) *core.Pod {
+// It also sets a label called "DedicatedGameServer" with the value of the corresponding DedicatedGameServer resource
+func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, setServerStatusURL string) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   dgs.Name,
-			Labels: map[string]string{"DedicatedGameServer": dgs.Name},
+			Labels: map[string]string{DedicatedGameServerLabel: dgs.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -109,8 +110,20 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setSessionsURL string) *core.P
 							Value: dgs.Name,
 						},
 						{
-							Name:  "SET_SESSIONS_URL",
-							Value: setSessionsURL,
+							Name:  "SET_ACTIVE_PLAYERS_URL",
+							Value: setActivePlayersURL,
+						},
+						{
+							Name:  "SET_SERVER_STATUS_URL",
+							Value: setServerStatusURL,
+						},
+						{
+							Name: "POD_NAMESPACE",
+							ValueFrom: &core.EnvVarSource{
+								FieldRef: &core.ObjectFieldSelector{
+									FieldPath: "metadata.namespace",
+								},
+							},
 						},
 					},
 					VolumeMounts: []core.VolumeMount{

@@ -1,6 +1,12 @@
 package shared
 
 const (
+	setActivePlayersURLPrefix = "http://docker-openarena-k8s-apiserver/setactiveplayers?code="
+	setServerStatusURLPrefix  = "http://docker-openarena-k8s-apiserver/setserverstatus?code="
+)
+
+const (
+	GameNamespace = "game"
 	// PortsTableName contains the ports
 	PortsTableName = "ports"
 	// GameServersTableName is the name for the Azure Storage Table
@@ -12,9 +18,21 @@ const (
 	// MaxPort is maximum Port Number
 	MaxPort = 30000
 	// TerminatingState = "Terminating"
-	TerminatingState       = "Terminating"
-	PendingState           = "Pending"
-	MarkedForDeletionState = "MarkedForDeletion"
+	TerminatingState = "Terminating"
+	PendingState     = "Pending"
+	RunningState     = "Running"
+)
+
+const (
+	DedicatedGameServerLabel               = "DedicatedGameServer"
+	ServerNameLabel                        = "ServerName"
+	DedicatedGameServerCollectionNameLabel = "DedicatedGameServerCollectionName"
+)
+
+const (
+	GameServerStatusCreating          = "Creting"
+	GameServerStatusRunning           = "Running"
+	GameServerStatusMarkedForDeletion = "MarkedForDeletion"
 )
 
 const (

@@ -26,7 +26,6 @@ import (
 )
 
 const dgsControllerAgentName = "dedigated-game-server-controller"
-const setSessionsURL = "lala"
 
 type DedicatedGameServerController struct {
 	dgsColClient       dgsv1alpha1.DedicatedGameServerCollectionsGetter
@@ -221,7 +220,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	if err != nil {
 		// if pod does not exist
 		if errors.IsNotFound(err) {
-			pod := shared.NewPod(dgs, setSessionsURL)
+			pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 			// we'll create it
 			createdPod, err2 := c.podClient.Pods(namespace).Create(pod)
 
@@ -230,11 +229,12 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			}
 			// and notify table storage accordingly
 			err2 = shared.UpsertGameServerEntity(&shared.GameServerEntity{
-				Name:      createdPod.Name,
-				Namespace: createdPod.Namespace,
-				NodeName:  createdPod.Spec.NodeName,
-				Port:      strconv.Itoa(dgs.Spec.Port),
-				ActiveSessions: "0",
+				Name:             createdPod.Name,
+				Namespace:        createdPod.Namespace,
+				NodeName:         createdPod.Spec.NodeName,
+				Port:             strconv.Itoa(dgs.Spec.Port),
+				ActivePlayers:    "0",
+				GameServerStatus: shared.GameServerStatusCreating,
 			})
 
 			if err2 != nil {
@@ -260,9 +260,9 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 		// if current state is Running, then we have a new running DedicatedGameServer
 		// else, we lost one
-		if dgs.Status.State == "Running" {
+		if dgs.Status.State == shared.RunningState {
 			dgsColCopy.Status.AvailableReplicas++
-		} else if dgs.Status.PreviousState == "Running" {
+		} else if dgs.Status.PreviousState == shared.RunningState {
 			dgsColCopy.Status.AvailableReplicas--
 		}
 

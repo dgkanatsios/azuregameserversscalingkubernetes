@@ -13,16 +13,17 @@ import (
 
 // GameServerEntity represents a pod
 type GameServerEntity struct {
-	Name           string
-	Namespace      string
-	PublicIP       string
-	NodeName       string
-	Status         string
-	Port           string
-	ActiveSessions string
+	Name             string
+	Namespace        string
+	PublicIP         string
+	NodeName         string
+	PodStatus        string
+	Port             string
+	ActivePlayers    string
+	GameServerStatus string
 }
 
-func CreatePort(port int) (bool, error) {
+func CreatePortEntity(port int) (bool, error) {
 	storageclient := GetStorageClient()
 	tableservice := storageclient.GetTableService()
 	table := tableservice.GetTableReference(PortsTableName)
@@ -66,16 +67,16 @@ func UpsertGameServerEntity(pod *GameServerEntity) error {
 		props["NodeName"] = pod.NodeName
 	}
 
-	if pod.Status != "" {
-		props["Status"] = pod.Status
+	if pod.PodStatus != "" {
+		props["Status"] = pod.PodStatus
 	}
 
 	if pod.Port != "" {
 		props["Port"] = pod.Port
 	}
 
-	if pod.ActiveSessions != "" {
-		props["ActiveSessions"] = pod.ActiveSessions
+	if pod.ActivePlayers != "" {
+		props["ActivePlayers"] = pod.ActivePlayers
 	}
 
 	entity.Properties = props
@@ -115,16 +116,18 @@ func DeleteDedicatedGameServerEntity(namespace, name string) error {
 		return err
 	}
 
-	port, errAtoi := strconv.Atoi(entity.Properties["Port"].(string))
+	if entity.Properties["Port"] != nil {
+		port, errAtoi := strconv.Atoi(entity.Properties["Port"].(string))
 
-	if errAtoi != nil {
-		return err
-	}
+		if errAtoi != nil {
+			return err
+		}
 
-	errDeletePort := DeletePort(port)
+		errDeletePort := DeletePortEntity(port)
 
-	if errDeletePort != nil {
-		return errDeletePort
+		if errDeletePort != nil {
+			return errDeletePort
+		}
 	}
 
 	errDelete := entity.Delete(true, nil)
@@ -145,7 +148,7 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: "Status eq 'Running'",
+		Filter: "Status eq 'Running' and MarkedForDeletion eq true",
 	})
 
 	if err != nil {
@@ -155,8 +158,8 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 	return result.Entities, nil
 }
 
-// GetEntitiesMarkedForDeletionWithZeroSessions returns all entities in the marked for deletion state with 0 active sessions
-func GetEntitiesMarkedForDeletionWithZeroSessions() ([]*storage.Entity, error) {
+// GetEntitiesMarkedForDeletionWithZeroPlayers returns all entities marked for deletion with 0 active players
+func GetEntitiesMarkedForDeletionWithZeroPlayers() ([]*storage.Entity, error) {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -165,7 +168,7 @@ func GetEntitiesMarkedForDeletionWithZeroSessions() ([]*storage.Entity, error) {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: fmt.Sprintf("Status eq '%s' and ActiveSessions eq '0'", MarkedForDeletionState),
+		Filter: fmt.Sprintf("MarkedForDeletion eq true and ActivePlayers eq '0'"),
 	})
 
 	if err != nil {
@@ -175,8 +178,8 @@ func GetEntitiesMarkedForDeletionWithZeroSessions() ([]*storage.Entity, error) {
 	return result.Entities, nil
 }
 
-// DeletePort deletes Port table entity. Will suppress 404 errors
-func DeletePort(port int) error {
+// DeletePortEntity deletes Port table entity. Will suppress 404 errors
+func DeletePortEntity(port int) error {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()

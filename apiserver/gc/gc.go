@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"time"
 
-	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	log "github.com/sirupsen/logrus"
 )
 
-// Run starts Garbage Collector, it will check for MarkedForDeletion and 0 sessions every 'd' Duration
+// Run starts Garbage Collector, it will check for MarkedForDeletion and 0 players every 'd' Duration
 func Run(d time.Duration) {
 	log.Println("Starting Garbage Collector")
 	for {
 
-		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero sessions
-		entities, err := shared.GetEntitiesMarkedForDeletionWithZeroSessions()
+		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero players
+		entities, err := shared.GetEntitiesMarkedForDeletionWithZeroPlayers()
 
 		if err != nil {
 			// we should probably examine the error and exit if fatal
@@ -24,7 +23,7 @@ func Run(d time.Duration) {
 		}
 
 		for _, entity := range entities {
-			err = helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.PartitionKey).Delete(entity.RowKey, nil)
+			err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.PartitionKey).Delete(entity.RowKey, nil)
 			if err != nil {
 				msg := fmt.Sprintf("cannot delete DedicatedGameServer due to %s", err.Error())
 				log.Print(msg)

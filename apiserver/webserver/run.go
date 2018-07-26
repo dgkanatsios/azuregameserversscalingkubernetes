@@ -8,14 +8,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	"github.com/gorilla/mux"
 
 	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
+	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 )
 
-var podsClient = helpers.Clientset.Core().Pods(helpers.Namespace)
-var endpointsClient = helpers.Clientset.Core().Endpoints(helpers.Namespace)
+var podsClient = shared.Clientset.Core().Pods(shared.GameNamespace)
+var endpointsClient = shared.Clientset.Core().Endpoints(shared.GameNamespace)
 
 var (
 	startmap    string
@@ -34,7 +34,8 @@ func Run(startmap_, dockerImage_ string, port_ int) error {
 	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
 	router.HandleFunc("/running", getRunningDGSHandler).Queries("code", "{code}").Methods("GET")
-	router.HandleFunc("/setsessions", setActiveSessionsHandler).Methods("POST")
+	router.HandleFunc("/setactiveplayers", setActivePlayersHandler).Methods("POST")
+	router.HandleFunc("/setserverstatus", setServerStatusHandler).Methods("POST")
 
 	log.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
 
@@ -48,7 +49,7 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	podname, err := createDedicatedGameServerCRD()
+	podname, err := helpers.CreateDedicatedGameServerCRD(startmap, dockerImage)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -65,7 +66,7 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	colname, err := createDedicatedGameServerCollectionCRD()
+	colname, err := helpers.CreateDedicatedGameServerCollectionCRD(startmap, dockerImage)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -73,53 +74,6 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Write([]byte("DedicatedGameServerCollection " + colname + " was created"))
 	}
-}
-
-func createDedicatedGameServerCRD() (string, error) {
-	name := "openarena-" + shared.RandString(6)
-
-	//get a random port
-	port, err := shared.GetRandomPort()
-
-	if err != nil {
-		return "", err
-	}
-
-	log.Println("Creating DedicatedGameServer...")
-
-	if helpers.SetSessionsURL == "" {
-		helpers.InitializeSetSessionsURL()
-	}
-
-	dgs := shared.NewDedicatedGameServer(nil, name, port, helpers.SetSessionsURL, startmap, dockerImage)
-
-	dgsInstance, err := helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(helpers.Namespace).Create(dgs)
-
-	if err != nil {
-		return "", err
-	}
-	return dgsInstance.ObjectMeta.Name, nil
-
-}
-
-func createDedicatedGameServerCollectionCRD() (string, error) {
-	name := "openarenacollection-" + shared.RandString(6)
-
-	log.Println("Creating DedicatedGameServerCollection...")
-
-	if helpers.SetSessionsURL == "" {
-		helpers.InitializeSetSessionsURL()
-	}
-
-	dgsCol := shared.NewDedicatedGameServerCollection(name, startmap, dockerImage, 5)
-
-	dgsColInstance, err := helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServerCollections(helpers.Namespace).Create(dgsCol)
-
-	if err != nil {
-		return "", err
-	}
-	return dgsColInstance.ObjectMeta.Name, nil
-
 }
 
 func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +85,7 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 
 	var err error
-	err = helpers.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(helpers.Namespace).Delete(name, nil)
+	err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Delete(name, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
 		log.Print(msg)
@@ -155,19 +109,67 @@ func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func setActiveSessionsHandler(w http.ResponseWriter, r *http.Request) {
+func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 	if !helpers.IsAPICallAuthorized(w, r) {
 		return
 	}
 
-	var serverSessions helpers.ServerSessions
-	err := json.NewDecoder(r.Body).Decode(&serverSessions)
+	var serverActivePlayers shared.ServerActivePlayers
+	err := json.NewDecoder(r.Body).Decode(&serverActivePlayers)
 
 	if err != nil {
 		w.WriteHeader(500)
-		w.Write([]byte("Error setting sessions: " + err.Error()))
+		w.Write([]byte("Error setting Active Players: " + err.Error()))
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Set sessions OK for pod: %s\n", serverSessions.Name)))
+	err = shared.UpsertGameServerEntity(&shared.GameServerEntity{
+		Name:          serverActivePlayers.ServerName,
+		Namespace:     serverActivePlayers.PodNamespace,
+		ActivePlayers: strconv.Itoa(serverActivePlayers.PlayerCount),
+	})
+
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error setting Active Players: " + err.Error()))
+		return
+	}
+
+	w.Write([]byte(fmt.Sprintf("Set active players OK for server: %s\n", serverActivePlayers.ServerName)))
+}
+
+func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if !helpers.IsAPICallAuthorized(w, r) {
+		return
+	}
+
+	var serverStatus shared.ServerStatus
+	err := json.NewDecoder(r.Body).Decode(&serverStatus)
+
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error setting ServerStatus: " + err.Error()))
+		return
+	}
+
+	status := serverStatus.Status
+	if status != shared.GameServerStatusCreating && status != shared.GameServerStatusMarkedForDeletion && status != shared.GameServerStatusRunning {
+		w.WriteHeader(400)
+		w.Write([]byte("Wrong value for serverStatus"))
+		return
+	}
+
+	err = shared.UpsertGameServerEntity(&shared.GameServerEntity{
+		Name:             serverStatus.ServerName,
+		Namespace:        serverStatus.PodNamespace,
+		GameServerStatus: serverStatus.Status,
+	})
+
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error setting ServerStatus: " + err.Error()))
+		return
+	}
+
+	w.Write([]byte(fmt.Sprintf("Set server status OK for server: %s\n", serverStatus.ServerName)))
 }

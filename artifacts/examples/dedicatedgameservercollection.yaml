@@ -6,3 +6,4 @@ spec:
   image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.1
   replicas: 5
   startmap: dm4ish
+  

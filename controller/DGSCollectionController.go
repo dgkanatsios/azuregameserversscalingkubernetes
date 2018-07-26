@@ -33,7 +33,6 @@ import (
 
 const (
 	dgsColControllerAgentName = "dedigated-game-server-collection-controller"
-	labelDGSCol               = "dgsCol"
 )
 
 type DedicatedGameServerCollectionController struct {
@@ -198,7 +197,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
 
 	set := labels.Set{
-		labelDGSCol: dgsCol.Name,
+		shared.DedicatedGameServerCollectionNameLabel: dgsCol.Name,
 	}
 
 	selector := labels.SelectorFromSet(set)
@@ -219,7 +218,9 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				return errPort
 			}
 
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), port, "TOSET:sessionUrlexample", dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			// each dedicated game server will have a name of
+			// "DedicatedGameServerCollectioName" + "-" + random name
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), port, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -243,7 +244,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			// update the DGS so it has no owners
 			dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
 			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
-			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, labelDGSCol)
+			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.DedicatedGameServerCollectionNameLabel)
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionCopy)
 			if err != nil {
 				log.Error(err.Error())
@@ -252,9 +253,9 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 			// update the entry on Table Storage so the dgs will be deleted by the Garbage Collector eventually
 			shared.UpsertGameServerEntity(&shared.GameServerEntity{
-				Name:      dgsExisting[indexesToDecrease[i]].Name,
-				Namespace: dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
-				Status:    shared.MarkedForDeletionState,
+				Name:             dgsExisting[indexesToDecrease[i]].Name,
+				Namespace:        dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
+				GameServerStatus: shared.GameServerStatusMarkedForDeletion,
 			})
 
 		}

@@ -32,8 +32,11 @@ metadata:
   labels:
     name: docker-openarena-k8s-apiserver
 spec:
+  selector:
+    matchLabels: 
+      name: docker-openarena-k8s-apiserver
   strategy:
-    type: Recreate
+    type: RollingUpdate
   replicas: 1
   template:
     metadata:
@@ -43,7 +46,7 @@ spec:
       serviceAccountName: azuregamingcontroller-sa
       containers:
       - name: docker-openarena-k8s-apiserver
-        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.1
+        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.3 
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME
@@ -67,6 +70,9 @@ metadata:
   labels:
     name: docker-openarena-k8s-controller
 spec:
+  selector:
+    matchLabels: 
+      name: docker-openarena-k8s-controller
   strategy:
     type: RollingUpdate
   replicas: 1
@@ -75,10 +81,22 @@ spec:
       labels:
         name: docker-openarena-k8s-controller
     spec:
+      serviceAccountName: azuregamingcontroller-sa
       containers:
       - name: docker-openarena-k8s-controller
-        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.1
+        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.3
         imagePullPolicy: Always
+        env:
+          - name: STORAGE_ACCOUNT_NAME
+            valueFrom:
+              secretKeyRef:
+                name: openarena-storage-secret
+                key: azurestorageaccountname
+          - name: STORAGE_ACCOUNT_KEY
+            valueFrom:
+              secretKeyRef:
+                name: openarena-storage-secret
+                key: azurestorageaccountkey        
 ---
 apiVersion: v1
 kind: Service

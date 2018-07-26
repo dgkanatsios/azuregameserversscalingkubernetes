@@ -9,7 +9,7 @@ do
     
 
     #this is the server initialization
-    init=$(echo $line | grep '------- Game Initialization -------' | wc -l)
+    init=$(echo $line | grep 'Opening IP socket' | wc -l)
     if [ $init -eq 1 ]
     then
         echo "About to send data for server status: {\"serverName\":\"$SERVER_NAME\", \"status\":\"Running\", \"podNamespace\": \"$POD_NAMESPACE\"}"

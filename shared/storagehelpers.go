@@ -148,7 +148,7 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: "Status eq 'Running' and MarkedForDeletion eq true",
+		Filter: "PodStatus eq 'Running' and GameServerStatus eq 'Running'",
 	})
 
 	if err != nil {
@@ -168,7 +168,7 @@ func GetEntitiesMarkedForDeletionWithZeroPlayers() ([]*storage.Entity, error) {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: fmt.Sprintf("MarkedForDeletion eq true and ActivePlayers eq '0'"),
+		Filter: fmt.Sprintf("GameServerStatus eq 'MarkedForDeletion' and ActivePlayers eq '0'"),
 	})
 
 	if err != nil {

@@ -46,6 +46,8 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
 
 	if !helpers.IsAPICallAuthorized(w, r) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
 		return
 	}
 
@@ -63,6 +65,8 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("createcollection was called")
 
 	if !helpers.IsAPICallAuthorized(w, r) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
 		return
 	}
 
@@ -79,6 +83,8 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !helpers.IsAPICallAuthorized(w, r) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
 		return
 	}
 
@@ -98,6 +104,8 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 
 func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
 	if !helpers.IsAPICallAuthorized(w, r) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
 		return
 	}
 
@@ -111,6 +119,8 @@ func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
 
 func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 	if !helpers.IsAPICallAuthorized(w, r) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
 		return
 	}
 
@@ -140,6 +150,8 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 
 func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if !helpers.IsAPICallAuthorized(w, r) {
+		w.WriteHeader(401)
+		w.Write([]byte("Unathorized"))
 		return
 	}
 

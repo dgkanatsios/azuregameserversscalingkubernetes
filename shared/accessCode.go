@@ -16,7 +16,7 @@ func AuthenticateWebServerCode(code string) bool {
 
 func getAccessCode() string {
 	if accesscode == "" { //if we haven't accessed the code
-		secret, err := secretsClient.Get("apiaccesscode", meta_v1.GetOptions{})
+		secret, err := secretsClient.Get(APIAccessCodeSecretName, meta_v1.GetOptions{})
 		if err != nil {
 			log.Fatalf("Cannot get API Server access code due to %s", err.Error())
 		}

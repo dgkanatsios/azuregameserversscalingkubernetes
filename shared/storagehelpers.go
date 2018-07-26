@@ -68,7 +68,7 @@ func UpsertGameServerEntity(pod *GameServerEntity) error {
 	}
 
 	if pod.PodStatus != "" {
-		props["Status"] = pod.PodStatus
+		props["PodStatus"] = pod.PodStatus
 	}
 
 	if pod.Port != "" {

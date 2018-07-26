@@ -46,7 +46,7 @@ spec:
       serviceAccountName: azuregamingcontroller-sa
       containers:
       - name: docker-openarena-k8s-apiserver
-        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.5
+        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.6
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME
@@ -84,7 +84,7 @@ spec:
       serviceAccountName: azuregamingcontroller-sa
       containers:
       - name: docker-openarena-k8s-controller
-        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.5
+        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.6
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME

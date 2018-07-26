@@ -13,6 +13,7 @@ import (
 
 // GameServerEntity represents a pod
 type GameServerEntity struct {
+	// don't forget to update UpsertGameEntity each time you add a field here
 	Name             string
 	Namespace        string
 	PublicIP         string
@@ -77,6 +78,10 @@ func UpsertGameServerEntity(pod *GameServerEntity) error {
 
 	if pod.ActivePlayers != "" {
 		props["ActivePlayers"] = pod.ActivePlayers
+	}
+
+	if pod.GameServerStatus != "" {
+		props["GameServerStatus"] = pod.GameServerStatus
 	}
 
 	entity.Properties = props

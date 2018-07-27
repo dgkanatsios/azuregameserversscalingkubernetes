@@ -17,17 +17,7 @@ import (
 var podsClient = shared.Clientset.Core().Pods(shared.GameNamespace)
 var endpointsClient = shared.Clientset.Core().Endpoints(shared.GameNamespace)
 
-var (
-	startmap    string
-	dockerImage string
-	port        int
-)
-
-func Run(startmap_, dockerImage_ string, port_ int) error {
-
-	startmap = startmap_
-	dockerImage = dockerImage_
-	port = port_
+func Run(port int) error {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
@@ -51,7 +41,16 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	podname, err := helpers.CreateDedicatedGameServerCRD(startmap, dockerImage)
+	var dgsInfo helpers.DedicatedGameServerInfo
+	err := json.NewDecoder(r.Body).Decode(&dgsInfo)
+
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("Incorrect arguments: " + err.Error()))
+		return
+	}
+
+	podname, err := helpers.CreateDedicatedGameServerCRD(dgsInfo)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -70,7 +69,16 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	colname, err := helpers.CreateDedicatedGameServerCollectionCRD(startmap, dockerImage)
+	var dgsColInfo helpers.DedicatedGameServerCollectionInfo
+	err := json.NewDecoder(r.Body).Decode(&dgsColInfo)
+
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte("Incorrect arguments: " + err.Error()))
+		return
+	}
+
+	colname, err := helpers.CreateDedicatedGameServerCollectionCRD(dgsColInfo)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -124,7 +132,7 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var serverActivePlayers shared.ServerActivePlayers
+	var serverActivePlayers helpers.ServerActivePlayers
 	err := json.NewDecoder(r.Body).Decode(&serverActivePlayers)
 
 	if err != nil {
@@ -155,7 +163,7 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var serverStatus shared.ServerStatus
+	var serverStatus helpers.ServerStatus
 	err := json.NewDecoder(r.Body).Decode(&serverStatus)
 
 	if err != nil {

@@ -1,8 +1,6 @@
 package shared
 
 import (
-	"strconv"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
@@ -10,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32) *dgsv1alpha1.DedicatedGameServerCollection {
+func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -20,12 +18,13 @@ func NewDedicatedGameServerCollection(name string, startmap string, image string
 			Image:    image,
 			Replicas: replicas,
 			StartMap: startmap,
+			Ports:    ports,
 		},
 	}
 	return dedicatedgameservercollection
 }
 
-func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, port int, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
+func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, ports []dgsv1alpha1.PortInfoExtended, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -40,7 +39,7 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
 			Image:    image,
-			Port:     port,
+			Ports:    ports,
 			StartMap: startmap,
 		},
 	}
@@ -65,15 +64,8 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 		Spec: core.PodSpec{
 			Containers: []core.Container{
 				{
-					Name:  "dedicatedgameserver",
+					Name:  "dedicatedgameserver-" + dgs.Name,
 					Image: dgs.Spec.Image,
-					Ports: []core.ContainerPort{
-						{
-							Name:          "port1",
-							Protocol:      core.ProtocolUDP,
-							ContainerPort: int32(dgs.Spec.Port),
-						},
-					},
 					Env: []core.EnvVar{
 						{
 							Name:  "OA_STARTMAP",
@@ -81,7 +73,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 						},
 						{
 							Name:  "OA_PORT",
-							Value: strconv.Itoa(int(dgs.Spec.Port)),
+							Value: "27960", //TODO: works only for openarena
 						},
 						{
 							Name: "STORAGE_ACCOUNT_NAME",
@@ -146,10 +138,24 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 					},
 				},
 			},
-			HostNetwork:   true,
 			DNSPolicy:     core.DNSClusterFirstWithHostNet, //https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 			RestartPolicy: core.RestartPolicyNever,
 		},
 	}
+
+	var ports []core.ContainerPort
+	for _, portInfo := range dgs.Spec.Ports {
+		ports = append(ports, core.ContainerPort{
+			Name:          portInfo.Name,
+			Protocol:      core.Protocol(portInfo.Protocol),
+			ContainerPort: portInfo.ContainerPort,
+			HostPort:      portInfo.HostPort,
+		})
+
+	}
+
+	// assign the ports
+	pod.Spec.Containers[0].Ports = ports
+
 	return pod
 }

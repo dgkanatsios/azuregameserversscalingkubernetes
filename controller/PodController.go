@@ -198,14 +198,17 @@ func (c *PodController) syncHandler(key string) error {
 
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Pod not found, already deleted
+			// Pod not found, already deleted from the cluster
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
+
 			// so, delete it from table storage
-			shared.DeleteDedicatedGameServerEntity(namespace, name)
+			// this will delete the associated pods as well
+			shared.DeleteDedicatedGameServerEntityAndPods(namespace, name)
 
 			return nil
 		}
-		log.Print(err.Error())
+
+		log.Printf("Error in pod listing: %s", err.Error())
 		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the Pod", err.Error())
 		return err
 	}

@@ -6,19 +6,24 @@ import (
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 )
 
-func CreateDedicatedGameServerCRD(startmap string, dockerImage string) (string, error) {
-	name := "openarena-" + shared.RandString(6)
+func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (string, error) {
 
-	//get a random port
-	port, err := shared.GetRandomPort()
-
-	if err != nil {
-		return "", err
+	if dgsInfo.Name == "" {
+		dgsInfo.Name = "gameserver-" + shared.RandString(6)
 	}
 
-	log.Printf("Creating DedicatedGameServer %s", name)
+	for _, portInfo := range dgsInfo.Ports {
+		//get a random port
+		hostport, err := shared.GetRandomPort()
+		if err != nil {
+			return "", err
+		}
+		portInfo.HostPort = int32(hostport)
+	}
 
-	dgs := shared.NewDedicatedGameServer(nil, name, port, startmap, dockerImage)
+	log.Printf("Creating DedicatedGameServer %s", dgsInfo.Name)
+
+	dgs := shared.NewDedicatedGameServer(nil, dgsInfo.Name, dgsInfo.Ports, dgsInfo.StartMap, dgsInfo.Image)
 
 	dgsInstance, err := shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Create(dgs)
 
@@ -29,12 +34,15 @@ func CreateDedicatedGameServerCRD(startmap string, dockerImage string) (string, 
 
 }
 
-func CreateDedicatedGameServerCollectionCRD(startmap string, dockerImage string) (string, error) {
-	name := "openarenacollection-" + shared.RandString(6)
+func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInfo) (string, error) {
 
-	log.Printf("Creating DedicatedGameServerCollection %s", name)
+	if dgs.Name == "" {
+		dgs.Name = "dgscollection-" + shared.RandString(6)
+	}
 
-	dgsCol := shared.NewDedicatedGameServerCollection(name, startmap, dockerImage, 5)
+	log.Printf("Creating DedicatedGameServerCollection %s", dgs.Name)
+
+	dgsCol := shared.NewDedicatedGameServerCollection(dgs.Name, dgs.StartMap, dgs.Image, dgs.Replicas, dgs.Ports)
 
 	dgsColInstance, err := shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServerCollections(shared.GameNamespace).Create(dgsCol)
 

@@ -28,4 +28,17 @@ spec:
               type: integer
               minimum: 1
               maximum: 100
+            Ports:
+              type: array
+              items:
+                type: object
+                properties:
+                  Name:
+                    type: string
+                    pattern: '^(?!\s*$).+' # non-empty string
+                  ContainerPort:
+                    type: integer
+                  Protocol:
+                    type: string
+                    pattern: /^(TCP|UDP)$/
   

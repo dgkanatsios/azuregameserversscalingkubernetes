@@ -1,12 +1,15 @@
 package shared
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
 	storage "github.com/Azure/azure-sdk-for-go/storage"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 )
 
 //good samples here: https://github.com/luigialves/sample-golang-with-azure-table-storage/blob/master/sample.go
@@ -14,31 +17,37 @@ import (
 // GameServerEntity represents a pod
 type GameServerEntity struct {
 	// don't forget to update UpsertGameEntity each time you add a field here
-	Name             string
-	Namespace        string
-	PublicIP         string
-	NodeName         string
-	PodStatus        string
-	Port             string
-	ActivePlayers    string
-	GameServerStatus string
+	Name                          string
+	Namespace                     string
+	PublicIP                      string
+	NodeName                      string
+	PodStatus                     string
+	Ports                         string
+	ActivePlayers                 string
+	GameServerStatus              string
+	DedicatedGameServerCollection string
 }
 
-func CreatePortEntity(port int) (bool, error) {
-	storageclient := GetStorageClient()
-	tableservice := storageclient.GetTableService()
-	table := tableservice.GetTableReference(PortsTableName)
-	table.Create(Timeout, storage.MinimalMetadata, nil)
-	stringPort := strconv.Itoa(port)
-	entity := table.GetEntityReference(stringPort, stringPort)
-	err := entity.Insert(storage.MinimalMetadata, nil)
+func GetPortInfoFromPortString(portsStr string) ([]dgsv1alpha1.PortInfoExtended, error) {
+	var ports []dgsv1alpha1.PortInfoExtended
+	err := json.Unmarshal([]byte(portsStr), &ports)
+
 	if err != nil {
-		if strings.Contains(err.Error(), "StatusCode=409") {
-			return false, nil
-		}
-		return false, err
+		return nil, err
 	}
-	return true, nil
+
+	return ports, nil
+}
+
+func (gs *GameServerEntity) SetPortsFromPortInfo(ports []dgsv1alpha1.PortInfoExtended) error {
+
+	b, err := json.Marshal(ports)
+	if err != nil {
+		return err
+	}
+
+	gs.Ports = string(b)
+	return nil
 }
 
 // UpsertGameServerEntity upserts entity
@@ -72,8 +81,8 @@ func UpsertGameServerEntity(pod *GameServerEntity) error {
 		props["PodStatus"] = pod.PodStatus
 	}
 
-	if pod.Port != "" {
-		props["Port"] = pod.Port
+	if pod.Ports != "" {
+		props["Ports"] = pod.Ports
 	}
 
 	if pod.ActivePlayers != "" {
@@ -82,6 +91,10 @@ func UpsertGameServerEntity(pod *GameServerEntity) error {
 
 	if pod.GameServerStatus != "" {
 		props["GameServerStatus"] = pod.GameServerStatus
+	}
+
+	if pod.DedicatedGameServerCollection != "" {
+		props["DedicatedGameServerCollection"] = pod.DedicatedGameServerCollection
 	}
 
 	entity.Properties = props
@@ -105,8 +118,8 @@ func GetEntity(namespace, name string) (*storage.Entity, error) {
 	return entity, err
 }
 
-// DeleteDedicatedGameServerEntity deletes DedicatedGameServer table entity. Will suppress 404 errors
-func DeleteDedicatedGameServerEntity(namespace, name string) error {
+// DeleteDedicatedGameServerEntityAndPods deletes DedicatedGameServer table entity. Will suppress 404 errors
+func DeleteDedicatedGameServerEntityAndPods(namespace, name string) error {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -121,17 +134,21 @@ func DeleteDedicatedGameServerEntity(namespace, name string) error {
 		return err
 	}
 
-	if entity.Properties["Port"] != nil {
-		port, errAtoi := strconv.Atoi(entity.Properties["Port"].(string))
+	if portsString, ok := entity.Properties["Ports"]; ok {
 
-		if errAtoi != nil {
-			return err
+		ports, errPorts := GetPortInfoFromPortString(portsString.(string))
+
+		if errPorts != nil {
+			//suppress and keep deleting
+			log.Printf("Cannot get portinfo from string %s due to %s", portsString.(string), errPorts)
 		}
 
-		errDeletePort := DeletePortEntity(port)
-
-		if errDeletePort != nil {
-			return errDeletePort
+		for _, portInfo := range ports {
+			errDeletePort := DeletePortEntity(portInfo.HostPort)
+			if errDeletePort != nil {
+				//suppress and keep deleting
+				log.Printf("Cannot delete port %d due to %s", portInfo.HostPort, errDeletePort)
+			}
 		}
 	}
 
@@ -153,7 +170,7 @@ func GetRunningEntities() ([]*storage.Entity, error) {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: "PodStatus eq 'Running' and GameServerStatus eq 'Running'",
+		Filter: fmt.Sprintf("PodStatus eq '%s' and GameServerStatus eq '%s'", "Running", GameServerStatusRunning),
 	})
 
 	if err != nil {
@@ -173,7 +190,7 @@ func GetEntitiesMarkedForDeletionWithZeroPlayers() ([]*storage.Entity, error) {
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
 	result, err := table.QueryEntities(Timeout, storage.MinimalMetadata, &storage.QueryOptions{
-		Filter: fmt.Sprintf("GameServerStatus eq 'MarkedForDeletion' and ActivePlayers eq '0'"),
+		Filter: fmt.Sprintf("GameServerStatus eq '%s' and ActivePlayers eq '0'", GameServerStatusMarkedForDeletion),
 	})
 
 	if err != nil {
@@ -183,8 +200,25 @@ func GetEntitiesMarkedForDeletionWithZeroPlayers() ([]*storage.Entity, error) {
 	return result.Entities, nil
 }
 
+func CreatePortEntity(port int) (bool, error) {
+	storageclient := GetStorageClient()
+	tableservice := storageclient.GetTableService()
+	table := tableservice.GetTableReference(PortsTableName)
+	table.Create(Timeout, storage.MinimalMetadata, nil)
+	stringPort := strconv.Itoa(port)
+	entity := table.GetEntityReference(stringPort, stringPort)
+	err := entity.Insert(storage.MinimalMetadata, nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "StatusCode=409") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // DeletePortEntity deletes Port table entity. Will suppress 404 errors
-func DeletePortEntity(port int) error {
+func DeletePortEntity(port int32) error {
 	storageclient := GetStorageClient()
 
 	tableservice := storageclient.GetTableService()
@@ -192,7 +226,7 @@ func DeletePortEntity(port int) error {
 	table := tableservice.GetTableReference(PortsTableName)
 	table.Create(Timeout, storage.MinimalMetadata, nil)
 
-	stringPort := strconv.Itoa(port)
+	stringPort := strconv.Itoa(int(port))
 
 	entity := table.GetEntityReference(stringPort, stringPort)
 

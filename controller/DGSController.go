@@ -2,12 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"strconv"
 
 	dgstypes "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
-	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
@@ -28,8 +27,8 @@ import (
 const dgsControllerAgentName = "dedigated-game-server-controller"
 
 type DedicatedGameServerController struct {
-	dgsColClient       dgsv1alpha1.DedicatedGameServerCollectionsGetter
-	dgsClient          dgsv1alpha1.DedicatedGameServersGetter
+	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
+	dgsClient          typeddgsv1alpha1.DedicatedGameServersGetter
 	podClient          typedcorev1.PodsGetter
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
 	dgsLister          listerdgs.DedicatedGameServerLister
@@ -212,9 +211,6 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		return err
 	}
 
-	// check the dedicated game server status
-	// if it's "Running", we need to increase
-
 	// Let's see if the corresponding pod exists
 	_, err = c.podLister.Pods(namespace).Get(name)
 	if err != nil {
@@ -227,15 +223,25 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			if err2 != nil {
 				return err2
 			}
+
 			// and notify table storage accordingly
-			err2 = shared.UpsertGameServerEntity(&shared.GameServerEntity{
+			entity := shared.GameServerEntity{
 				Name:             createdPod.Name,
 				Namespace:        createdPod.Namespace,
 				NodeName:         createdPod.Spec.NodeName,
-				Port:             strconv.Itoa(dgs.Spec.Port),
 				ActivePlayers:    "0",
 				GameServerStatus: shared.GameServerStatusCreating,
-			})
+			}
+
+			// if dedicated game server belongs to a collection, add this to the entity
+			if val, ok := dgs.Labels[shared.DedicatedGameServerCollectionNameLabel]; ok {
+				entity.DedicatedGameServerCollection = val
+			}
+
+			//serialize port info into game entity
+			entity.SetPortsFromPortInfo(dgs.Spec.Ports)
+
+			err2 = shared.UpsertGameServerEntity(&entity)
 
 			if err2 != nil {
 				return err2

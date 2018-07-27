@@ -31,9 +31,10 @@ type DedicatedGameServerCollectionSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Replicas int32  `json:"replicas"`
-	Image    string `json:"image"`
-	StartMap string `json:"startmap"`
+	Replicas int32      `json:"replicas"`
+	Image    string     `json:"image"`
+	StartMap string     `json:"startmap"`
+	Ports    []PortInfo `json:"ports"`
 }
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource

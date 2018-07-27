@@ -5,7 +5,7 @@ import (
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
-	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +27,7 @@ import (
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	apidgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,11 +36,11 @@ const (
 )
 
 type DedicatedGameServerCollectionController struct {
-	dgsColClient       dgsv1alpha1.DedicatedGameServerCollectionsGetter
+	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
 	dgsColListerSynced cache.InformerSynced
 
-	dgsClient       dgsv1alpha1.DedicatedGameServersGetter
+	dgsClient       typeddgsv1alpha1.DedicatedGameServersGetter
 	dgsLister       listerdgs.DedicatedGameServerLister
 	dgsListerSynced cache.InformerSynced
 
@@ -78,8 +78,8 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("DedicatedGameServerCollection controller - update")
-				oldDGSCol := oldObj.(*apidgsv1alpha1.DedicatedGameServerCollection)
-				newDGSCol := newObj.(*apidgsv1alpha1.DedicatedGameServerCollection)
+				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
+				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 
 				if oldDGSCol.ResourceVersion == newDGSCol.ResourceVersion {
 					return
@@ -199,7 +199,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	set := labels.Set{
 		shared.DedicatedGameServerCollectionNameLabel: dgsCol.Name,
 	}
-
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
 
@@ -211,16 +211,27 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 	// if there are less DedicatedGameServers than the ones we requested
 	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
-		for i := 0; i < int(dgsCol.Spec.Replicas)-dgsExistingCount; i++ {
+		//create them
+		increaseCount := int(dgsCol.Spec.Replicas) - dgsExistingCount
+		for i := 0; i < increaseCount; i++ {
+			//first, get random ports
+			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
+			for _, portInfo := range dgsCol.Spec.Ports {
+				//get a random port
+				hostport, errPort := shared.GetRandomPort()
+				if errPort != nil {
+					return errPort
+				}
 
-			port, errPort := shared.GetRandomPort()
-			if errPort != nil {
-				return errPort
+				portsInfoExtended = append(portsInfoExtended, dgsv1alpha1.PortInfoExtended{
+					PortInfo: portInfo,
+					HostPort: int32(hostport),
+				})
 			}
 
 			// each dedicated game server will have a name of
 			// "DedicatedGameServerCollectioName" + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), port, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -228,6 +239,9 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				return err
 			}
 		}
+
+		c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsCol.Name, increaseCount))
+
 	} else if dgsExistingCount > int(dgsCol.Spec.Replicas) { //if there are more DGS than the ones we requested
 		// we need to decrease our DGS for this collection
 		// to accomplish this, we'll first find the number of DGS we need to decrease
@@ -244,7 +258,9 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			// update the DGS so it has no owners
 			dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
 			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
+			//remove the DGSCol name from the DGS labels
 			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.DedicatedGameServerCollectionNameLabel)
+			//update the DGS CRD
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionCopy)
 			if err != nil {
 				log.Error(err.Error())
@@ -253,9 +269,10 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 			// update the entry on Table Storage so the dgs will be deleted by the Garbage Collector eventually
 			shared.UpsertGameServerEntity(&shared.GameServerEntity{
-				Name:             dgsExisting[indexesToDecrease[i]].Name,
-				Namespace:        dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
-				GameServerStatus: shared.GameServerStatusMarkedForDeletion,
+				Name:                          dgsExisting[indexesToDecrease[i]].Name,
+				Namespace:                     dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
+				GameServerStatus:              shared.GameServerStatusMarkedForDeletion,
+				DedicatedGameServerCollection: "",
 			})
 
 		}
@@ -275,6 +292,8 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot update DedicatedGameServerCollection for AvailableReplicas", err.Error())
 			return err
 		}
+
+		c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsCol.Name, decreaseCount))
 	}
 
 	c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServerCollection", dgsCol.Name))

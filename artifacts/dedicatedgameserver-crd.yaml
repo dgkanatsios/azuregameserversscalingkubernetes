@@ -24,8 +24,21 @@ spec:
             StartMap:
               type: string
               pattern: '^(?!\s*$).+'
-            Port:
-              type: integer
-              minimum: 20000
-              maximum: 30000
+            Ports:
+              type: array
+              items:
+                type: object
+                properties:
+                  ContainerPort:
+                    type: integer
+                  Protocol:
+                    type: string
+                    pattern: /^(TCP|UDP)$/
+                  Name:
+                    type: string
+                    pattern: '^(?!\s*$).+' # non-empty string
+                  HostPort:
+                    type: integer
+                    minimum: 20000
+                    maximum: 30000
   

@@ -33,7 +33,7 @@ const (
 )
 
 const (
-	GameServerStatusCreating          = "Creting"
+	GameServerStatusCreating          = "Creating"
 	GameServerStatusRunning           = "Running"
 	GameServerStatusMarkedForDeletion = "MarkedForDeletion"
 )
@@ -51,4 +51,9 @@ const (
 	// MessageResourceSynced is the message used for an Event fired when a resource
 	// is synced successfully
 	MessageResourceSynced = "%s with name %s synced successfully"
+
+	DedicatedGameServerReplicasChanged = "Dedicated Game Server Replicas Changed"
+
+	MessageReplicasDecreased = "%s with name %s decreased by %d replicas successfully"
+	MessageReplicasIncreased = "%s with name %s increased by %d replicas successfully"
 )

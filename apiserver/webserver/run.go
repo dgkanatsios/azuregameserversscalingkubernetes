@@ -8,14 +8,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/gorilla/mux"
-
 	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/gorilla/mux"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var podsClient = shared.Clientset.Core().Pods(shared.GameNamespace)
-var endpointsClient = shared.Clientset.Core().Endpoints(shared.GameNamespace)
+var dgsClient = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace)
 
 func Run(port int) error {
 
@@ -141,11 +141,17 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = shared.UpsertGameServerEntity(&shared.GameServerEntity{
-		Name:          serverActivePlayers.ServerName,
-		Namespace:     serverActivePlayers.PodNamespace,
-		ActivePlayers: strconv.Itoa(serverActivePlayers.PlayerCount),
-	})
+	dgs, err := dgsClient.Get(serverActivePlayers.ServerName, metav1.GetOptions{})
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error setting Active Players: " + err.Error()))
+		return
+	}
+
+	dgsCopy := dgs.DeepCopy()
+	dgsCopy.Spec.ActivePlayers = strconv.Itoa(serverActivePlayers.PlayerCount)
+
+	_, err = dgsClient.Update(dgsCopy)
 
 	if err != nil {
 		w.WriteHeader(500)
@@ -179,11 +185,17 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = shared.UpsertGameServerEntity(&shared.GameServerEntity{
-		Name:             serverStatus.ServerName,
-		Namespace:        serverStatus.PodNamespace,
-		GameServerStatus: serverStatus.Status,
-	})
+	dgs, err := dgsClient.Get(serverStatus.ServerName, metav1.GetOptions{})
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error setting ServerStatus: " + err.Error()))
+		return
+	}
+
+	dgsCopy := dgs.DeepCopy()
+	dgsCopy.Status.GameServerState = serverStatus.Status
+
+	_, err = dgsClient.Update(dgsCopy)
 
 	if err != nil {
 		w.WriteHeader(500)

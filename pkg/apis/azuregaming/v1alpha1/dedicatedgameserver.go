@@ -31,15 +31,19 @@ type DedicatedGameServerSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Image    string             `json:"image"`
-	StartMap string             `json:"startmap"`
-	Ports    []PortInfoExtended `json:"ports"`
+	Image         string             `json:"image"`
+	StartMap      string             `json:"startmap"`
+	Ports         []PortInfoExtended `json:"ports"`
+	PublicIP      string             `json:"publicIP"`
+	NodeName      string             `json:"nodeName"`
+	ActivePlayers string             `json:"activePlayers"`
 }
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource
 type DedicatedGameServerStatus struct {
-	State         string `json:"state"`
-	PreviousState string `json:"previousState"`
+	PreviousPodState string `json:"previousState"`
+	PodState         string `json:"podState"`
+	GameServerState  string `json:"gameServerState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

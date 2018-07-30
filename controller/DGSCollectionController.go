@@ -218,7 +218,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
 			for _, portInfo := range dgsCol.Spec.Ports {
 				//get a random port
-				hostport, errPort := shared.GetRandomPort()
+				hostport, errPort := shared.GetNewPort()
 				if errPort != nil {
 					return errPort
 				}
@@ -260,20 +260,14 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
 			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.DedicatedGameServerCollectionNameLabel)
+			//set its state as marked for deletion
+			dgsToMarkForDeletionCopy.Status.GameServerState = shared.GameServerStatusMarkedForDeletion
 			//update the DGS CRD
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionCopy)
 			if err != nil {
 				log.Error(err.Error())
 				return err
 			}
-
-			// update the entry on Table Storage so the dgs will be deleted by the Garbage Collector eventually
-			shared.UpsertGameServerEntity(&shared.GameServerEntity{
-				Name:                          dgsExisting[indexesToDecrease[i]].Name,
-				Namespace:                     dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
-				GameServerStatus:              shared.GameServerStatusMarkedForDeletion,
-				DedicatedGameServerCollection: "",
-			})
 
 		}
 

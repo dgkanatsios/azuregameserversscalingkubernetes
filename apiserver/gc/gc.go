@@ -1,35 +1,35 @@
-package gc
+// package gc
 
-import (
-	"fmt"
-	"time"
+// import (
+// 	"fmt"
+// 	"time"
 
-	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
-	log "github.com/sirupsen/logrus"
-)
+// 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+// 	log "github.com/sirupsen/logrus"
+// )
 
-// Run starts Garbage Collector, it will check for MarkedForDeletion and 0 players every 'd' Duration
-func Run(d time.Duration) {
-	log.Println("Starting Garbage Collector")
-	for {
+// // Run starts Garbage Collector, it will check for MarkedForDeletion and 0 players every 'd' Duration
+// func Run(d time.Duration) {
+// 	log.Println("Starting Garbage Collector")
+// 	for {
 
-		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero players
-		entities, err := shared.GetEntitiesMarkedForDeletionWithZeroPlayers()
+// 		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero players
+// 		entities, err := shared.GetEntitiesMarkedForDeletionWithZeroPlayers()
 
-		if err != nil {
-			// we should probably examine the error and exit if fatal
-			// just log it
-			log.Printf("error in GC: %s", err.Error())
-		}
+// 		if err != nil {
+// 			// we should probably examine the error and exit if fatal
+// 			// just log it
+// 			log.Printf("error in GC: %s", err.Error())
+// 		}
 
-		for _, entity := range entities {
-			err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.PartitionKey).Delete(entity.RowKey, nil)
-			if err != nil {
-				msg := fmt.Sprintf("cannot delete DedicatedGameServer due to %s", err.Error())
-				log.Print(msg)
-			}
-		}
+// 		for _, entity := range entities {
+// 			err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.PartitionKey).Delete(entity.RowKey, nil)
+// 			if err != nil {
+// 				msg := fmt.Sprintf("cannot delete DedicatedGameServer due to %s", err.Error())
+// 				log.Print(msg)
+// 			}
+// 		}
 
-		time.Sleep(d)
-	}
-}
+// 		time.Sleep(d)
+// 	}
+// }

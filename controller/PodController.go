@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 
-	dgstypes "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
@@ -201,10 +200,6 @@ func (c *PodController) syncHandler(key string) error {
 			// Pod not found, already deleted from the cluster
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
 
-			// so, delete it from table storage
-			// this will delete the associated pods as well
-			shared.DeleteDedicatedGameServerEntityAndPods(namespace, name)
-
 			return nil
 		}
 
@@ -224,25 +219,17 @@ func (c *PodController) syncHandler(key string) error {
 		return err
 	}
 
-	tableEntity := &shared.GameServerEntity{
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
-		PodStatus: string(pod.Status.Phase),
-		PublicIP:  ip,
-	}
-
-	// pod status values: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
-	shared.UpsertGameServerEntity(tableEntity)
-
-	// also update CRD
-	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(pod.Name, metav1.GetOptions{})
+	dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
 	if err != nil {
 		log.Print(err.Error())
 		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the DedicatedGameServer", err.Error())
 		return err
 	}
 	dgsCopy := dgs.DeepCopy()
-	dgsCopy.Status = dgstypes.DedicatedGameServerStatus{State: string(pod.Status.Phase)}
+
+	dgsCopy.Status.PodState = string(pod.Status.Phase)
+	dgsCopy.Spec.PublicIP = ip
+
 	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
 
 	if err != nil {

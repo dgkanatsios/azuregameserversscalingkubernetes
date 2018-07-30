@@ -21,3 +21,5 @@ package v1alpha1
 type DedicatedGameServerExpansion interface{}
 
 type DedicatedGameServerCollectionExpansion interface{}
+
+type PortRegistryExpansion interface{}

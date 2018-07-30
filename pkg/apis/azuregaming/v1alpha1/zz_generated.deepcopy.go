@@ -323,6 +323,13 @@ func (in *PortRegistrySpec) DeepCopyInto(out *PortRegistrySpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.GameServerPorts != nil {
+		in, out := &in.GameServerPorts, &out.GameServerPorts
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

@@ -200,6 +200,12 @@ func (c *PodController) syncHandler(key string) error {
 			// Pod not found, already deleted from the cluster
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
 
+			//unregister ports
+			err = shared.DeregisterServerPorts(name)
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
 
@@ -210,21 +216,32 @@ func (c *PodController) syncHandler(key string) error {
 
 	// get the Node for this Pod
 	nodeName := pod.Spec.NodeName
+	var ip string
+	if nodeName != "" { //no-empty string => pod has been scheduled
+		ip, err = c.getPublicIPForNode(nodeName)
 
-	ip, err := c.getPublicIPForNode(nodeName)
+		if err != nil {
+			log.Print(err.Error())
+			c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
+			return err
+		}
+	}
+
+	//dgsLister was used here but on update, the API server complained that the resource had changed
+	//"the object has been modified; please apply your changes to the latest version and try again"
+	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(name, metav1.GetOptions{})
 
 	if err != nil {
-		log.Print(err.Error())
-		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
+
+		if errors.IsNotFound(err) {
+			log.Infof("Dedicated Game Server %s not found, probably deleted already. Exiting PodController syncHandler", name)
+			return nil
+		}
+
+		c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in getting the DedicatedGameServer for pod %s", name), err.Error())
 		return err
 	}
 
-	dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
-	if err != nil {
-		log.Print(err.Error())
-		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the DedicatedGameServer", err.Error())
-		return err
-	}
 	dgsCopy := dgs.DeepCopy()
 
 	dgsCopy.Status.PodState = string(pod.Status.Phase)
@@ -236,7 +253,7 @@ func (c *PodController) syncHandler(key string) error {
 
 	if err != nil {
 		log.Print(err.Error())
-		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in updating the DedicatedGameServer", err.Error())
+		c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServer for pod %s", name), err.Error())
 		return err
 	}
 

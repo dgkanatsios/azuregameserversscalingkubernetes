@@ -214,11 +214,15 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		//create them
 		increaseCount := int(dgsCol.Spec.Replicas) - dgsExistingCount
 		for i := 0; i < increaseCount; i++ {
-			//first, get random ports
+			// create a random name for the dedicated name server
+			// the corresponding pod will have the same name as well
+			dgsName := dgsCol.Name + "-" + shared.RandString(5)
+
+			// first, get random ports
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
 			for _, portInfo := range dgsCol.Spec.Ports {
 				//get a random port
-				hostport, errPort := shared.GetNewPort()
+				hostport, errPort := shared.GetNewPort(dgsName)
 				if errPort != nil {
 					return errPort
 				}
@@ -230,8 +234,8 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			}
 
 			// each dedicated game server will have a name of
-			// "DedicatedGameServerCollectioName" + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			// DedicatedGameServerCollectioName + "-" + random name
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsName, portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {

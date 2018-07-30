@@ -18,7 +18,7 @@ const (
 	// MinPort is minimum Port Number
 	MinPort = 20000
 	// MaxPort is maximum Port Number
-	MaxPort = 30000
+	MaxPort = 20100
 	// PodStateTerminating = "Terminating"
 	PodStateTerminating = "Terminating"
 	PodStatePending     = "Pending"

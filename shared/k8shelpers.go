@@ -211,3 +211,20 @@ func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.De
 
 	return dgsToDelete.Items, nil
 }
+
+func GetDedicatedGameServersRunning() ([]dgsv1alpha1.DedicatedGameServer, error) {
+	set := labels.Set{
+		LabelGameServerState: GameServerStateRunning,
+		LabelPodState:        PodStateRunning,
+	}
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsRunning, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return dgsRunning.Items, nil
+}

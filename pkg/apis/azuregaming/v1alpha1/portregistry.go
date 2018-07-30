@@ -27,7 +27,8 @@ type PortRegistry struct {
 
 // PortRegistrySpec is the spec for a PortRegistry resource
 type PortRegistrySpec struct {
-	Ports map[int32]bool `json:"ports"`
+	Ports           map[int32]bool    `json:"ports"`
+	GameServerPorts map[string]string `json:"gameServerPorts"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

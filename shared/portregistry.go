@@ -1,6 +1,10 @@
 package shared
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
@@ -22,10 +26,11 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 	}
 
 	if PortRegistry.Spec.Ports == nil {
+		PortRegistry.Spec.GameServerPorts = make(map[string]string)
 		PortRegistry.Spec.Ports = make(map[int32]bool)
 		//first time, so initialize it
 		for i := MinPort; i <= MaxPort; i++ {
-			PortRegistry.Spec.Ports[MinPort] = false
+			PortRegistry.Spec.Ports[int32(i)] = false
 		}
 		_, err := clientset.AzuregamingV1alpha1().PortRegistries(GameNamespace).Update(PortRegistry)
 
@@ -38,24 +43,46 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 
 }
 
-func DeregisterPort(port int32) error {
+func DeregisterServerPorts(serverName string) error {
 	if PortRegistry == nil {
 		log.Panic("PortRegistry is not initialized")
 	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
-	PortRegistry.Spec.Ports[port] = false
+
+	ports := strings.Split(PortRegistry.Spec.GameServerPorts[serverName], ",")
+
+	var deleteErrors string
+
+	for _, port := range ports {
+		if port != "" {
+			portInt, errconvert := strconv.Atoi(port)
+			if errconvert != nil {
+				deleteErrors = fmt.Sprintf("%s,%s", deleteErrors, errconvert.Error())
+			}
+
+			PortRegistry.Spec.Ports[int32(portInt)] = false
+		}
+	}
+
+	delete(PortRegistry.Spec.GameServerPorts, serverName)
+
 	err := updatePortRegistry()
 
 	if err != nil {
 		log.Error("Error saving PortRegistry CRD during port deregister: %v", err)
 		return err
 	}
+
+	if deleteErrors != "" {
+		return errors.New(fmt.Sprintf("Errors encountered during port de-registration%s", deleteErrors))
+	}
+
 	return nil
 }
 
-func GetNewPort() (int32, error) {
+func GetNewPort(serverName string) (int32, error) {
 
 	if PortRegistry == nil {
 		log.Panic("PortRegistry is not initialized")
@@ -72,6 +99,7 @@ func GetNewPort() (int32, error) {
 
 		if !val { // port is not taken
 			PortRegistry.Spec.Ports[port] = true
+			PortRegistry.Spec.GameServerPorts[serverName] += fmt.Sprintf("%d,", port)
 			break
 		}
 		port = int32(GetRandomInt(MinPort, MaxPort))
@@ -96,6 +124,7 @@ func updatePortRegistry() error {
 	}
 
 	tempPortRegistry.Spec.Ports = PortRegistry.Spec.Ports
+	tempPortRegistry.Spec.GameServerPorts = PortRegistry.Spec.GameServerPorts
 
 	//TODO: deep copy?
 

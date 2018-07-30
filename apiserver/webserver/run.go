@@ -110,15 +110,14 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
-	if !helpers.IsAPICallAuthorized(w, r) {
-		w.WriteHeader(401)
-		w.Write([]byte("Unathorized"))
-		return
+	entities, err := shared.GetDedicatedGameServersRunning()
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
 	}
-
-	entities := ""
 	result, err := json.Marshal(entities)
 	if err != nil {
+		w.WriteHeader(500)
 		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
 	}
 	w.Write(result)

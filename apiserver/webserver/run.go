@@ -11,7 +11,6 @@ import (
 	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	"github.com/gorilla/mux"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var podsClient = shared.Clientset.Core().Pods(shared.GameNamespace)
@@ -141,17 +140,7 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dgs, err := dgsClient.Get(serverActivePlayers.ServerName, metav1.GetOptions{})
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte("Error setting Active Players: " + err.Error()))
-		return
-	}
-
-	dgsCopy := dgs.DeepCopy()
-	dgsCopy.Spec.ActivePlayers = strconv.Itoa(serverActivePlayers.PlayerCount)
-
-	_, err = dgsClient.Update(dgsCopy)
+	err = shared.UpdateActivePlayers(serverActivePlayers.ServerName, serverActivePlayers.PlayerCount)
 
 	if err != nil {
 		w.WriteHeader(500)
@@ -179,23 +168,14 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := serverStatus.Status
-	if status != shared.GameServerStatusCreating && status != shared.GameServerStatusMarkedForDeletion && status != shared.GameServerStatusRunning {
+	//a very simple validation
+	if status != shared.GameServerStateCreating && status != shared.GameServerStateMarkedForDeletion && status != shared.GameServerStateRunning {
 		w.WriteHeader(400)
 		w.Write([]byte("Wrong value for serverStatus"))
 		return
 	}
 
-	dgs, err := dgsClient.Get(serverStatus.ServerName, metav1.GetOptions{})
-	if err != nil {
-		w.WriteHeader(500)
-		w.Write([]byte("Error setting ServerStatus: " + err.Error()))
-		return
-	}
-
-	dgsCopy := dgs.DeepCopy()
-	dgsCopy.Status.GameServerState = serverStatus.Status
-
-	_, err = dgsClient.Update(dgsCopy)
+	err = shared.UpdateGameServerStatus(serverStatus.ServerName, status)
 
 	if err != nil {
 		w.WriteHeader(500)

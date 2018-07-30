@@ -233,8 +233,11 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			dgsCopy := dgs.DeepCopy()
 
 			dgsCopy.Spec.NodeName = createdPod.Spec.NodeName
+			//initial active players
 			dgsCopy.Spec.ActivePlayers = "0"
-			dgsCopy.Status.GameServerState = shared.GameServerStatusCreating
+			//initial state for the game server
+			dgsCopy.Status.GameServerState = shared.GameServerStateCreating
+			dgsCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateCreating
 
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
 
@@ -261,9 +264,9 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 		// if current state is Running, then we have a new running DedicatedGameServer
 		// else, we lost one
-		if dgs.Status.PodState == shared.RunningState {
+		if dgs.Status.PodState == shared.PodStateRunning {
 			dgsColCopy.Status.AvailableReplicas++
-		} else if dgs.Status.PreviousPodState == shared.RunningState {
+		} else if dgs.Status.PreviousPodState == shared.PodStateRunning {
 			dgsColCopy.Status.AvailableReplicas--
 		}
 

@@ -19,22 +19,25 @@ const (
 	MinPort = 20000
 	// MaxPort is maximum Port Number
 	MaxPort = 30000
-	// TerminatingState = "Terminating"
-	TerminatingState = "Terminating"
-	PendingState     = "Pending"
-	RunningState     = "Running"
+	// PodStateTerminating = "Terminating"
+	PodStateTerminating = "Terminating"
+	PodStatePending     = "Pending"
+	PodStateRunning     = "Running"
 )
 
 const (
-	DedicatedGameServerLabel               = "DedicatedGameServer"
-	ServerNameLabel                        = "ServerName"
-	DedicatedGameServerCollectionNameLabel = "DedicatedGameServerCollectionName"
+	LabelDedicatedGameServer               = "DedicatedGameServer"
+	LabelServerName                        = "ServerName"
+	LabelDedicatedGameServerCollectionName = "DedicatedGameServerCollectionName"
+	LabelActivePlayers                     = "ActivePlayers"
+	LabelGameServerState                   = "GameServerState"
+	LabelPodState                          = "PodState"
 )
 
 const (
-	GameServerStatusCreating          = "Creating"
-	GameServerStatusRunning           = "Running"
-	GameServerStatusMarkedForDeletion = "MarkedForDeletion"
+	GameServerStateCreating          = "Creating"
+	GameServerStateRunning           = "Running"
+	GameServerStateMarkedForDeletion = "MarkedForDeletion"
 )
 
 const (

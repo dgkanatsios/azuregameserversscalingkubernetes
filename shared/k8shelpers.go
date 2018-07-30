@@ -6,13 +6,14 @@ import (
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
-			Labels: map[string]string{DedicatedGameServerCollectionNameLabel: name},
+			Labels: map[string]string{LabelDedicatedGameServerCollectionName: name},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
 			Image:    image,
@@ -28,7 +29,7 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
-			Labels: map[string]string{ServerNameLabel: name, DedicatedGameServerCollectionNameLabel: dgsCol.Name},
+			Labels: map[string]string{LabelServerName: name, LabelDedicatedGameServerCollectionName: dgsCol.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgsCol, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -52,7 +53,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   dgs.Name,
-			Labels: map[string]string{DedicatedGameServerLabel: dgs.Name},
+			Labels: map[string]string{LabelDedicatedGameServer: dgs.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -158,4 +159,55 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 	pod.Spec.Containers[0].Ports = ports
 
 	return pod
+}
+
+func UpdateActivePlayers(serverName string, activePlayers int) error {
+	dgs, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Get(serverName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	dgsCopy := dgs.DeepCopy()
+	dgsCopy.Spec.ActivePlayers = string(activePlayers)
+	dgsCopy.Labels[LabelActivePlayers] = string(activePlayers)
+
+	_, err = Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateGameServerStatus(serverName string, serverStatus string) error {
+	dgs, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Get(serverName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	dgsCopy := dgs.DeepCopy()
+	dgsCopy.Status.GameServerState = serverStatus
+	dgsCopy.Labels[LabelGameServerState] = serverStatus
+
+	_, err = Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.DedicatedGameServer, error) {
+	set := labels.Set{
+		LabelGameServerState: GameServerStateMarkedForDeletion,
+		LabelActivePlayers:   "0",
+	}
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsToDelete, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return dgsToDelete.Items, nil
 }

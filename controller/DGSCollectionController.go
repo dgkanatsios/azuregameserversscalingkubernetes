@@ -197,7 +197,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
 
 	set := labels.Set{
-		shared.DedicatedGameServerCollectionNameLabel: dgsCol.Name,
+		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
@@ -259,9 +259,10 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
 			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
-			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.DedicatedGameServerCollectionNameLabel)
+			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 			//set its state as marked for deletion
-			dgsToMarkForDeletionCopy.Status.GameServerState = shared.GameServerStatusMarkedForDeletion
+			dgsToMarkForDeletionCopy.Status.GameServerState = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletionCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
 			//update the DGS CRD
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionCopy)
 			if err != nil {

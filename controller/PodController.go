@@ -167,7 +167,7 @@ func podBelongsToDedicatedGameServer(pod *corev1.Pod) bool {
 	podLabels := pod.ObjectMeta.Labels
 
 	for labelKey := range podLabels {
-		if labelKey == shared.DedicatedGameServerLabel {
+		if labelKey == shared.LabelDedicatedGameServer {
 			return true
 		}
 	}
@@ -228,6 +228,8 @@ func (c *PodController) syncHandler(key string) error {
 	dgsCopy := dgs.DeepCopy()
 
 	dgsCopy.Status.PodState = string(pod.Status.Phase)
+	dgsCopy.Labels[shared.LabelPodState] = string(pod.Status.Phase)
+
 	dgsCopy.Spec.PublicIP = ip
 
 	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)

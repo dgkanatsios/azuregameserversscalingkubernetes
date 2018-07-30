@@ -104,8 +104,7 @@ kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 Create DedicatedGameServer Custom Resource Definition:
 ```bash
 cd artifacts
-kubectl apply -f dedicatedgameservercollection-crd.yaml
-kubectl apply -f dedicatedgameserver-crd.yaml
+kubectl apply -f artifacts/crd
 ```
 
 Create `apiserver` and `controller` K8s deployments:

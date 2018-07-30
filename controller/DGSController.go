@@ -86,7 +86,7 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 				log.Print("DedicatedGameServer controller - update")
 
 				// get the previous state
-				newObj.(*dgstypes.DedicatedGameServer).Status.PreviousState = oldObj.(*dgstypes.DedicatedGameServer).Status.State
+				newObj.(*dgstypes.DedicatedGameServer).Status.PreviousPodState = oldObj.(*dgstypes.DedicatedGameServer).Status.PodState
 
 				c.handleDedicatedGameServer(newObj)
 			},
@@ -218,33 +218,31 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		if errors.IsNotFound(err) {
 			pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 			// we'll create it
-			createdPod, err2 := c.podClient.Pods(namespace).Create(pod)
+			createdPod, err := c.podClient.Pods(namespace).Create(pod)
 
-			if err2 != nil {
-				return err2
+			if err != nil {
+				return err
 			}
 
-			// and notify table storage accordingly
-			entity := shared.GameServerEntity{
-				Name:             createdPod.Name,
-				Namespace:        createdPod.Namespace,
-				NodeName:         createdPod.Spec.NodeName,
-				ActivePlayers:    "0",
-				GameServerStatus: shared.GameServerStatusCreating,
+			dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
+			if err != nil {
+				log.Error(err.Error())
+				return err
 			}
 
-			// if dedicated game server belongs to a collection, add this to the entity
-			if val, ok := dgs.Labels[shared.DedicatedGameServerCollectionNameLabel]; ok {
-				entity.DedicatedGameServerCollection = val
-			}
+			dgsCopy := dgs.DeepCopy()
 
-			//serialize port info into game entity
-			entity.SetPortsFromPortInfo(dgs.Spec.Ports)
+			dgsCopy.Spec.NodeName = createdPod.Spec.NodeName
+			//initial active players
+			dgsCopy.Spec.ActivePlayers = "0"
+			//initial state for the game server
+			dgsCopy.Status.GameServerState = shared.GameServerStateCreating
+			dgsCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateCreating
 
-			err2 = shared.UpsertGameServerEntity(&entity)
+			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
 
-			if err2 != nil {
-				return err2
+			if err != nil {
+				return err
 			}
 
 			return nil
@@ -254,7 +252,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	}
 
 	// if pod exists, let's see if the DedicatedGameServerCollection (if one exists and the pod isn't orphan) State needs updating
-	if len(dgs.OwnerReferences) > 0 && dgs.Status.State != dgs.Status.PreviousState {
+	if len(dgs.OwnerReferences) > 0 && dgs.Status.PodState != dgs.Status.PreviousPodState {
 		// state changed, so let's update DedicatedGameServerCollection
 		dgsColName := dgs.OwnerReferences[0].Name
 		dgsCol, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
@@ -266,9 +264,9 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 		// if current state is Running, then we have a new running DedicatedGameServer
 		// else, we lost one
-		if dgs.Status.State == shared.RunningState {
+		if dgs.Status.PodState == shared.PodStateRunning {
 			dgsColCopy.Status.AvailableReplicas++
-		} else if dgs.Status.PreviousState == shared.RunningState {
+		} else if dgs.Status.PreviousPodState == shared.PodStateRunning {
 			dgsColCopy.Status.AvailableReplicas--
 		}
 

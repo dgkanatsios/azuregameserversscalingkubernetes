@@ -8,14 +8,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/gorilla/mux"
-
 	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/gorilla/mux"
 )
 
 var podsClient = shared.Clientset.Core().Pods(shared.GameNamespace)
-var endpointsClient = shared.Clientset.Core().Endpoints(shared.GameNamespace)
+var dgsClient = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace)
 
 func Run(port int) error {
 
@@ -111,15 +110,14 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
-	if !helpers.IsAPICallAuthorized(w, r) {
-		w.WriteHeader(401)
-		w.Write([]byte("Unathorized"))
-		return
+	entities, err := shared.GetDedicatedGameServersRunning()
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
 	}
-
-	entities := ""
 	result, err := json.Marshal(entities)
 	if err != nil {
+		w.WriteHeader(500)
 		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
 	}
 	w.Write(result)
@@ -141,11 +139,7 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = shared.UpsertGameServerEntity(&shared.GameServerEntity{
-		Name:          serverActivePlayers.ServerName,
-		Namespace:     serverActivePlayers.PodNamespace,
-		ActivePlayers: strconv.Itoa(serverActivePlayers.PlayerCount),
-	})
+	err = shared.UpdateActivePlayers(serverActivePlayers.ServerName, serverActivePlayers.PlayerCount)
 
 	if err != nil {
 		w.WriteHeader(500)
@@ -173,17 +167,14 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := serverStatus.Status
-	if status != shared.GameServerStatusCreating && status != shared.GameServerStatusMarkedForDeletion && status != shared.GameServerStatusRunning {
+	//a very simple validation
+	if status != shared.GameServerStateCreating && status != shared.GameServerStateMarkedForDeletion && status != shared.GameServerStateRunning {
 		w.WriteHeader(400)
 		w.Write([]byte("Wrong value for serverStatus"))
 		return
 	}
 
-	err = shared.UpsertGameServerEntity(&shared.GameServerEntity{
-		Name:             serverStatus.ServerName,
-		Namespace:        serverStatus.PodNamespace,
-		GameServerStatus: serverStatus.Status,
-	})
+	err = shared.UpdateGameServerStatus(serverStatus.ServerName, status)
 
 	if err != nil {
 		w.WriteHeader(500)

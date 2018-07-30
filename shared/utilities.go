@@ -36,26 +36,6 @@ func GetRandomInt(min int, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-func GetRandomPort() (int, error) {
-	var port int
-	//get a random port
-	port = GetRandomInt(MinPort, MaxPort)
-	for {
-		result, err := CreatePortEntity(port)
-
-		if err != nil {
-			return 0, err
-		}
-
-		if result {
-			break
-		} else {
-			port = GetRandomInt(MinPort, MaxPort)
-		}
-	}
-	return port, nil
-}
-
 // GetRandomIndexes will return *count* random integers from a hypothetical slice of *length*
 // For example, we'll take two random indexes from a length-five slice
 func GetRandomIndexes(length int, count int) []int {

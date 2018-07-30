@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 
-	dgstypes "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
@@ -168,7 +167,7 @@ func podBelongsToDedicatedGameServer(pod *corev1.Pod) bool {
 	podLabels := pod.ObjectMeta.Labels
 
 	for labelKey := range podLabels {
-		if labelKey == shared.DedicatedGameServerLabel {
+		if labelKey == shared.LabelDedicatedGameServer {
 			return true
 		}
 	}
@@ -201,9 +200,11 @@ func (c *PodController) syncHandler(key string) error {
 			// Pod not found, already deleted from the cluster
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
 
-			// so, delete it from table storage
-			// this will delete the associated pods as well
-			shared.DeleteDedicatedGameServerEntityAndPods(namespace, name)
+			//unregister ports
+			err = shared.DeregisterServerPorts(name)
+			if err != nil {
+				return err
+			}
 
 			return nil
 		}
@@ -215,39 +216,44 @@ func (c *PodController) syncHandler(key string) error {
 
 	// get the Node for this Pod
 	nodeName := pod.Spec.NodeName
+	var ip string
+	if nodeName != "" { //no-empty string => pod has been scheduled
+		ip, err = c.getPublicIPForNode(nodeName)
 
-	ip, err := c.getPublicIPForNode(nodeName)
+		if err != nil {
+			log.Print(err.Error())
+			c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
+			return err
+		}
+	}
+
+	//dgsLister was used here but on update, the API server complained that the resource had changed
+	//"the object has been modified; please apply your changes to the latest version and try again"
+	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(name, metav1.GetOptions{})
 
 	if err != nil {
-		log.Print(err.Error())
-		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
+
+		if errors.IsNotFound(err) {
+			log.Infof("Dedicated Game Server %s not found, probably deleted already. Exiting PodController syncHandler", name)
+			return nil
+		}
+
+		c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in getting the DedicatedGameServer for pod %s", name), err.Error())
 		return err
 	}
 
-	tableEntity := &shared.GameServerEntity{
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
-		PodStatus: string(pod.Status.Phase),
-		PublicIP:  ip,
-	}
-
-	// pod status values: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
-	shared.UpsertGameServerEntity(tableEntity)
-
-	// also update CRD
-	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(pod.Name, metav1.GetOptions{})
-	if err != nil {
-		log.Print(err.Error())
-		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting the DedicatedGameServer", err.Error())
-		return err
-	}
 	dgsCopy := dgs.DeepCopy()
-	dgsCopy.Status = dgstypes.DedicatedGameServerStatus{State: string(pod.Status.Phase)}
+
+	dgsCopy.Status.PodState = string(pod.Status.Phase)
+	dgsCopy.Labels[shared.LabelPodState] = string(pod.Status.Phase)
+
+	dgsCopy.Spec.PublicIP = ip
+
 	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
 
 	if err != nil {
 		log.Print(err.Error())
-		c.recorder.Event(pod, corev1.EventTypeWarning, "Error in updating the DedicatedGameServer", err.Error())
+		c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServer for pod %s", name), err.Error())
 		return err
 	}
 

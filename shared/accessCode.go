@@ -7,9 +7,6 @@ import (
 
 var accesscode string
 
-var Clientset, Dedicatedgameserverclientset = GetClientSet()
-var secretsClient = Clientset.Core().Secrets(GameNamespace)
-
 func AuthenticateWebServerCode(code string) bool {
 	return code == getAccessCode()
 }

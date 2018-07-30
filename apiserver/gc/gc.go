@@ -14,7 +14,7 @@ func Run(d time.Duration) {
 	for {
 
 		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero players
-		entities, err := shared.GetEntitiesMarkedForDeletionWithZeroPlayers()
+		entities, err := shared.GetDedicatedGameServersMarkedForDeletionWithZeroPlayers()
 
 		if err != nil {
 			// we should probably examine the error and exit if fatal
@@ -23,7 +23,7 @@ func Run(d time.Duration) {
 		}
 
 		for _, entity := range entities {
-			err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.PartitionKey).Delete(entity.RowKey, nil)
+			err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.Namespace).Delete(entity.Name, nil)
 			if err != nil {
 				msg := fmt.Sprintf("cannot delete DedicatedGameServer due to %s", err.Error())
 				log.Print(msg)

@@ -36,6 +36,10 @@ func (c *FakeAzuregamingV1alpha1) DedicatedGameServerCollections(namespace strin
 	return &FakeDedicatedGameServerCollections{c, namespace}
 }
 
+func (c *FakeAzuregamingV1alpha1) PortRegistries(namespace string) v1alpha1.PortRegistryInterface {
+	return &FakePortRegistries{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeAzuregamingV1alpha1) RESTClient() rest.Interface {

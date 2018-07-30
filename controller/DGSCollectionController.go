@@ -197,7 +197,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
 
 	set := labels.Set{
-		shared.DedicatedGameServerCollectionNameLabel: dgsCol.Name,
+		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
@@ -214,11 +214,15 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		//create them
 		increaseCount := int(dgsCol.Spec.Replicas) - dgsExistingCount
 		for i := 0; i < increaseCount; i++ {
-			//first, get random ports
+			// create a random name for the dedicated name server
+			// the corresponding pod will have the same name as well
+			dgsName := dgsCol.Name + "-" + shared.RandString(5)
+
+			// first, get random ports
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
 			for _, portInfo := range dgsCol.Spec.Ports {
 				//get a random port
-				hostport, errPort := shared.GetRandomPort()
+				hostport, errPort := shared.GetNewPort(dgsName)
 				if errPort != nil {
 					return errPort
 				}
@@ -230,8 +234,8 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			}
 
 			// each dedicated game server will have a name of
-			// "DedicatedGameServerCollectioName" + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsCol.Name+"-"+shared.RandString(5), portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			// DedicatedGameServerCollectioName + "-" + random name
+			dgs := shared.NewDedicatedGameServer(dgsCol, dgsName, portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -259,21 +263,16 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
 			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
-			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.DedicatedGameServerCollectionNameLabel)
+			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
+			//set its state as marked for deletion
+			dgsToMarkForDeletionCopy.Status.GameServerState = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletionCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
 			//update the DGS CRD
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionCopy)
 			if err != nil {
 				log.Error(err.Error())
 				return err
 			}
-
-			// update the entry on Table Storage so the dgs will be deleted by the Garbage Collector eventually
-			shared.UpsertGameServerEntity(&shared.GameServerEntity{
-				Name:                          dgsExisting[indexesToDecrease[i]].Name,
-				Namespace:                     dgsExisting[indexesToDecrease[i]].ObjectMeta.Namespace,
-				GameServerStatus:              shared.GameServerStatusMarkedForDeletion,
-				DedicatedGameServerCollection: "",
-			})
 
 		}
 

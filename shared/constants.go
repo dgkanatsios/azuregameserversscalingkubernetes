@@ -9,9 +9,8 @@ const (
 )
 
 const (
-	GameNamespace = "default"
-	// PortsTableName contains the ports
-	PortsTableName = "ports"
+	GameNamespace    = "default"
+	PortRegistryName = "gamingportregistry"
 	// GameServersTableName is the name for the Azure Storage Table
 	GameServersTableName = "gameservers"
 	// Timeout for Azure Table Storage operations
@@ -19,23 +18,26 @@ const (
 	// MinPort is minimum Port Number
 	MinPort = 20000
 	// MaxPort is maximum Port Number
-	MaxPort = 30000
-	// TerminatingState = "Terminating"
-	TerminatingState = "Terminating"
-	PendingState     = "Pending"
-	RunningState     = "Running"
+	MaxPort = 20100
+	// PodStateTerminating = "Terminating"
+	PodStateTerminating = "Terminating"
+	PodStatePending     = "Pending"
+	PodStateRunning     = "Running"
 )
 
 const (
-	DedicatedGameServerLabel               = "DedicatedGameServer"
-	ServerNameLabel                        = "ServerName"
-	DedicatedGameServerCollectionNameLabel = "DedicatedGameServerCollectionName"
+	LabelDedicatedGameServer               = "DedicatedGameServer"
+	LabelServerName                        = "ServerName"
+	LabelDedicatedGameServerCollectionName = "DedicatedGameServerCollectionName"
+	LabelActivePlayers                     = "ActivePlayers"
+	LabelGameServerState                   = "GameServerState"
+	LabelPodState                          = "PodState"
 )
 
 const (
-	GameServerStatusCreating          = "Creating"
-	GameServerStatusRunning           = "Running"
-	GameServerStatusMarkedForDeletion = "MarkedForDeletion"
+	GameServerStateCreating          = "Creating"
+	GameServerStateRunning           = "Running"
+	GameServerStateMarkedForDeletion = "MarkedForDeletion"
 )
 
 const (

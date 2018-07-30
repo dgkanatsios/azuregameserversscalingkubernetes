@@ -29,11 +29,6 @@ func main() {
 	sharedInformers := informers.NewSharedInformerFactory(client, 30*time.Minute)
 	dgsSharedInformers := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
 
-	// controller := controller.NewDedicatedGameServerController(client, dgsclient,
-	// 	sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes(),
-	// 	dgsSharedInformers.Azure().V1().DedicatedGameServers(),
-	// 	dgsSharedInformers.Azure().V1().DedicatedGameServerCollections())
-
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
 
@@ -43,12 +38,18 @@ func main() {
 	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
 
+	err := shared.InitializePortRegistry(dgsclient)
+	if err != nil {
+		log.Panicf("Cannot initialize PortRegistry:%v", err)
+	}
+	log.Info("Initialized Port Registry")
+
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)
 
 	controllers := []controllerHelper{dgsColController, dgsController, podController}
 
-	if err := runAllControllers(controllers, 1, stopCh); err != nil {
+	if err = runAllControllers(controllers, 1, stopCh); err != nil {
 		log.Fatalf("Error running controllers: %s", err.Error())
 	}
 

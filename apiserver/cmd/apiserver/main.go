@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	gc "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/gc"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/gc"
 	webserver "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/webserver"
 	log "github.com/sirupsen/logrus"
 )

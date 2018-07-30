@@ -14,7 +14,7 @@ func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (string, erro
 
 	for _, portInfo := range dgsInfo.Ports {
 		//get a random port
-		hostport, err := shared.GetRandomPort()
+		hostport, err := shared.GetNewPort()
 		if err != nil {
 			return "", err
 		}

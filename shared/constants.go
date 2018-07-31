@@ -9,10 +9,8 @@ const (
 )
 
 const (
-	GameNamespace    = "default"
-	PortRegistryName = "gamingportregistry"
-	// GameServersTableName is the name for the Azure Storage Table
-	GameServersTableName = "gameservers"
+	GameNamespace = "default"
+
 	// Timeout for Azure Table Storage operations
 	Timeout = 30
 	// MinPort is minimum Port Number

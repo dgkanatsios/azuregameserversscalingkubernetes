@@ -10,6 +10,12 @@ import (
 
 // Run starts Garbage Collector, it will check for MarkedForDeletion and 0 players every 'd' Duration
 func Run(d time.Duration) {
+
+	_, dgsClient, err := shared.GetClientSet()
+	if err != nil {
+		log.Panicf("Cannot initialize connection to cluster due to %v", err)
+	}
+
 	log.Println("Starting Garbage Collector")
 	for {
 
@@ -23,7 +29,7 @@ func Run(d time.Duration) {
 		}
 
 		for _, entity := range entities {
-			err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(entity.Namespace).Delete(entity.Name, nil)
+			err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(entity.Namespace).Delete(entity.Name, nil)
 			if err != nil {
 				msg := fmt.Sprintf("cannot delete DedicatedGameServer due to %s", err.Error())
 				log.Print(msg)

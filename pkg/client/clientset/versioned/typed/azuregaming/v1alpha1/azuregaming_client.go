@@ -29,7 +29,6 @@ type AzuregamingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	DedicatedGameServersGetter
 	DedicatedGameServerCollectionsGetter
-	PortRegistriesGetter
 }
 
 // AzuregamingV1alpha1Client is used to interact with features provided by the azuregaming.com group.
@@ -43,10 +42,6 @@ func (c *AzuregamingV1alpha1Client) DedicatedGameServers(namespace string) Dedic
 
 func (c *AzuregamingV1alpha1Client) DedicatedGameServerCollections(namespace string) DedicatedGameServerCollectionInterface {
 	return newDedicatedGameServerCollections(c, namespace)
-}
-
-func (c *AzuregamingV1alpha1Client) PortRegistries(namespace string) PortRegistryInterface {
-	return newPortRegistries(c, namespace)
 }
 
 // NewForConfig creates a new AzuregamingV1alpha1Client for the given config.

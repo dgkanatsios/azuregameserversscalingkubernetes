@@ -57,8 +57,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Azuregaming().V1alpha1().DedicatedGameServers().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("dedicatedgameservercollections"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Azuregaming().V1alpha1().DedicatedGameServerCollections().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("portregistries"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Azuregaming().V1alpha1().PortRegistries().Informer()}, nil
 
 	}
 

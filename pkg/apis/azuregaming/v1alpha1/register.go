@@ -32,8 +32,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&DedicatedGameServerCollection{},
 		&DedicatedGameServerList{},
 		&DedicatedGameServerCollectionList{},
-		&PortRegistry{},
-		&PortRegistryList{},
 	)
 
 	// register the type in the scheme

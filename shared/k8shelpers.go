@@ -162,7 +162,11 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 }
 
 func UpdateActivePlayers(serverName string, activePlayers int) error {
-	dgs, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Get(serverName, metav1.GetOptions{})
+	_, dgsClient, err := GetClientSet()
+	if err != nil {
+		return err
+	}
+	dgs, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Get(serverName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -171,7 +175,7 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 	dgsCopy.Spec.ActivePlayers = string(activePlayers)
 	dgsCopy.Labels[LabelActivePlayers] = string(activePlayers)
 
-	_, err = Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
+	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
 	if err != nil {
 		return err
 	}
@@ -179,7 +183,11 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 }
 
 func UpdateGameServerStatus(serverName string, serverStatus string) error {
-	dgs, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Get(serverName, metav1.GetOptions{})
+	_, dgsClient, err := GetClientSet()
+	if err != nil {
+		return err
+	}
+	dgs, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Get(serverName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -188,7 +196,7 @@ func UpdateGameServerStatus(serverName string, serverStatus string) error {
 	dgsCopy.Status.GameServerState = serverStatus
 	dgsCopy.Labels[LabelGameServerState] = serverStatus
 
-	_, err = Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
+	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
 	if err != nil {
 		return err
 	}
@@ -196,13 +204,18 @@ func UpdateGameServerStatus(serverName string, serverStatus string) error {
 }
 
 func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.DedicatedGameServer, error) {
+	_, dgsClient, err := GetClientSet()
+	if err != nil {
+		return nil, err
+	}
+
 	set := labels.Set{
 		LabelGameServerState: GameServerStateMarkedForDeletion,
 		LabelActivePlayers:   "0",
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
-	dgsToDelete, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
+	dgsToDelete, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 	if err != nil {
@@ -213,13 +226,18 @@ func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.De
 }
 
 func GetDedicatedGameServersRunning() ([]dgsv1alpha1.DedicatedGameServer, error) {
+	_, dgsClient, err := GetClientSet()
+	if err != nil {
+		return nil, err
+	}
+
 	set := labels.Set{
 		LabelGameServerState: GameServerStateRunning,
 		LabelPodState:        PodStateRunning,
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
-	dgsRunning, err := Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
+	dgsRunning, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 	if err != nil {

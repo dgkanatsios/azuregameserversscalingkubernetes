@@ -201,10 +201,7 @@ func (c *PodController) syncHandler(key string) error {
 			runtime.HandleError(fmt.Errorf("Pod '%s' in work queue no longer exists", key))
 
 			//unregister ports
-			err = shared.DeregisterServerPorts(name)
-			if err != nil {
-				return err
-			}
+			portRegistry.DeregisterServerPorts(name)
 
 			return nil
 		}

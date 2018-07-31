@@ -17,9 +17,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var client, dgsclient = shared.GetClientSet()
-
 func main() {
+
+	client, dgsclient, err := shared.GetClientSet()
+
+	if err != nil {
+		log.Panic("Cannot initialize connection to cluster due to: %v", err)
+	}
 
 	flag.Parse()
 
@@ -38,7 +42,7 @@ func main() {
 	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
 
-	err := shared.InitializePortRegistry(dgsclient)
+	err = controller.InitializePortRegistry(dgsclient)
 	if err != nil {
 		log.Panicf("Cannot initialize PortRegistry:%v", err)
 	}

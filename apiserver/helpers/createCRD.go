@@ -12,20 +12,18 @@ func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (dgsName stri
 		dgsInfo.Name = "gameserver-" + shared.RandString(6)
 	}
 
-	for _, portInfo := range dgsInfo.Ports {
-		//get a random port
-		hostport, err := shared.GetNewPort(dgsInfo.Name)
-		if err != nil {
-			return "", err
-		}
-		portInfo.HostPort = int32(hostport)
-	}
+	//TODO: we used to pass a random port here. Maybe we should later the controller to create one if it's 0?
 
 	log.Printf("Creating DedicatedGameServer %s", dgsInfo.Name)
 
 	dgs := shared.NewDedicatedGameServer(nil, dgsInfo.Name, dgsInfo.Ports, dgsInfo.StartMap, dgsInfo.Image)
 
-	dgsInstance, err := shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Create(dgs)
+	_, dgsClient, err := shared.GetClientSet()
+	if err != nil {
+		return "", err
+	}
+
+	dgsInstance, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Create(dgs)
 
 	if err != nil {
 		return "", err
@@ -44,7 +42,12 @@ func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInf
 
 	dgsCol := shared.NewDedicatedGameServerCollection(dgs.Name, dgs.StartMap, dgs.Image, dgs.Replicas, dgs.Ports)
 
-	dgsColInstance, err := shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServerCollections(shared.GameNamespace).Create(dgsCol)
+	_, dgsClient, err := shared.GetClientSet()
+	if err != nil {
+		return "", err
+	}
+
+	dgsColInstance, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServerCollections(shared.GameNamespace).Create(dgsCol)
 
 	if err != nil {
 		return "", err

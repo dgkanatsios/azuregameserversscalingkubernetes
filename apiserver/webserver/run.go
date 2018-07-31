@@ -13,9 +13,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var podsClient = shared.Clientset.Core().Pods(shared.GameNamespace)
-var dgsClient = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace)
-
 func Run(port int) error {
 
 	router := mux.NewRouter()
@@ -34,14 +31,22 @@ func Run(port int) error {
 func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
 
-	if !helpers.IsAPICallAuthorized(w, r) {
+	result, err := helpers.IsAPICallAuthorized(w, r)
+	if err != nil {
+		log.Errorf("Error in authorization: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error"))
+		return
+	}
+
+	if !result {
 		w.WriteHeader(401)
 		w.Write([]byte("Unathorized"))
 		return
 	}
 
 	var dgsInfo helpers.DedicatedGameServerInfo
-	err := json.NewDecoder(r.Body).Decode(&dgsInfo)
+	err = json.NewDecoder(r.Body).Decode(&dgsInfo)
 
 	if err != nil {
 		w.WriteHeader(400)
@@ -62,14 +67,22 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("createcollection was called")
 
-	if !helpers.IsAPICallAuthorized(w, r) {
+	result, err := helpers.IsAPICallAuthorized(w, r)
+	if err != nil {
+		log.Errorf("Error in authorization: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error"))
+		return
+	}
+
+	if !result {
 		w.WriteHeader(401)
 		w.Write([]byte("Unathorized"))
 		return
 	}
 
 	var dgsColInfo helpers.DedicatedGameServerCollectionInfo
-	err := json.NewDecoder(r.Body).Decode(&dgsColInfo)
+	err = json.NewDecoder(r.Body).Decode(&dgsColInfo)
 
 	if err != nil {
 		w.WriteHeader(400)
@@ -89,7 +102,15 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 
 func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 
-	if !helpers.IsAPICallAuthorized(w, r) {
+	result, err := helpers.IsAPICallAuthorized(w, r)
+	if err != nil {
+		log.Errorf("Error in authorization: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error"))
+		return
+	}
+
+	if !result {
 		w.WriteHeader(401)
 		w.Write([]byte("Unathorized"))
 		return
@@ -97,8 +118,16 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 
 	name := r.FormValue("name")
 
-	var err error
-	err = shared.Dedicatedgameserverclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Delete(name, nil)
+	_, dgsClient, err := shared.GetClientSet()
+
+	if err != nil {
+		log.Errorf("Error in getting client set: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error"))
+		return
+	}
+
+	err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Delete(name, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
 		log.Print(msg)
@@ -124,14 +153,22 @@ func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
-	if !helpers.IsAPICallAuthorized(w, r) {
+	result, err := helpers.IsAPICallAuthorized(w, r)
+	if err != nil {
+		log.Errorf("Error in authorization: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error"))
+		return
+	}
+
+	if !result {
 		w.WriteHeader(401)
 		w.Write([]byte("Unathorized"))
 		return
 	}
 
 	var serverActivePlayers helpers.ServerActivePlayers
-	err := json.NewDecoder(r.Body).Decode(&serverActivePlayers)
+	err = json.NewDecoder(r.Body).Decode(&serverActivePlayers)
 
 	if err != nil {
 		w.WriteHeader(500)
@@ -151,14 +188,22 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
-	if !helpers.IsAPICallAuthorized(w, r) {
+	result, err := helpers.IsAPICallAuthorized(w, r)
+	if err != nil {
+		log.Errorf("Error in authorization: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Error"))
+		return
+	}
+
+	if !result {
 		w.WriteHeader(401)
 		w.Write([]byte("Unathorized"))
 		return
 	}
 
 	var serverStatus helpers.ServerStatus
-	err := json.NewDecoder(r.Body).Decode(&serverStatus)
+	err = json.NewDecoder(r.Body).Decode(&serverStatus)
 
 	if err != nil {
 		w.WriteHeader(500)

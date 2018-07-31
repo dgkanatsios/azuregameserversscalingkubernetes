@@ -4,11 +4,18 @@ import log "github.com/sirupsen/logrus"
 
 var setActivePlayersURL string
 
-func initializeSetActivePlayersURL() {
+func initializeSetActivePlayersURL() error {
 
-	setActivePlayersURL = setActivePlayersURLPrefix + getAccessCode()
+	code, err := getAccessCode()
+	if err != nil {
+		return err
+	}
+
+	setActivePlayersURL = setActivePlayersURLPrefix + code
 
 	log.Println("Initialized setActivePlayersURL:", setActivePlayersURL)
+
+	return nil
 }
 
 func GetActivePlayersSetURL() string {

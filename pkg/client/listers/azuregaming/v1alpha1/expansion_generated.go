@@ -33,11 +33,3 @@ type DedicatedGameServerCollectionListerExpansion interface{}
 // DedicatedGameServerCollectionNamespaceListerExpansion allows custom methods to be added to
 // DedicatedGameServerCollectionNamespaceLister.
 type DedicatedGameServerCollectionNamespaceListerExpansion interface{}
-
-// PortRegistryListerExpansion allows custom methods to be added to
-// PortRegistryLister.
-type PortRegistryListerExpansion interface{}
-
-// PortRegistryNamespaceListerExpansion allows custom methods to be added to
-// PortRegistryNamespaceLister.
-type PortRegistryNamespaceListerExpansion interface{}

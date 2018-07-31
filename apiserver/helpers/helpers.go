@@ -6,11 +6,17 @@ import (
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 )
 
-func IsAPICallAuthorized(w http.ResponseWriter, r *http.Request) bool {
+func IsAPICallAuthorized(w http.ResponseWriter, r *http.Request) (bool, error) {
 	code := r.FormValue("code")
 
-	if !shared.AuthenticateWebServerCode(code) {
-		return false
+	result, err := shared.AuthenticateWebServerCode(code)
+
+	if err != nil {
+		return false, err
 	}
-	return true
+
+	if !result {
+		return false, nil
+	}
+	return true, nil
 }

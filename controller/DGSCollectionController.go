@@ -222,7 +222,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
 			for _, portInfo := range dgsCol.Spec.Ports {
 				//get a random port
-				hostport, errPort := shared.GetNewPort(dgsName)
+				hostport, errPort := portRegistry.GetNewPort(dgsName)
 				if errPort != nil {
 					return errPort
 				}

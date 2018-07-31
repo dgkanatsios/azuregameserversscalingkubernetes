@@ -28,8 +28,6 @@ type Interface interface {
 	DedicatedGameServers() DedicatedGameServerInformer
 	// DedicatedGameServerCollections returns a DedicatedGameServerCollectionInformer.
 	DedicatedGameServerCollections() DedicatedGameServerCollectionInformer
-	// PortRegistries returns a PortRegistryInformer.
-	PortRegistries() PortRegistryInformer
 }
 
 type version struct {
@@ -51,9 +49,4 @@ func (v *version) DedicatedGameServers() DedicatedGameServerInformer {
 // DedicatedGameServerCollections returns a DedicatedGameServerCollectionInformer.
 func (v *version) DedicatedGameServerCollections() DedicatedGameServerCollectionInformer {
 	return &dedicatedGameServerCollectionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// PortRegistries returns a PortRegistryInformer.
-func (v *version) PortRegistries() PortRegistryInformer {
-	return &portRegistryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

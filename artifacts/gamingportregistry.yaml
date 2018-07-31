@@ -1,4 +1,0 @@
-apiVersion: azuregaming.com/v1alpha1
-kind: PortRegistry
-metadata:
-  name: gamingportregistry

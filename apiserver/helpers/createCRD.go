@@ -1,12 +1,12 @@
 package helpers
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 )
 
-func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (string, error) {
+func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (dgsName string, err error) {
 
 	if dgsInfo.Name == "" {
 		dgsInfo.Name = "gameserver-" + shared.RandString(6)
@@ -34,7 +34,7 @@ func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (string, erro
 
 }
 
-func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInfo) (string, error) {
+func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInfo) (dgsColName string, err error) {
 
 	if dgs.Name == "" {
 		dgs.Name = "dgscollection-" + shared.RandString(6)

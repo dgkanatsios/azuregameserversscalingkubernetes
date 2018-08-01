@@ -80,13 +80,13 @@
                 entries.forEach(el => {
                     $('#myTable > tbody:last-child').append(
                         `<tr>
-                        <td>${el.NodeName}</td>
-                        <td>${el.PublicIP}</td>
-                        <td>${el.ActivePlayers}</td>
-                        <td>${el.Ports}</td>
+                        <td>${el.spec.nodeName}</td>
+                        <td>${el.spec.publicIP}</td>
+                        <td>${el.spec.activePlayers}</td>
+                        <td>${JSON.stringify(el.spec.ports)}</td>
+                        <td>${el.metadata.labels.DedicatedGameServerCollectionName}</td>
                         </tr>`
                     );
-                    console.log('lala');
                 });
             });
 

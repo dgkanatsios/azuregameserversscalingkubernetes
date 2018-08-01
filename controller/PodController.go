@@ -245,6 +245,7 @@ func (c *PodController) syncHandler(key string) error {
 	dgsCopy.Labels[shared.LabelPodState] = string(pod.Status.Phase)
 
 	dgsCopy.Spec.PublicIP = ip
+	dgsCopy.Spec.NodeName = nodeName
 
 	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
 

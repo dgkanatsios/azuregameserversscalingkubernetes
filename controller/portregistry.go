@@ -162,8 +162,6 @@ func (id *IndexedDictionary) assignRegisteredPorts(ports []int32, serverName str
 }
 
 func (id *IndexedDictionary) assignUnregisteredPorts() {
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	i := id.NextFreePortIndex
 	for _, port := range id.getPermutatedPorts() {

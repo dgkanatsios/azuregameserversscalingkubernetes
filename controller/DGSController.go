@@ -216,10 +216,10 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	if err != nil {
 		// if pod does not exist
 		if errors.IsNotFound(err) {
-			pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 			// we'll create it
-			createdPod, err := c.podClient.Pods(namespace).Create(pod)
+			pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 
+			_, err := c.podClient.Pods(namespace).Create(pod)
 			if err != nil {
 				return err
 			}
@@ -232,7 +232,9 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 			dgsCopy := dgs.DeepCopy()
 
-			dgsCopy.Spec.NodeName = createdPod.Spec.NodeName
+			//TODO: check if NodeName exists here - probably not
+			//dgsCopy.Spec.NodeName = createdPod.Spec.NodeName
+
 			//initial active players
 			dgsCopy.Spec.ActivePlayers = "0"
 			//initial state for the game server

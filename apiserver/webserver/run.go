@@ -17,7 +17,7 @@ import (
 func Run(port int) error {
 
 	router := mux.NewRouter()
-	router.Handle("/", http.FileServer(http.Dir("./html"))).Methods("GET")
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./html/"))).Methods("GET")
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")

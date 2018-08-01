@@ -3,7 +3,7 @@ kind: DedicatedGameServerCollection
 metadata:
   name: openarena-collection-example
 spec:
-  image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.3
+  image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.4
   replicas: 5
   startmap: dm4ish
   ports:

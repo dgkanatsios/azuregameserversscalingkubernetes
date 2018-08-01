@@ -1,6 +1,6 @@
 package shared
 
-const GameDockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.3"
+const GameDockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.4"
 const APIAccessCodeSecretName = "apiaccesscode"
 
 const (

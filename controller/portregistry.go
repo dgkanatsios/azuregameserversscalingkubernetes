@@ -19,7 +19,17 @@ var portRegistry *IndexedDictionary
 var clientset *dgsclientset.Clientset
 var mutex = &sync.Mutex{}
 
+// InitializePortRegistry initializes the IndexedDictionary that holds the port registry.
+// Intended to be called only once
 func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
+
+	if portRegistry != nil {
+		return errors.New("PortRegistry already initialized")
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	clientset = dgsclientset
 
 	portRegistry = NewIndexedDictionary(shared.MinPort, shared.MaxPort)
@@ -36,11 +46,11 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 			for i, portInfo := range dgs.Spec.Ports {
 				ports[i] = portInfo.HostPort
 			}
-			portRegistry.AssignRegisteredPorts(ports, dgs.Name)
+			portRegistry.assignRegisteredPorts(ports, dgs.Name)
 		}
 	}
 
-	portRegistry.AssignUnregisteredPorts()
+	portRegistry.assignUnregisteredPorts()
 
 	return nil
 
@@ -55,6 +65,7 @@ func (id *IndexedDictionary) displayRegistry() {
 	fmt.Printf("-------------------------------------\n")
 }
 
+// GetNewPort returns and registers a new port for the designated game server
 func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
 
 	if id == nil {
@@ -71,11 +82,11 @@ func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
 			port := id.Indexes[id.NextFreePortIndex]
 			id.Ports[port] = true
 			id.GameServerPorts[serverName] = fmt.Sprintf("%d,%s", port, id.GameServerPorts[serverName])
-			id.IncreaseNextFreePortIndex()
+			id.increaseNextFreePortIndex()
 			return port, nil
 		}
 
-		id.IncreaseNextFreePortIndex()
+		id.increaseNextFreePortIndex()
 
 		if initialIndex == id.NextFreePortIndex {
 			//we did a full loop - no empty ports
@@ -85,6 +96,7 @@ func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
 
 }
 
+// DeregisterServerPorts deregisters all ports for the designated server
 func (id *IndexedDictionary) DeregisterServerPorts(serverName string) {
 
 	mutex.Lock()
@@ -109,6 +121,7 @@ func (id *IndexedDictionary) DeregisterServerPorts(serverName string) {
 
 }
 
+// IndexedDictionary implements a custom map for the port registry
 type IndexedDictionary struct {
 	Ports             map[int32]bool
 	GameServerPorts   map[string]string
@@ -118,6 +131,8 @@ type IndexedDictionary struct {
 	Max               int32
 }
 
+// NewIndexedDictionary initializes a new IndexedDictionary that will hold the port registry
+// user needs to provide min and max port
 func NewIndexedDictionary(min, max int32) *IndexedDictionary {
 	id := &IndexedDictionary{
 		Ports:           make(map[int32]bool, max-min+1),
@@ -129,7 +144,7 @@ func NewIndexedDictionary(min, max int32) *IndexedDictionary {
 	return id
 }
 
-func (id *IndexedDictionary) AssignRegisteredPorts(ports []int32, serverName string) {
+func (id *IndexedDictionary) assignRegisteredPorts(ports []int32, serverName string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -137,7 +152,7 @@ func (id *IndexedDictionary) AssignRegisteredPorts(ports []int32, serverName str
 	for i := 0; i < len(ports); i++ {
 		id.Ports[ports[i]] = true
 		id.Indexes[i] = ports[i]
-		id.IncreaseNextFreePortIndex()
+		id.increaseNextFreePortIndex()
 
 		portsString = fmt.Sprintf("%d,%s", ports[i], portsString)
 
@@ -146,7 +161,7 @@ func (id *IndexedDictionary) AssignRegisteredPorts(ports []int32, serverName str
 
 }
 
-func (id *IndexedDictionary) AssignUnregisteredPorts() {
+func (id *IndexedDictionary) assignUnregisteredPorts() {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -160,7 +175,7 @@ func (id *IndexedDictionary) AssignUnregisteredPorts() {
 	}
 }
 
-func (id *IndexedDictionary) IncreaseNextFreePortIndex() {
+func (id *IndexedDictionary) increaseNextFreePortIndex() {
 	id.NextFreePortIndex++
 	//reset the index if needed
 	if id.NextFreePortIndex == id.Max-id.Min+1 {

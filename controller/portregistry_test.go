@@ -14,13 +14,13 @@ func TestPortRegistry(t *testing.T) {
 	registeredPortsServer1 := []int32{20002, 20004, 20006, 20008}
 	registeredPortsServer2 := []int32{}
 
-	portRegistryTest.AssignRegisteredPorts(registeredPortsServer1, "server1")
+	portRegistryTest.assignRegisteredPorts(registeredPortsServer1, "server1")
 
 	verifyGameServerPortsExist(portRegistryTest, "server1", registeredPortsServer1, t)
 
 	portRegistryTest.displayRegistry()
 
-	portRegistryTest.AssignUnregisteredPorts()
+	portRegistryTest.assignUnregisteredPorts()
 
 	verifyUnregisteredPorts(portRegistryTest, t)
 

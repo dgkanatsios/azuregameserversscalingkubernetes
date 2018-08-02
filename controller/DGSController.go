@@ -237,6 +237,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 			//initial active players
 			dgsCopy.Spec.ActivePlayers = "0"
+			dgsCopy.Labels[shared.LabelActivePlayers] = "0"
 			//initial state for the game server
 			dgsCopy.Status.GameServerState = shared.GameServerStateCreating
 			dgsCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateCreating

@@ -20,19 +20,15 @@ var clientset *dgsclientset.Clientset
 var mutex = &sync.Mutex{}
 
 // InitializePortRegistry initializes the IndexedDictionary that holds the port registry.
-// Intended to be called only once
+// Intended to be called only once. Locks a mutex
 func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
-
-	if portRegistry != nil {
-		return errors.New("PortRegistry already initialized")
-	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	clientset = dgsclientset
 
-	portRegistry = NewIndexedDictionary(shared.MinPort, shared.MaxPort)
+	portRegistry = newIndexedDictionary(shared.MinPort, shared.MaxPort)
 
 	dgsList, err := clientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
 	if err != nil {
@@ -65,12 +61,8 @@ func (id *IndexedDictionary) displayRegistry() {
 	fmt.Printf("-------------------------------------\n")
 }
 
-// GetNewPort returns and registers a new port for the designated game server
+// GetNewPort returns and registers a new port for the designated game server. Locks a mutex
 func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
-
-	if id == nil {
-		log.Panic("PortRegistry is not initialized")
-	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -90,13 +82,13 @@ func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
 
 		if initialIndex == id.NextFreePortIndex {
 			//we did a full loop - no empty ports
-			return 0, errors.New("Cannot register a new port")
+			return 0, errors.New("Cannot register a new port. No more slots")
 		}
 	}
 
 }
 
-// DeregisterServerPorts deregisters all ports for the designated server
+// DeregisterServerPorts deregisters all ports for the designated server. Locks a mutex
 func (id *IndexedDictionary) DeregisterServerPorts(serverName string) {
 
 	mutex.Lock()
@@ -131,9 +123,9 @@ type IndexedDictionary struct {
 	Max               int32
 }
 
-// NewIndexedDictionary initializes a new IndexedDictionary that will hold the port registry
+// newIndexedDictionary initializes a new IndexedDictionary that will hold the port registry
 // user needs to provide min and max port
-func NewIndexedDictionary(min, max int32) *IndexedDictionary {
+func newIndexedDictionary(min, max int32) *IndexedDictionary {
 	id := &IndexedDictionary{
 		Ports:           make(map[int32]bool, max-min+1),
 		GameServerPorts: make(map[string]string, max-min+1),
@@ -145,8 +137,6 @@ func NewIndexedDictionary(min, max int32) *IndexedDictionary {
 }
 
 func (id *IndexedDictionary) assignRegisteredPorts(ports []int32, serverName string) {
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	var portsString string
 	for i := 0; i < len(ports); i++ {

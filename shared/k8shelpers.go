@@ -1,6 +1,8 @@
 package shared
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
@@ -218,6 +220,9 @@ func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.De
 	dgsToDelete, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
+
+	fmt.Printf("LALA2:%v\n", dgsToDelete)
+
 	if err != nil {
 		return nil, err
 	}
@@ -225,24 +230,24 @@ func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.De
 	return dgsToDelete.Items, nil
 }
 
-func GetDedicatedGameServersRunning() ([]dgsv1alpha1.DedicatedGameServer, error) {
+func GetDedicatedGameServersPodStateRunning() ([]dgsv1alpha1.DedicatedGameServer, error) {
 	_, dgsClient, err := GetClientSet()
 	if err != nil {
 		return nil, err
 	}
 
 	set := labels.Set{
-		LabelGameServerState: GameServerStateRunning,
-		LabelPodState:        PodStateRunning,
+		//LabelGameServerState: GameServerStateRunning,
+		LabelPodState: PodStateRunning,
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
-	dgsRunning, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
+	dgsPodStateRunning, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return dgsRunning.Items, nil
+	return dgsPodStateRunning.Items, nil
 }

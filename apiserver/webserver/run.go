@@ -13,6 +13,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var listPodStateRunningRequiresAuth = false
+
 // Run begins the WebServer
 func Run(port int, listrunningauth bool) error {
 
@@ -21,8 +23,9 @@ func Run(port int, listrunningauth bool) error {
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
-	route := router.HandleFunc("/running", getRunningDGSHandler).Methods("GET")
+	route := router.HandleFunc("/running", getPodStateRunningDGSHandler).Methods("GET")
 	if listrunningauth {
+		listPodStateRunningRequiresAuth = true
 		route.Queries("code", "{code}")
 	}
 	router.HandleFunc("/setactiveplayers", setActivePlayersHandler).Methods("POST")
@@ -31,7 +34,7 @@ func Run(port int, listrunningauth bool) error {
 	//this should be the last handler
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./html/"))).Methods("GET")
 
-	log.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
+	log.Printf("Waiting for requests at port %d\n", port)
 
 	return http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router)
 }
@@ -39,9 +42,9 @@ func Run(port int, listrunningauth bool) error {
 func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("create was called")
 
-	result, err := helpers.IsAPICallAuthorized(w, r)
+	result, err := helpers.IsAPICallAuthenticated(w, r)
 	if err != nil {
-		log.Errorf("Error in authorization: %v", err)
+		log.Errorf("Error in authentication: %v", err)
 		w.WriteHeader(500)
 		w.Write([]byte("Error"))
 		return
@@ -75,9 +78,9 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("createcollection was called")
 
-	result, err := helpers.IsAPICallAuthorized(w, r)
+	result, err := helpers.IsAPICallAuthenticated(w, r)
 	if err != nil {
-		log.Errorf("Error in authorization: %v", err)
+		log.Errorf("Error in authentication: %v", err)
 		w.WriteHeader(500)
 		w.Write([]byte("Error"))
 		return
@@ -110,9 +113,9 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 
 func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 
-	result, err := helpers.IsAPICallAuthorized(w, r)
+	result, err := helpers.IsAPICallAuthenticated(w, r)
 	if err != nil {
-		log.Errorf("Error in authorization: %v", err)
+		log.Errorf("Error in authentication: %v", err)
 		w.WriteHeader(500)
 		w.Write([]byte("Error"))
 		return
@@ -146,8 +149,25 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(name + " was deleted"))
 }
 
-func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
-	entities, err := shared.GetDedicatedGameServersRunning()
+func getPodStateRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
+
+	if listPodStateRunningRequiresAuth {
+		result, err := helpers.IsAPICallAuthenticated(w, r)
+		if err != nil {
+			log.Errorf("Error in authentication: %v", err)
+			w.WriteHeader(500)
+			w.Write([]byte("Error"))
+			return
+		}
+
+		if !result {
+			w.WriteHeader(401)
+			w.Write([]byte("Unathorized"))
+			return
+		}
+	}
+
+	entities, err := shared.GetDedicatedGameServersPodStateRunning()
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte("Error in marshaling to JSON: " + err.Error()))
@@ -161,9 +181,9 @@ func getRunningDGSHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
-	result, err := helpers.IsAPICallAuthorized(w, r)
+	result, err := helpers.IsAPICallAuthenticated(w, r)
 	if err != nil {
-		log.Errorf("Error in authorization: %v", err)
+		log.Errorf("Error in authentication: %v", err)
 		w.WriteHeader(500)
 		w.Write([]byte("Error"))
 		return
@@ -196,9 +216,9 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
-	result, err := helpers.IsAPICallAuthorized(w, r)
+	result, err := helpers.IsAPICallAuthenticated(w, r)
 	if err != nil {
-		log.Errorf("Error in authorization: %v", err)
+		log.Errorf("Error in authentication: %v", err)
 		w.WriteHeader(500)
 		w.Write([]byte("Error"))
 		return

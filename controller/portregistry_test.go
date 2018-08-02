@@ -9,7 +9,7 @@ import (
 
 func TestPortRegistry(t *testing.T) {
 
-	portRegistryTest := NewIndexedDictionary(20000, 20010)
+	portRegistryTest := newIndexedDictionary(20000, 20010)
 
 	registeredPortsServer1 := []int32{20002, 20004, 20006, 20008}
 	registeredPortsServer2 := []int32{}

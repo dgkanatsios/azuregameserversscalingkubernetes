@@ -51,9 +51,11 @@
             <thead>
                 <tr>
                     <th>NodeName</th>
-                    <th>IP</th>
+                    <th>PublicIP</th>
                     <th>Players</th>
                     <th>Ports</th>
+                    <th>DedicatedGameServerCollectionName</th>
+                    <th>GameServerState</th>
                 </tr>
             </thead>
             <tbody>
@@ -85,6 +87,7 @@
                         <td>${el.spec.activePlayers}</td>
                         <td>${JSON.stringify(el.spec.ports)}</td>
                         <td>${el.metadata.labels.DedicatedGameServerCollectionName}</td>
+                        <td>${el.metadata.labels.LabelGameServerState}</td>
                         </tr>`
                     );
                 });

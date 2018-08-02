@@ -11,7 +11,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o apiserver ./cmd/a
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
-COPY --from=builder /build/apiserver /build/cmd/apiserver/html ./
+COPY --from=builder /build/apiserver ./
+COPY --from=builder /build/apiserver/html ./html 
 CMD ["./apiserver"]
 EXPOSE 8000
 LABEL Name=docker_openarena_k8s_apiserver

@@ -14,16 +14,22 @@ import (
 )
 
 // Run begins the WebServer
-func Run(port int) error {
+func Run(port int, listrunningauth bool) error {
 
 	router := mux.NewRouter()
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./html/"))).Methods("GET")
+
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
-	router.HandleFunc("/running", getRunningDGSHandler).Methods("GET")
+	route := router.HandleFunc("/running", getRunningDGSHandler).Methods("GET")
+	if listrunningauth {
+		route.Queries("code", "{code}")
+	}
 	router.HandleFunc("/setactiveplayers", setActivePlayersHandler).Methods("POST")
 	router.HandleFunc("/setserverstatus", setServerStatusHandler).Methods("POST")
+
+	//this should be the last handler
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./html/"))).Methods("GET")
 
 	log.Printf("Waiting for requests at port %s\n", strconv.Itoa(port))
 

@@ -46,7 +46,7 @@ spec:
       serviceAccountName: azuregamingcontroller-sa
       containers:
       - name: docker-openarena-k8s-apiserver
-        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.9
+        image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.10
         args: ["./apiserver","-gc","true","port","8000","gcinterval","1"]
         imagePullPolicy: Always
         env:
@@ -85,7 +85,7 @@ spec:
       serviceAccountName: azuregamingcontroller-sa
       containers:
       - name: docker-openarena-k8s-controller
-        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.9
+        image: docker.io/dgkanatsios/docker_openarena_k8s_controller:0.0.10
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME

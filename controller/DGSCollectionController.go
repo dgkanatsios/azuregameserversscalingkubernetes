@@ -260,15 +260,15 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				return err
 			}
 			// update the DGS so it has no owners
-			dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
-			dgsToMarkForDeletionCopy.ObjectMeta.OwnerReferences = nil
+			//dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
+			dgsToMarkForDeletion.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
-			delete(dgsToMarkForDeletionCopy.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
+			delete(dgsToMarkForDeletion.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 			//set its state as marked for deletion
-			dgsToMarkForDeletionCopy.Status.GameServerState = shared.GameServerStateMarkedForDeletion
-			dgsToMarkForDeletionCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletion.Status.GameServerState = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletion.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
 			//update the DGS CRD
-			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionCopy)
+			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletion)
 			if err != nil {
 				log.Error(err.Error())
 				return err

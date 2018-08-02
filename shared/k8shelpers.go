@@ -173,11 +173,11 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 		return err
 	}
 
-	dgsCopy := dgs.DeepCopy()
-	dgsCopy.Spec.ActivePlayers = string(activePlayers)
-	dgsCopy.Labels[LabelActivePlayers] = string(activePlayers)
+	//dgsCopy := dgs.DeepCopy()
+	dgs.Spec.ActivePlayers = string(activePlayers)
+	dgs.Labels[LabelActivePlayers] = string(activePlayers)
 
-	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
+	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)
 	if err != nil {
 		return err
 	}

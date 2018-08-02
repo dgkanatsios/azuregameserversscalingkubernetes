@@ -239,15 +239,15 @@ func (c *PodController) syncHandler(key string) error {
 		return err
 	}
 
-	dgsCopy := dgs.DeepCopy()
+	//dgsCopy := dgs.DeepCopy()
 
-	dgsCopy.Status.PodState = string(pod.Status.Phase)
-	dgsCopy.Labels[shared.LabelPodState] = string(pod.Status.Phase)
+	dgs.Status.PodState = string(pod.Status.Phase)
+	dgs.Labels[shared.LabelPodState] = string(pod.Status.Phase)
 
-	dgsCopy.Spec.PublicIP = ip
-	dgsCopy.Spec.NodeName = nodeName
+	dgs.Spec.PublicIP = ip
+	dgs.Spec.NodeName = nodeName
 
-	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
+	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgs)
 
 	if err != nil {
 		log.Print(err.Error())

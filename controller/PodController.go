@@ -181,12 +181,6 @@ func (c *PodController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 
-	if namespace == "kube-system" {
-		msg := fmt.Sprintf("Skipping kube-system pod %s", name)
-		log.Print(msg)
-		return nil
-	}
-
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
@@ -240,6 +234,8 @@ func (c *PodController) syncHandler(key string) error {
 	}
 
 	//dgsCopy := dgs.DeepCopy()
+
+	log.Printf("Updating DGS %s with PodState %s, Public IP %s, NodeName %s. Current PodState %s, Public IP %s, NodeName %s \n", dgs.Name, pod.Status.Phase, ip, nodeName, dgs.Status.PodState, dgs.Spec.PublicIP, dgs.Spec.NodeName)
 
 	dgs.Status.PodState = string(pod.Status.Phase)
 	dgs.Labels[shared.LabelPodState] = string(pod.Status.Phase)

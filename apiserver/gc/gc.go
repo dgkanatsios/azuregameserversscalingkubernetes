@@ -22,8 +22,6 @@ func Run(d time.Duration) {
 		//check if there are any dedicated game servers with status 'MarkedForDeletion' and zero players
 		entities, err := shared.GetDedicatedGameServersMarkedForDeletionWithZeroPlayers()
 
-		fmt.Printf("LALA:%d\n", len(entities))
-
 		if err != nil {
 			// we should probably examine the error and exit if fatal
 			// just log it

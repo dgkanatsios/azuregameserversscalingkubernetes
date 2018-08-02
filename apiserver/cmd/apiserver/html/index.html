@@ -50,6 +50,7 @@
         <table class="table table-striped" id="myTable">
             <thead>
                 <tr>
+                    <th>ServerName</th>
                     <th>NodeName</th>
                     <th>PublicIP</th>
                     <th>Players</th>
@@ -82,6 +83,7 @@
                 entries.forEach(el => {
                     $('#myTable > tbody:last-child').append(
                         `<tr>
+                        <td>${el.metadata.name}</td>
                         <td>${el.spec.nodeName}</td>
                         <td>${el.spec.publicIP}</td>
                         <td>${el.spec.activePlayers}</td>

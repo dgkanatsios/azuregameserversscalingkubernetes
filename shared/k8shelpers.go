@@ -1,8 +1,6 @@
 package shared
 
 import (
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
@@ -220,8 +218,6 @@ func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.De
 	dgsToDelete, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
-
-	fmt.Printf("LALA2:%v\n", dgsToDelete)
 
 	if err != nil {
 		return nil, err

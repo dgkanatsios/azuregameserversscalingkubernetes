@@ -249,9 +249,10 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			}
 
 			return nil
-		} else {
-			return err
 		}
+
+		return err
+
 	}
 
 	// if pod exists, let's see if the DedicatedGameServerCollection (if one exists and the pod isn't orphan) State needs updating
@@ -263,14 +264,15 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			c.recorder.Event(dgs, corev1.EventTypeWarning, "Error retrieving DedicatedGameServerCollection", err.Error())
 			return err
 		}
-		dgsColCopy := dgsCol.DeepCopy()
+
+		//dgsColCopy := dgsCol.DeepCopy()
 
 		// if current state is Running, then we have a new running DedicatedGameServer
 		// else, we lost one
 		if dgs.Status.PodState == shared.PodStateRunning {
-			dgsColCopy.Status.AvailableReplicas++
+			dgsCol.Status.AvailableReplicas++
 		} else if dgs.Status.PreviousPodState == shared.PodStateRunning {
-			dgsColCopy.Status.AvailableReplicas--
+			dgsCol.Status.AvailableReplicas--
 		}
 
 		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColCopy)

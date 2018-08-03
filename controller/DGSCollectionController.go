@@ -85,11 +85,6 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 					return
 				}
 
-				// Moreover, if the number of replicas is the same, we should skip
-				if oldDGSCol.Spec.Replicas == newDGSCol.Spec.Replicas {
-					return
-				}
-
 				c.handleDedicatedGameServerCollection(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {

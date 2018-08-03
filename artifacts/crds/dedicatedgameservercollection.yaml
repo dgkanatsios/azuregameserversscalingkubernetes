@@ -12,6 +12,19 @@ spec:
     singular: dedicatedgameservercollection
     shortNames:
     - dgsc
+  additionalPrinterColumns:
+  - name: Replicas
+    type: string
+    description: number of requested replicas
+    JSONPath: .spec.activePlayers
+  - name: AvailableReplicas
+    type: string
+    description: state of the game server
+    JSONPath: .status.availableReplicas
+  - name: Ports
+    type: string
+    description: ports requested by the server
+    JSONPath: .spec.ports
   validation:
    # openAPIV3Schema is the schema for validating custom objects.
     openAPIV3Schema:

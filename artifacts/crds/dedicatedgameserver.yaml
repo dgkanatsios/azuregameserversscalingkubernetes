@@ -12,6 +12,19 @@ spec:
     singular: dedicatedgameserver
     shortNames:
     - dgs
+  additionalPrinterColumns:
+  - name: ActivePlayers
+    type: string
+    description: number of active players on the server
+    JSONPath: .spec.activePlayers
+  - name: GameServerState
+    type: string
+    description: state of the game server
+    JSONPath: .status.gameServerState
+  - name: Ports
+    type: string
+    description: port mapping of the game server
+    JSONPath: .spec.ports
   validation:
    # openAPIV3Schema is the schema for validating custom objects.
     openAPIV3Schema:

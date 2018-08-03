@@ -42,6 +42,8 @@ func main() {
 	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
 
+	garbageCollectionController := controller.NewGarbageCollectionController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+
 	err = controller.InitializePortRegistry(dgsclient)
 	if err != nil {
 		log.Panicf("Cannot initialize PortRegistry:%v", err)
@@ -51,7 +53,7 @@ func main() {
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)
 
-	controllers := []controllerHelper{dgsColController, dgsController, podController}
+	controllers := []controllerHelper{dgsColController, dgsController, podController, garbageCollectionController}
 
 	if err = runAllControllers(controllers, 1, stopCh); err != nil {
 		log.Fatalf("Error running controllers: %s", err.Error())

@@ -47,7 +47,7 @@ spec:
       containers:
       - name: docker-openarena-k8s-apiserver
         image: docker.io/dgkanatsios/docker_openarena_k8s_apiserver:0.0.13
-        args: ["./apiserver","-gc","true","port","8000","gcinterval","1"]
+        args: ["./apiserver","port","8000"]
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME

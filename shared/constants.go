@@ -56,4 +56,6 @@ const (
 
 	MessageReplicasDecreased = "%s with name %s decreased by %d replicas successfully"
 	MessageReplicasIncreased = "%s with name %s increased by %d replicas successfully"
+
+	MessageMarkedForDeletionDedicatedGameServerDeleted = "Dedicated Game Server %s that was MarkedForDeletion with 0 Active Players was deleted"
 )

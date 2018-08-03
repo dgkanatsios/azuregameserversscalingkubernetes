@@ -88,9 +88,6 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 				c.handleDedicatedGameServerCollection(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				// IndexerInformer uses a delta nodeQueue, therefore for deletes we have to use this
-				// key function.
-				//key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 				log.Print("DedicatedGameServerCollection controller - delete")
 			},
 		},

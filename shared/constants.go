@@ -39,6 +39,12 @@ const (
 )
 
 const (
+	StatusDedicatedGameServerCollectionRunning     = "Running"
+	StatusDedicatedGameServerCollectionScalingUp   = "ScalingUp"
+	StatusDedicatedGameServerCollectionScalingDown = "ScalingDown"
+)
+
+const (
 	// SuccessSynced is used as part of the Event 'reason' when a CRD is synced
 	SuccessSynced = "Synced"
 	// ErrResourceExists is used as part of the Event 'reason' when a CRD fails

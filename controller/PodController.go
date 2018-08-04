@@ -3,9 +3,10 @@ package controller
 import (
 	"fmt"
 
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
-	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
+	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
@@ -13,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -27,15 +29,18 @@ import (
 const podControllerAgentName = "pod-controller"
 
 type PodController struct {
-	dgsClient        dgsv1alpha1.DedicatedGameServersGetter
-	podClient        typedcorev1.PodsGetter
-	nodeClient       typedcorev1.NodesGetter
-	dgsLister        listerdgs.DedicatedGameServerLister
-	podLister        listercorev1.PodLister
-	nodeLister       listercorev1.NodeLister
-	dgsListerSynced  cache.InformerSynced
-	podListerSynced  cache.InformerSynced
-	nodeListerSynced cache.InformerSynced
+	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
+	dgsClient          typeddgsv1alpha1.DedicatedGameServersGetter
+	podClient          typedcorev1.PodsGetter
+	nodeClient         typedcorev1.NodesGetter
+	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
+	dgsLister          listerdgs.DedicatedGameServerLister
+	podLister          listercorev1.PodLister
+	nodeLister         listercorev1.NodeLister
+	dgsColListerSynced cache.InformerSynced
+	dgsListerSynced    cache.InformerSynced
+	podListerSynced    cache.InformerSynced
+	nodeListerSynced   cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -48,7 +53,7 @@ type PodController struct {
 	recorder record.EventRecorder
 }
 
-func NewPodController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+func NewPodController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset, dgsColInformer informerdgs.DedicatedGameServerCollectionInformer,
 	dgsInformer informerdgs.DedicatedGameServerInformer, podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer) *PodController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	// Create event broadcaster
@@ -59,17 +64,20 @@ func NewPodController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clie
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: podControllerAgentName})
 
 	c := &PodController{
-		dgsClient:        dgsclient.AzuregamingV1alpha1(),
-		podClient:        client.CoreV1(), //getter hits the live API server (can also create/update objects)
-		nodeClient:       client.CoreV1(),
-		dgsLister:        dgsInformer.Lister(),
-		podLister:        podInformer.Lister(), //lister hits the cache
-		nodeLister:       nodeInformer.Lister(),
-		dgsListerSynced:  dgsInformer.Informer().HasSynced,
-		podListerSynced:  podInformer.Informer().HasSynced,
-		nodeListerSynced: nodeInformer.Informer().HasSynced,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
-		recorder:         recorder,
+		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
+		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		podClient:          client.CoreV1(), //getter hits the live API server (can also create/update objects)
+		nodeClient:         client.CoreV1(),
+		dgsColLister:       dgsColInformer.Lister(),
+		dgsLister:          dgsInformer.Lister(),
+		podLister:          podInformer.Lister(), //lister hits the cache
+		nodeLister:         nodeInformer.Lister(),
+		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
+		dgsListerSynced:    dgsInformer.Informer().HasSynced,
+		podListerSynced:    podInformer.Informer().HasSynced,
+		nodeListerSynced:   nodeInformer.Informer().HasSynced,
+		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodSync"),
+		recorder:           recorder,
 	}
 
 	log.Info("Setting up event handlers for Pod Controller")
@@ -220,7 +228,8 @@ func (c *PodController) syncHandler(key string) error {
 
 	//dgsLister was used here but on update, the API server complained that the resource had changed
 	//"the object has been modified; please apply your changes to the latest version and try again"
-	dgs, err := c.dgsClient.DedicatedGameServers(namespace).Get(name, metav1.GetOptions{})
+	dgsTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
+	dgsToUpdate := dgsTemp.DeepCopy()
 
 	if err != nil {
 
@@ -233,25 +242,89 @@ func (c *PodController) syncHandler(key string) error {
 		return err
 	}
 
-	//dgsCopy := dgs.DeepCopy()
+	//update the DGS
 
-	log.Printf("Updating DGS %s with PodState %s, Public IP %s, NodeName %s. Current PodState %s, Public IP %s, NodeName %s \n", dgs.Name, pod.Status.Phase, ip, nodeName, dgs.Status.PodState, dgs.Spec.PublicIP, dgs.Spec.NodeName)
+	log.Printf("Updating DGS %s with PodState %s, Public IP %s, NodeName %s. Current PodState %s, Public IP %s, NodeName %s \n", dgsTemp.Name, pod.Status.Phase, ip, nodeName, dgsTemp.Status.PodState, dgsTemp.Spec.PublicIP, dgsTemp.Spec.NodeName)
 
-	dgs.Status.PodState = string(pod.Status.Phase)
-	dgs.Labels[shared.LabelPodState] = string(pod.Status.Phase)
+	dgsToUpdate.Status.PodState = string(pod.Status.Phase)
+	dgsToUpdate.Labels[shared.LabelPodState] = string(pod.Status.Phase)
 
-	dgs.Spec.PublicIP = ip
-	dgs.Spec.NodeName = nodeName
+	dgsToUpdate.Spec.PublicIP = ip
+	dgsToUpdate.Spec.NodeName = nodeName
 
-	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgs)
+	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToUpdate)
 
 	if err != nil {
-		log.Print(err.Error())
+		log.Error(err.Error())
 		c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServer for pod %s", name), err.Error())
 		return err
 	}
 
+	//update the DGSCol
+	if len(dgsTemp.OwnerReferences) > 0 {
+		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(dgsToUpdate.OwnerReferences[0].Name)
+		dgsColCopy := dgsCol.DeepCopy()
+		if err != nil {
+			log.Error(err.Error())
+			c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in getting the DedicatedGameServerCollection for pod %s", name), err.Error())
+			return err
+		}
+		err = c.assignPodCollectionState(namespace, dgsColCopy, pod)
+		if err != nil {
+			log.Error(err.Error())
+			c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in setting the DedicatedGameServerCollection - PodState for pod %s", name), err.Error())
+			return err
+		}
+
+		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColCopy)
+		if err != nil {
+			log.Error(err.Error())
+			c.recorder.Event(pod, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServerCollection for pod %s", name), err.Error())
+			return err
+		}
+	}
+
 	c.recorder.Event(pod, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "Pod", pod.Name))
+	return nil
+}
+
+func (c *PodController) assignPodCollectionState(namespace string,
+	dgsCol *dgsv1alpha1.DedicatedGameServerCollection, pod *corev1.Pod) error {
+	// if this Pod state is running, then we should check whether
+	// ALL the Pod in the Collection have the running state
+	// if true, then DGSCol Pod state is running
+	// else DGSCol Pod state is equal to this Pod State
+	if pod.Status.Phase == corev1.PodRunning {
+
+		// get all the DGS instances for this collection
+		set := labels.Set{
+			shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+		}
+		selector := labels.SelectorFromSet(set)
+		dgsInstances, err := c.dgsLister.DedicatedGameServers(namespace).List(selector)
+
+		if err != nil {
+			log.Error("Cannot get DGS instances")
+			return err
+		}
+
+		for _, dgsInstance := range dgsInstances {
+			// get this DedicatedGameServer's corresponding pod
+			podInstance, err := c.podLister.Pods(namespace).Get(dgsInstance.Name)
+			if err != nil {
+				log.Error("Cannot get Pod instance")
+				return err
+			}
+			if podInstance.Status.Phase != corev1.PodRunning {
+				dgsCol.Status.PodCollectionState = string(podInstance.Status.Phase)
+				return nil
+			}
+		}
+		// end of the loop, so all Pods are "running"
+		dgsCol.Status.PodCollectionState = shared.PodCollectionRunning
+		return nil
+	}
+	dgsCol.Status.PodCollectionState = string(pod.Status.Phase)
 	return nil
 }
 
@@ -300,7 +373,7 @@ func (c *PodController) Workqueue() workqueue.RateLimitingInterface {
 }
 
 func (c *PodController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.podListerSynced, c.dgsListerSynced, c.nodeListerSynced}
+	return []cache.InformerSynced{c.podListerSynced, c.dgsListerSynced, c.dgsColListerSynced, c.nodeListerSynced}
 }
 
 func (c *PodController) getPublicIPForNode(nodeName string) (string, error) {

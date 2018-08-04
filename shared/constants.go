@@ -39,9 +39,15 @@ const (
 )
 
 const (
-	StatusDedicatedGameServerCollectionRunning     = "Running"
-	StatusDedicatedGameServerCollectionScalingUp   = "ScalingUp"
-	StatusDedicatedGameServerCollectionScalingDown = "ScalingDown"
+	GameServerCollectionStateRunning  = "Running"
+	GameServerCollectionStateCreating = "Creating"
+)
+
+const (
+	PodCollectionRunning          = "Running"
+	PodCollectionPending          = "Pending"
+	PodCollectionFailed           = "Failed"
+	PodCollectionCrashLoopBackOff = "CrashLoopBackOff"
 )
 
 const (

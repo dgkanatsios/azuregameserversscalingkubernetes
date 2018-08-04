@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	"time"
-
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,19 +40,20 @@ type DedicatedGameServerCollectionSpec struct {
 
 // DedicatedGameServerAutoScalerDetails contains details about the autoscaling of the dedicated game server collection
 type DedicatedGameServerAutoScalerDetails struct {
-	MinimumReplicas            int       `json:"minimumReplicas"`
-	MaximumReplicas            int       `json:"maximumReplicas"`
-	ScaleInThreshold           int       `json:"scaleInThreshold"`
-	ScaleOutThreshold          int       `json:"scaleOutThreshold"`
-	Enabled                    bool      `json:"enabled"`
-	CooldownInMinutes          int       `json:"cooldownInMinutes"`
-	LastScaleOperationDateTime time.Time `json:"lastScaleOperationDateTime"`
+	MinimumReplicas            int    `json:"minimumReplicas"`
+	MaximumReplicas            int    `json:"maximumReplicas"`
+	ScaleInThreshold           int    `json:"scaleInThreshold"`
+	ScaleOutThreshold          int    `json:"scaleOutThreshold"`
+	Enabled                    bool   `json:"enabled"`
+	CooldownInMinutes          int    `json:"cooldownInMinutes"`
+	LastScaleOperationDateTime string `json:"lastScaleOperationDateTime"`
 }
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionStatus struct {
-	AvailableReplicas int32  `json:"availableReplicas"`
-	State             string `json:"state"`
+	AvailableReplicas         int32  `json:"availableReplicas"`
+	PodCollectionState        string `json:"podsState"`
+	GameServerCollectionState string `json:"gameServersState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -39,7 +39,9 @@ func main() {
 	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformers.Core().V1().Pods())
 
-	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
+	podController := controller.NewPodController(client, dgsclient,
+		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
+		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
 
 	garbageCollectionController := controller.NewGarbageCollectionController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())

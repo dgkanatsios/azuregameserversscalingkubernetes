@@ -174,7 +174,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	}
 
 	// Get the DedicatedGameServerCollection resource with this namespace/name
-	dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
+	dgsColTemp, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
 	if err != nil {
 		// The DedicatedGameServerCollection resource may no longer exist, in which case we stop
 		// processing.
@@ -189,30 +189,31 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
 
 	set := labels.Set{
-		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
-	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
+	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 
 	if err != nil {
+		log.Error(err.Error())
 		return err
 	}
 
 	dgsExistingCount := len(dgsExisting)
 
 	// if there are less DedicatedGameServers than the ones we requested
-	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
+	if dgsExistingCount < int(dgsColTemp.Spec.Replicas) {
 		//create them
-		increaseCount := int(dgsCol.Spec.Replicas) - dgsExistingCount
+		increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
 		for i := 0; i < increaseCount; i++ {
 			// create a random name for the dedicated name server
 			// the corresponding pod will have the same name as well
-			dgsName := dgsCol.Name + "-" + shared.RandString(5)
+			dgsName := dgsColTemp.Name + "-" + shared.RandString(5)
 
 			// first, get random ports
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
-			for _, portInfo := range dgsCol.Spec.Ports {
+			for _, portInfo := range dgsColTemp.Spec.Ports {
 				//get a random port
 				hostport, errPort := portRegistry.GetNewPort(dgsName)
 				if errPort != nil {
@@ -227,7 +228,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 			// each dedicated game server will have a name of
 			// DedicatedGameServerCollectioName + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsName, portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, portsInfoExtended, dgsColTemp.Spec.StartMap, dgsColTemp.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -236,31 +237,33 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			}
 		}
 
-		c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsCol.Name, increaseCount))
+		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsColTemp.Name, increaseCount))
 
-	} else if dgsExistingCount > int(dgsCol.Spec.Replicas) { //if there are more DGS than the ones we requested
+	} else if dgsExistingCount > int(dgsColTemp.Spec.Replicas) { //if there are more DGS than the ones we requested
 		// we need to decrease our DGS for this collection
 		// to accomplish this, we'll first find the number of DGS we need to decrease
-		decreaseCount := dgsExistingCount - int(dgsCol.Spec.Replicas)
+		decreaseCount := dgsExistingCount - int(dgsColTemp.Spec.Replicas)
 		// we'll remove random instances of DGS from our DGSCol
 		indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
 		for i := 0; i < len(indexesToDecrease); i++ {
-			dgsToMarkForDeletion, err := c.dgsClient.DedicatedGameServers(namespace).Get(dgsExisting[indexesToDecrease[i]].Name, metav1.GetOptions{})
+			dgsToMarkForDeletionTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(dgsExisting[indexesToDecrease[i]].Name)
+
 			if err != nil {
 				log.Error(err.Error())
 				return err
 			}
+			dgsToMarkForDeletionToUpdate := dgsToMarkForDeletionTemp.DeepCopy()
 			// update the DGS so it has no owners
 			//dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
-			dgsToMarkForDeletion.ObjectMeta.OwnerReferences = nil
+			dgsToMarkForDeletionToUpdate.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
-			delete(dgsToMarkForDeletion.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
+			delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 			//set its state as marked for deletion
-			dgsToMarkForDeletion.Status.GameServerState = shared.GameServerStateMarkedForDeletion
-			dgsToMarkForDeletion.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletionToUpdate.Status.GameServerState = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletionToUpdate.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
 			//update the DGS CRD
-			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletion)
+			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionToUpdate)
 			if err != nil {
 				log.Error(err.Error())
 				return err
@@ -269,25 +272,26 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		}
 
 		// we now have to update the DedicatedGameServerCollection instance with the new number of available replicas
-		dgsColCopy, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(name, metav1.GetOptions{})
+
 		if err != nil {
 			log.Error(err.Error())
-			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot get DedicatedGameServerCollection to update AvailableReplicas", err.Error())
+			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot get DedicatedGameServerCollection to update AvailableReplicas", err.Error())
+			return err
+		}
+		dgsColToUpdate := dgsColTemp.DeepCopy()
+
+		dgsColToUpdate.Status.AvailableReplicas -= int32(decreaseCount)
+		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+		if err != nil {
+			log.Error(err.Error())
+			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot update DedicatedGameServerCollection for AvailableReplicas", err.Error())
 			return err
 		}
 
-		dgsColCopy.Status.AvailableReplicas -= int32(decreaseCount)
-		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColCopy)
-		if err != nil {
-			log.Error(err.Error())
-			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot update DedicatedGameServerCollection for AvailableReplicas", err.Error())
-			return err
-		}
-
-		c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsCol.Name, decreaseCount))
+		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsColTemp.Name, decreaseCount))
 	}
 
-	c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServerCollection", dgsCol.Name))
+	c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServerCollection", dgsColTemp.Name))
 	return nil
 }
 

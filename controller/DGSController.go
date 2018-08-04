@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -206,7 +207,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	}
 
 	// try to get the DedicatedGameServer
-	dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
+	dgsTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -214,7 +215,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 			runtime.HandleError(fmt.Errorf("DedicatedGameServer '%s' in work queue no longer exists", key))
 			return nil
 		}
-		log.Print(err.Error())
+		log.Error(err.Error())
 		return err
 	}
 
@@ -224,34 +225,29 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		// if pod does not exist
 		if errors.IsNotFound(err) {
 			// we'll create it
-			pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
+			pod := shared.NewPod(dgsTemp, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 
 			_, err := c.podClient.Pods(namespace).Create(pod)
 			if err != nil {
 				return err
 			}
 
-			dgs, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
-			if err != nil {
-				log.Error(err.Error())
-				return err
-			}
-
-			dgsCopy := dgs.DeepCopy()
+			dgsToUpdate := dgsTemp.DeepCopy()
 
 			//TODO: check if NodeName has been assigned here (i.e. pod has been scheduled) - almost certainly not
 			//dgsCopy.Spec.NodeName = createdPod.Spec.NodeName
 
 			//initial active players
-			dgsCopy.Spec.ActivePlayers = "0"
-			dgsCopy.Labels[shared.LabelActivePlayers] = "0"
+			dgsToUpdate.Spec.ActivePlayers = "0"
+			dgsToUpdate.Labels[shared.LabelActivePlayers] = "0"
 			//initial state for the game server
-			dgsCopy.Status.GameServerState = shared.GameServerStateCreating
-			dgsCopy.Labels[shared.LabelGameServerState] = shared.GameServerStateCreating
+			dgsToUpdate.Status.GameServerState = shared.GameServerStateCreating
+			dgsToUpdate.Labels[shared.LabelGameServerState] = shared.GameServerStateCreating
 
-			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsCopy)
+			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToUpdate)
 
 			if err != nil {
+				log.Error(err.Error())
 				return err
 			}
 
@@ -262,35 +258,49 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 	}
 
-	// if pod exists, let's see if the DedicatedGameServerCollection (if one exists and the pod isn't orphan) State needs updating
-	if len(dgs.OwnerReferences) > 0 && dgs.Status.PodState != dgs.Status.PreviousPodState {
-		// state changed, so let's update DedicatedGameServerCollection
-		dgsColName := dgs.OwnerReferences[0].Name
-		dgsCol, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+	// If the DGS belongs to a DedicatedGameServerCollection
+	if len(dgsTemp.OwnerReferences) > 0 {
+
+		// we are going to update DGSCollection, so let's GET it
+		dgsColTemp, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(dgsTemp.OwnerReferences[0].Name)
+		dgsColToUpdate := dgsColTemp.DeepCopy()
+
+		// if pod exists, let's see if the DedicatedGameServerCollection (if one exists and the pod isn't orphan) State needs updating
+		if dgsTemp.Status.PodState != dgsTemp.Status.PreviousPodState {
+			// state changed, so let's update DedicatedGameServerCollection
+
+			if err != nil {
+				log.Error(err.Error())
+				c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error retrieving DedicatedGameServerCollection", err.Error())
+				return err
+			}
+
+			// if current state is Running, then we have a new running DedicatedGameServer
+			// else, we lost one
+			if dgsTemp.Status.PodState == shared.PodStateRunning {
+				log.Printf("LALALALALALALALALA%d", dgsColToUpdate.Status.AvailableReplicas)
+				dgsColToUpdate.Status.AvailableReplicas++
+			} else if dgsTemp.Status.PreviousPodState == shared.PodStateRunning { //current state is != Running
+				dgsColToUpdate.Status.AvailableReplicas--
+			}
+		}
+
+		err = c.assignGameServerCollectionState(namespace, dgsColToUpdate, dgsTemp)
 		if err != nil {
-			c.recorder.Event(dgs, corev1.EventTypeWarning, "Error retrieving DedicatedGameServerCollection", err.Error())
+			log.Error(err.Error())
+			c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - GameServer status", err.Error())
 			return err
 		}
 
-		//dgsColCopy := dgsCol.DeepCopy()
-
-		// if current state is Running, then we have a new running DedicatedGameServer
-		// else, we lost one
-		if dgs.Status.PodState == shared.PodStateRunning {
-			dgsCol.Status.AvailableReplicas++
-		} else if dgs.Status.PreviousPodState == shared.PodStateRunning {
-			dgsCol.Status.AvailableReplicas--
-		}
-
-		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsCol)
+		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 		if err != nil {
-			c.recorder.Event(dgs, corev1.EventTypeWarning, "Error updating DedicatedGameServerCollection", err.Error())
+			log.Error(err.Error())
+			c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error updating DedicatedGameServerCollection", err.Error())
 			return err
 		}
-
 	}
 
-	c.recorder.Event(dgs, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServer", dgs.Name))
+	c.recorder.Event(dgsTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServer", dgsTemp.Name))
 	return nil
 }
 
@@ -305,6 +315,44 @@ func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface
 		return
 	}
 	c.workqueue.AddRateLimited(key)
+}
+
+func (c *DedicatedGameServerController) assignGameServerCollectionState(namespace string,
+	dgsCol *dgsv1alpha1.DedicatedGameServerCollection, dgs *dgsv1alpha1.DedicatedGameServer) error {
+	// if this DGS state is running, then we should check whether
+	// ALL the DGS in the Collection have the running state
+	// if true, then DGSCol Game Server state is running
+	// else DGSCol Game Server state is equal to this DGS State
+	if dgs.Status.GameServerState == shared.GameServerStateRunning {
+		set := labels.Set{
+			shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+		}
+		// we seach via Labels, each DGS will have the DGSCol name as a Label
+		selector := labels.SelectorFromSet(set)
+		dgsInstances, err := c.dgsLister.DedicatedGameServers(namespace).List(selector)
+
+		if err != nil {
+			log.Error("Cannot get DGS instances")
+			return err
+		}
+
+		for _, dgsInstance := range dgsInstances {
+			if dgsInstance.Status.GameServerState != shared.GameServerStateRunning {
+				dgsCol.Status.GameServerCollectionState = dgs.Status.GameServerState
+
+				return nil
+			}
+		}
+		//end of the loop, so all DGS are "running"
+		dgsCol.Status.GameServerCollectionState = shared.GameServerCollectionStateRunning
+
+		return nil
+	}
+
+	// DGS state is != Running
+	dgsCol.Status.GameServerCollectionState = dgs.Status.GameServerState
+
+	return nil
 }
 
 func (c *DedicatedGameServerController) Workqueue() workqueue.RateLimitingInterface {

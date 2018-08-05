@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -17,6 +18,7 @@ import (
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	record "k8s.io/client-go/tools/record"
@@ -65,7 +67,10 @@ func NewGarbageCollectionController(client *kubernetes.Clientset, dgsclient *dgs
 
 	dgsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-
+			AddFunc: func(obj interface{}) {
+				log.Print("GarbageCollection controller - add")
+				c.handleDedicatedGameServer(obj)
+			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("GarbageCollection controller - update")
 
@@ -102,18 +107,6 @@ func (c *GarbageCollectionController) handleDedicatedGameServer(obj interface{})
 	}
 
 	c.enqueueDedicatedGameServer(object)
-}
-
-// RunWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
-func (c *GarbageCollectionController) RunWorker() {
-	// hot loop until we're told to stop.  processNextWorkItem will
-	// automatically wait until there's work available, so we don't worry
-	// about secondary waits
-	log.Info("Starting loop for GarbageCollection controller")
-	for c.processNextWorkItem() {
-	}
 }
 
 // processNextWorkItem deals with one key off the queue.  It returns false
@@ -232,10 +225,43 @@ func (c *GarbageCollectionController) enqueueDedicatedGameServer(obj interface{}
 	c.workqueue.AddRateLimited(key)
 }
 
-func (c *GarbageCollectionController) Workqueue() workqueue.RateLimitingInterface {
-	return c.workqueue
+// runWorker is a long-running function that will continually call the
+// processNextWorkItem function in order to read and process a message on the
+// workqueue.
+func (c *GarbageCollectionController) runWorker() {
+	// hot loop until we're told to stop.  processNextWorkItem will
+	// automatically wait until there's work available, so we don't worry
+	// about secondary waits
+	log.Info("Starting loop for GarbageCollection controller")
+	for c.processNextWorkItem() {
+	}
 }
 
-func (c *GarbageCollectionController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.dgsListerSynced}
+func (c *GarbageCollectionController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+	defer runtime.HandleCrash()
+	defer c.workqueue.ShutDown()
+
+	// Start the informer factories to begin populating the informer caches
+	log.Info("Starting GarbageCollection controller")
+
+	// Wait for the caches for all controllers to be synced before starting workers
+	log.Info("Waiting for informer caches to sync for GarbageCollection controller")
+	if ok := cache.WaitForCacheSync(stopCh, c.dgsListerSynced); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	log.Info("Starting workers for GarbageCollection controller")
+
+	// Launch a number of workers to process resources
+	for i := 0; i < controllerThreadiness; i++ {
+		// runWorker will loop until "something bad" happens.  The .Until will
+		// then rekick the worker after one second
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	log.Info("Started workers for GarbageCollection Controller")
+	<-stopCh
+	log.Info("Shutting down workers for GarbageCollection Controller")
+
+	return nil
 }

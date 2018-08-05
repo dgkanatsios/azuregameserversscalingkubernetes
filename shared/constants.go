@@ -9,7 +9,8 @@ const (
 )
 
 const (
-	GameNamespace = "default"
+	DedicatedGameServerKind = "DedicatedGameServer"
+	GameNamespace           = "default"
 
 	// Timeout for Azure Table Storage operations
 	Timeout = 30

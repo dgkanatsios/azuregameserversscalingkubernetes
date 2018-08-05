@@ -41,10 +41,8 @@ type DedicatedGameServerSpec struct {
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource
 type DedicatedGameServerStatus struct {
-	PreviousGameServerState string `json:"previousGameServerState"`
-	PreviousPodState        string `json:"previousPodState"`
-	PodState                string `json:"podState"`
-	GameServerState         string `json:"gameServerState"`
+	PodState        string `json:"podState"`
+	GameServerState string `json:"gameServerState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

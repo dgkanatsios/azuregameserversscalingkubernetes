@@ -65,7 +65,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
 					Version: dgsv1alpha1.SchemeGroupVersion.Version,
-					Kind:    "DedicatedGameServer",
+					Kind:    DedicatedGameServerKind,
 				}),
 			},
 		},

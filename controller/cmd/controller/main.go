@@ -40,11 +40,10 @@ func main() {
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformers.Core().V1().Pods())
 
 	podController := controller.NewPodController(client, dgsclient,
-		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
 
-	garbageCollectionController := controller.NewGarbageCollectionController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+	// garbageCollectionController := controller.NewGarbageCollectionController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
 
 	err = controller.InitializePortRegistry(dgsclient)
 	if err != nil {
@@ -55,7 +54,7 @@ func main() {
 	go sharedInformers.Start(stopCh)
 	go dgsSharedInformers.Start(stopCh)
 
-	controllers := []controllerHelper{dgsColController, dgsController, podController, garbageCollectionController}
+	controllers := []controllerHelper{dgsColController, dgsController, podController}
 
 	if err = runAllControllers(controllers, 1, stopCh); err != nil {
 		log.Fatalf("Error running controllers: %s", err.Error())

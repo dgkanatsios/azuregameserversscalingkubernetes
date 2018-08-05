@@ -255,7 +255,6 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			}
 			dgsToMarkForDeletionToUpdate := dgsToMarkForDeletionTemp.DeepCopy()
 			// update the DGS so it has no owners
-			//dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
 			dgsToMarkForDeletionToUpdate.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
 			delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
@@ -269,23 +268,6 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 				return err
 			}
 
-		}
-
-		// we now have to update the DedicatedGameServerCollection instance with the new number of available replicas
-
-		if err != nil {
-			log.Error(err.Error())
-			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot get DedicatedGameServerCollection to update AvailableReplicas", err.Error())
-			return err
-		}
-		dgsColToUpdate := dgsColTemp.DeepCopy()
-
-		dgsColToUpdate.Status.AvailableReplicas -= int32(decreaseCount)
-		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
-		if err != nil {
-			log.Error(err.Error())
-			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot update DedicatedGameServerCollection for AvailableReplicas", err.Error())
-			return err
 		}
 
 		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsColTemp.Name, decreaseCount))

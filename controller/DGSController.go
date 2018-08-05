@@ -3,13 +3,15 @@ package controller
 import (
 	"fmt"
 
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
-	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -93,8 +95,9 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 					return
 				}
 
-				// get the previous state
+				// get the previous pod state
 				newDGS.Status.PreviousPodState = oldDGS.Status.PodState
+				newDGS.Status.PreviousGameServerState = oldDGS.Status.GameServerState
 
 				c.handleDedicatedGameServer(newObj)
 			},
@@ -225,37 +228,13 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		// if pod does not exist
 		if errors.IsNotFound(err) {
 			// we'll create it
-			pod := shared.NewPod(dgsTemp, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
-
-			_, err := c.podClient.Pods(namespace).Create(pod)
+			err = c.createNewPod(dgsTemp, namespace)
 			if err != nil {
+				c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error creating Pod for DedicatedGameServer - GameServer status", err.Error())
 				return err
 			}
-
-			dgsToUpdate := dgsTemp.DeepCopy()
-
-			//TODO: check if NodeName has been assigned here (i.e. pod has been scheduled) - almost certainly not
-			//dgsCopy.Spec.NodeName = createdPod.Spec.NodeName
-
-			//initial active players
-			dgsToUpdate.Spec.ActivePlayers = "0"
-			dgsToUpdate.Labels[shared.LabelActivePlayers] = "0"
-			//initial state for the game server
-			dgsToUpdate.Status.GameServerState = shared.GameServerStateCreating
-			dgsToUpdate.Labels[shared.LabelGameServerState] = shared.GameServerStateCreating
-
-			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToUpdate)
-
-			if err != nil {
-				log.Error(err.Error())
-				return err
-			}
-
-			return nil
 		}
-
-		return err
-
+		return err //pod cannot be listed
 	}
 
 	// If the DGS belongs to a DedicatedGameServerCollection
@@ -265,36 +244,27 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		dgsColTemp, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(dgsTemp.OwnerReferences[0].Name)
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 
-		// if pod exists, let's see if the DedicatedGameServerCollection (if one exists and the pod isn't orphan) State needs updating
-		if dgsTemp.Status.PodState != dgsTemp.Status.PreviousPodState {
-			// state changed, so let's update DedicatedGameServerCollection
+		//check available replicas
+		c.modifyAvailableReplicas(dgsColToUpdate, dgsTemp)
 
-			if err != nil {
-				log.Error(err.Error())
-				c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error retrieving DedicatedGameServerCollection", err.Error())
-				return err
-			}
-
-			// if current state is Running, then we have a new running DedicatedGameServer
-			// else, we lost one
-			if dgsTemp.Status.PodState == shared.PodStateRunning {
-				log.Printf("LALALALALALALALALA%d", dgsColToUpdate.Status.AvailableReplicas)
-				dgsColToUpdate.Status.AvailableReplicas++
-			} else if dgsTemp.Status.PreviousPodState == shared.PodStateRunning { //current state is != Running
-				dgsColToUpdate.Status.AvailableReplicas--
-			}
-		}
-
+		//modify DGSCol.Status.DGSState
 		err = c.assignGameServerCollectionState(namespace, dgsColToUpdate, dgsTemp)
 		if err != nil {
-			log.Error(err.Error())
 			c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - GameServer status", err.Error())
 			return err
 		}
 
-		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+		//modify DGSCol.Status.PodState
+		err = c.assignPodCollectionState(namespace, dgsColToUpdate, dgsTemp)
 		if err != nil {
-			log.Error(err.Error())
+			c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - Pod status", err.Error())
+			return err
+		}
+
+		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+
+		if err != nil {
+			log.Errorf("ERROR:%s", err.Error())
 			c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error updating DedicatedGameServerCollection", err.Error())
 			return err
 		}
@@ -315,6 +285,43 @@ func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface
 		return
 	}
 	c.workqueue.AddRateLimited(key)
+}
+
+func (c *DedicatedGameServerController) createNewPod(dgs *v1alpha1.DedicatedGameServer, namespace string) error {
+
+	pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
+
+	_, err := c.podClient.Pods(namespace).Create(pod)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *DedicatedGameServerController) modifyAvailableReplicas(dgsCol *dgsv1alpha1.DedicatedGameServerCollection,
+	dgs *dgsv1alpha1.DedicatedGameServer) {
+
+	//log.Infof("MODIFY_AVAIALABLE_REPLICAS: %s %s %s %s", dgs.Status.GameServerState, dgs.Status.PodState, dgs.Status.PreviousGameServerState, dgs.Status.PreviousPodState)
+
+	//if current Pod or DGS state is Running, previous ones are "". Nothing to do here, probably controller has stopped and started again
+	if dgs.Status.GameServerState == shared.GameServerStateRunning && dgs.Status.PodState == shared.PodStateRunning && dgs.Status.PreviousGameServerState == "" && dgs.Status.PreviousPodState == "" {
+		return
+	}
+
+	//if previous pod and DGS state were running
+	if dgs.Status.PreviousGameServerState == shared.GameServerStateRunning && dgs.Status.PreviousPodState == shared.PodStateRunning {
+		// if current ones are not running as well, we need to decrease the available replicas
+		if dgs.Status.GameServerState != shared.GameServerStateRunning || dgs.Status.PodState != shared.PodStateRunning {
+			dgsCol.Status.AvailableReplicas--
+		}
+		//if either previous pod or DGS state were != running
+	} else if dgs.Status.PreviousGameServerState != shared.GameServerStateRunning || dgs.Status.PreviousPodState != shared.PodStateRunning {
+		// if current ones are running, we need to increase the available replicas
+		if dgs.Status.GameServerState == shared.GameServerStateRunning && dgs.Status.PodState == shared.PodStateRunning {
+			dgsCol.Status.AvailableReplicas++
+		}
+	}
 }
 
 func (c *DedicatedGameServerController) assignGameServerCollectionState(namespace string,
@@ -352,6 +359,40 @@ func (c *DedicatedGameServerController) assignGameServerCollectionState(namespac
 	// DGS state is != Running
 	dgsCol.Status.GameServerCollectionState = dgs.Status.GameServerState
 
+	return nil
+}
+
+func (c *DedicatedGameServerController) assignPodCollectionState(namespace string,
+	dgsCol *dgsv1alpha1.DedicatedGameServerCollection, dgs *dgsv1alpha1.DedicatedGameServer) error {
+	// if this Pod state is running, then we should check whether
+	// ALL the Pod in the Collection have the running state
+	// if true, then DGSCol Pod state is running
+	// else DGSCol Pod state is equal to this Pod State
+	if dgs.Status.PodState == shared.PodStateRunning {
+
+		// get all the DGS instances for this collection
+		set := labels.Set{
+			shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+		}
+		selector := labels.SelectorFromSet(set)
+		dgsInstances, err := c.dgsLister.DedicatedGameServers(namespace).List(selector)
+
+		if err != nil {
+			log.Error("Cannot get DGS instances")
+			return err
+		}
+
+		for _, dgsInstance := range dgsInstances {
+			if dgsInstance.Status.PodState != shared.PodStateRunning {
+				dgsCol.Status.PodCollectionState = dgs.Status.PodState
+				return nil
+			}
+		}
+		// end of the loop, so all Pods are "running"
+		dgsCol.Status.PodCollectionState = shared.PodCollectionRunning
+		return nil
+	}
+	dgsCol.Status.PodCollectionState = dgs.Status.PodState
 	return nil
 }
 

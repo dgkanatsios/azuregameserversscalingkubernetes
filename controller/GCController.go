@@ -187,7 +187,7 @@ func (c *GarbageCollectionController) syncHandler(key string) error {
 	}
 
 	//check its state and active players
-	if dgs.Spec.ActivePlayers == "0" && dgs.Status.GameServerState == shared.GameServerStateMarkedForDeletion {
+	if dgs.Spec.ActivePlayers == "0" && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion {
 		dgsToDelete, err := c.dgsClient.DedicatedGameServers(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("Cannot fetch DedicatedGameServer %s", name)

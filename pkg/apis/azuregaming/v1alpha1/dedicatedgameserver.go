@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,8 +42,8 @@ type DedicatedGameServerSpec struct {
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource
 type DedicatedGameServerStatus struct {
-	PodState        string `json:"podState"`
-	GameServerState string `json:"gameServerState"`
+	PodState                 corev1.PodPhase          `json:"podState"`
+	DedicatedGameServerState DedicatedGameServerState `json:"gameServerState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

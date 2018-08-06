@@ -12,13 +12,11 @@ const (
 	DedicatedGameServerKind = "DedicatedGameServer"
 	GameNamespace           = "default"
 
-	// Timeout for Azure Table Storage operations
-	Timeout = 30
 	// MinPort is minimum Port Number
 	MinPort = 20000
 	// MaxPort is maximum Port Number
 	MaxPort = 30000
-	// PodStateTerminating = "Terminating"
+
 	PodStateTerminating = "Terminating"
 	PodStatePending     = "Pending"
 	PodStateRunning     = "Running"
@@ -29,26 +27,8 @@ const (
 	LabelServerName                        = "ServerName"
 	LabelDedicatedGameServerCollectionName = "DedicatedGameServerCollectionName"
 	LabelActivePlayers                     = "ActivePlayers"
-	LabelGameServerState                   = "GameServerState"
+	LabelDedicatedGameServerState          = "DedicatedGameServerState"
 	LabelPodState                          = "PodState"
-)
-
-const (
-	GameServerStateCreating          = "Creating"
-	GameServerStateRunning           = "Running"
-	GameServerStateMarkedForDeletion = "MarkedForDeletion"
-)
-
-const (
-	GameServerCollectionStateRunning  = "Running"
-	GameServerCollectionStateCreating = "Creating"
-)
-
-const (
-	PodCollectionRunning          = "Running"
-	PodCollectionPending          = "Pending"
-	PodCollectionFailed           = "Failed"
-	PodCollectionCrashLoopBackOff = "CrashLoopBackOff"
 )
 
 const (

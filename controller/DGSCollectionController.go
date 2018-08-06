@@ -274,8 +274,8 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			//remove the DGSCol name from the DGS labels
 			delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 			//set its state as marked for deletion
-			dgsToMarkForDeletionToUpdate.Status.GameServerState = shared.GameServerStateMarkedForDeletion
-			dgsToMarkForDeletionToUpdate.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
+			dgsToMarkForDeletionToUpdate.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
 			//update the DGS CRD
 			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionToUpdate)
 			if err != nil {
@@ -344,7 +344,7 @@ func (c *DedicatedGameServerCollectionController) modifyAvailableReplicas(dgsCol
 	dgsCol.Status.AvailableReplicas = 0
 
 	for _, dgs := range dgsInstances {
-		if dgs.Status.GameServerState == shared.GameServerStateRunning && dgs.Status.PodState == shared.PodStateRunning {
+		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateRunning && dgs.Status.PodState == corev1.PodRunning {
 			dgsCol.Status.AvailableReplicas++
 		}
 	}
@@ -367,12 +367,15 @@ func (c *DedicatedGameServerCollectionController) assignGameServerCollectionStat
 	}
 
 	for _, dgs := range dgsInstances {
-		if dgs.Status.GameServerState != shared.GameServerStateRunning {
-			dgsCol.Status.GameServerCollectionState = dgs.Status.GameServerState
+		//at least one of the DGS is not running
+		if dgs.Status.DedicatedGameServerState != dgsv1alpha1.DedicatedGameServerStateRunning {
+			//so set the overall collection state as the state of this one
+			dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionState(dgs.Status.DedicatedGameServerState)
 			return nil
 		}
 	}
-	dgsCol.Status.GameServerCollectionState = shared.GameServerCollectionStateRunning
+	//all of the DGS are running, so set the DGSCol state as running
+	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateRunning
 	return nil
 
 }
@@ -394,12 +397,15 @@ func (c *DedicatedGameServerCollectionController) assignPodCollectionState(dgsCo
 	}
 
 	for _, dgs := range dgsInstances {
+		//one pod is not running
 		if dgs.Status.PodState != shared.PodStateRunning {
+			// so set the collection's Pod State to this one Pod's value
 			dgsCol.Status.PodCollectionState = dgs.Status.PodState
 			return nil
 		}
 	}
-	dgsCol.Status.PodCollectionState = shared.PodCollectionRunning
+	//all pods are running, so set the collection Pod State with the running value
+	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	return nil
 
 }

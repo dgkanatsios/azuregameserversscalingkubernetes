@@ -136,13 +136,14 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 
 	//if this Pod has a parent DGS
 	if len(object.GetOwnerReferences()) > 0 && object.GetOwnerReferences()[0].Kind == shared.DedicatedGameServerKind {
+		//find it
 		dgs, err := c.dgsLister.DedicatedGameServers(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
 
 		if err != nil {
 			runtime.HandleError(fmt.Errorf("error getting DGS object for Pod %s. Maybe it has been deleted?", object.GetName()))
 			return
 		}
-
+		//and enqueue it
 		c.enqueueDedicatedGameServer(dgs)
 	}
 }
@@ -267,7 +268,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		ip, err = c.getPublicIPForNode(pod.Spec.NodeName)
 
 		if err != nil {
-			log.Print(err.Error())
+			log.WithField("node", pod.Spec.NodeName).Error("Error in getting Public IP for Node")
 			c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
 			return err
 		}
@@ -277,13 +278,21 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	// fetch the latest version
 	dgsTemp, err = c.dgsLister.DedicatedGameServers(namespace).Get(name)
 	if err != nil {
-		log.Errorf("Cannot get DGS %s", name)
+		log.WithField("name", name).Error("Cannot get DedicatedGameServer")
 		return err
 	}
 	dgsToUpdate := dgsTemp.DeepCopy()
-	log.Infof("Updating DGS:%s with PodState:%s, Public IP:%s, NodeName:%s. Current PodState:%s, Public IP:%s, NodeName:%s\n", dgsTemp.Name, pod.Status.Phase, ip, pod.Spec.NodeName, dgsTemp.Status.PodState, dgsTemp.Spec.PublicIP, dgsTemp.Spec.NodeName)
+	log.WithFields(log.Fields{
+		"serverName":      dgsTemp.Name,
+		"currentPodState": dgsTemp.Status.PodState,
+		"currentPublicIP": dgsTemp.Spec.PublicIP,
+		"currentNodeName": dgsTemp.Spec.NodeName,
+		"updatedPodState": pod.Status.Phase,
+		"updatedPublicIP": ip,
+		"updatedNodeName": pod.Spec.NodeName,
+	}).Info("Updating DedicatedGameServer")
 
-	dgsToUpdate.Status.PodState = string(pod.Status.Phase)
+	dgsToUpdate.Status.PodState = pod.Status.Phase
 	dgsToUpdate.Labels[shared.LabelPodState] = string(pod.Status.Phase)
 
 	dgsToUpdate.Spec.PublicIP = ip

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,9 +52,9 @@ type DedicatedGameServerAutoScalerDetails struct {
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionStatus struct {
-	AvailableReplicas         int32  `json:"availableReplicas"`
-	PodCollectionState        string `json:"podsState"`
-	GameServerCollectionState string `json:"gameServersState"`
+	AvailableReplicas                  int32                              `json:"availableReplicas"`
+	PodCollectionState                 corev1.PodPhase                    `json:"podsState"`
+	DedicatedGameServerCollectionState DedicatedGameServerCollectionState `json:"gameServersState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

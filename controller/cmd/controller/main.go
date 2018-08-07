@@ -14,8 +14,11 @@ import (
 )
 
 func main() {
+	autoscalerenabled := flag.Bool("autoscalerenabled", false, "Determines whether Pod AutoScaler is enabled. Default: false")
+	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness, default 1")
 
 	flag.Parse()
+
 	client, dgsclient, err := shared.GetClientSet()
 
 	if err != nil {
@@ -40,12 +43,19 @@ func main() {
 	}
 	log.Info("Initialized Port Registry")
 
+	controllers := []controllerHelper{dgsColController, dgsController}
+
+	if *autoscalerenabled {
+		autoscalerController := controller.NewAutoScalerControllerController(client, dgsclient,
+			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
+			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())
+		controllers = append(controllers, autoscalerController)
+	}
+
 	go sharedInformerFactory.Start(stopCh)
 	go dgsSharedInformerFactory.Start(stopCh)
 
-	controllers := []controllerHelper{dgsColController, dgsController}
-
-	runAllControllers(controllers, 1, stopCh)
+	runAllControllers(controllers, *controllerthreadiness, stopCh)
 
 }
 

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -18,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	record "k8s.io/client-go/tools/record"
@@ -73,11 +75,11 @@ func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("AutoScaler controller - add")
+				log.Print("AutoScaler controller - add DedicatedGameServerCollection")
 				c.handleDedicatedGameServerCol(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("AutoScaler controller - update")
+				log.Print("AutoScaler controller - update DedicatedGameServerCollection")
 
 				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
@@ -91,39 +93,28 @@ func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *
 		},
 	)
 
+	dgsInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				log.Print("AutoScaler controller - add DedicatedGameServer")
+				c.handleDedicatedGameServerCol(obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				log.Print("AutoScaler controller - update DedicatedGameServer")
+
+				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
+				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
+
+				if oldDGS.ResourceVersion == newDGS.ResourceVersion {
+					return
+				}
+
+				c.handleDedicatedGameServer(newObj)
+			},
+		},
+	)
+
 	return c
-}
-
-func (c *AutoScalerController) handleDedicatedGameServerCol(obj interface{}) {
-	var object metav1.Object
-	var ok bool
-	if object, ok = obj.(metav1.Object); !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object, invalid type"))
-			return
-		}
-		object, ok = tombstone.Obj.(metav1.Object)
-		if !ok {
-			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object tombstone, invalid type"))
-			return
-		}
-		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
-	}
-
-	c.enqueueDedicatedGameServerCollection(object)
-}
-
-// RunWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
-func (c *AutoScalerController) RunWorker() {
-	// hot loop until we're told to stop.  processNextWorkItem will
-	// automatically wait until there's work available, so we don't worry
-	// about secondary waits
-	log.Info("Starting loop for AutoScaler controller")
-	for c.processNextWorkItem() {
-	}
 }
 
 // processNextWorkItem deals with one key off the queue.  It returns false
@@ -191,7 +182,7 @@ func (c *AutoScalerController) syncHandler(key string) error {
 	}
 
 	// try to get the DedicatedGameServerCollection
-	dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
+	dgsColTemp, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -204,39 +195,42 @@ func (c *AutoScalerController) syncHandler(key string) error {
 	}
 
 	// check if it has autoscaling enabled
-	if dgsCol.Spec.AutoScalerDetails.Enabled {
-		// grab all the DedicatedGameServers that belong to this DedicatedGameServerCollection
-		set := labels.Set{
-			shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
-		}
-		// we seach via Labels, each DGS will have the DGSCol name as a Label
-		selector := labels.SelectorFromSet(set)
-		dgsList, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
-		log.Print(dgsList, err)
+	if dgsColTemp.Spec.AutoScalerDetails == nil || dgsColTemp.Spec.AutoScalerDetails.Enabled == false {
+		return nil
 	}
 
-	// //check its state and active players
-	// if dgs.Spec.ActivePlayers == "0" && dgs.Status.GameServerState == shared.GameServerStateMarkedForDeletion {
-	// 	dgsToDelete, err := c.dgsClient.DedicatedGameServers(namespace).Get(name, metav1.GetOptions{})
-	// 	if err != nil {
-	// 		log.Errorf("Cannot fetch DedicatedGameServer %s", name)
-	// 		// DedicatedGameServer not found
-	// 		runtime.HandleError(fmt.Errorf("DedicatedGameServer '%s' cannot be retrieved", name))
-	// 		return err
-	// 	}
+	// check if both DGS and Pod status != Running
+	if dgsColTemp.Status.DedicatedGameServerCollectionState != dgsv1alpha1.DedicatedGameServerCollectionStateRunning ||
+		dgsColTemp.Status.PodCollectionState != corev1.PodRunning {
+		return nil
+	}
 
-	// 	err = c.dgsClient.DedicatedGameServers(namespace).Delete(dgsToDelete.Name, &metav1.DeleteOptions{})
+	// grab all the DedicatedGameServers that belong to this DedicatedGameServerCollection
+	set := labels.Set{
+		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
+	}
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsRunningList, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 
-	// 	if err != nil {
-	// 		log.Errorf("Cannot delete DedicatedGameServer %s", name)
-	// 		// DedicatedGameServer not found
-	// 		runtime.HandleError(fmt.Errorf("DedicatedGameServer '%s' cannot be deleted", name))
-	// 		return err
-	// 	}
+	totalActivePlayers := 0
+	for _, dgs := range dgsRunningList {
+		totalActivePlayers += dgs.Spec.ActivePlayers
+	}
 
-	// 	c.recorder.Event(dgs, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageMarkedForDeletionDedicatedGameServerDeleted, dgs.Name))
-	// 	return nil
-	// }
+	scalerDetails := dgsColTemp.Spec.AutoScalerDetails
+
+	totalPlayerCapacity := scalerDetails.MaxPlayersPerServer * len(dgsRunningList)
+
+	if len(dgsRunningList) < scalerDetails.MinimumReplicas ||
+		(len(dgsRunningList) < scalerDetails.MaximumReplicas && totalActivePlayers/totalPlayerCapacity > scalerDetails.ScaleOutThreshold) {
+		//scale out
+	}
+
+	if (len(dgsRunningList) > scalerDetails.MinimumReplicas && totalActivePlayers/totalPlayerCapacity < scalerDetails.ScaleInThreshold) ||
+		len(dgsRunningList) > scalerDetails.MaximumReplicas {
+		//scale in
+	}
 
 	return nil
 }
@@ -254,10 +248,93 @@ func (c *AutoScalerController) enqueueDedicatedGameServerCollection(obj interfac
 	c.workqueue.AddRateLimited(key)
 }
 
-func (c *AutoScalerController) Workqueue() workqueue.RateLimitingInterface {
-	return c.workqueue
+// Run initiates the AutoScalerController
+func (c *AutoScalerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+	defer runtime.HandleCrash()
+	defer c.workqueue.ShutDown()
+
+	// Start the informer factories to begin populating the informer caches
+	log.Info("Starting AutoScaler controller")
+
+	// Wait for the caches for all controllers to be synced before starting workers
+	log.Info("Waiting for informer caches to sync for AutoScaler controller")
+	if ok := cache.WaitForCacheSync(stopCh, c.dgsColListerSynced, c.dgsListerSynced); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	log.Info("Starting workers for AutoScaler controller")
+
+	// Launch a number of workers to process resources
+	for i := 0; i < controllerThreadiness; i++ {
+		// runWorker will loop until "something bad" happens.  The .Until will
+		// then rekick the worker after one second
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	log.Info("Started workers for AutoScaler controller")
+	<-stopCh
+	log.Info("Shutting down workers for AutoScaler controller")
+
+	return nil
 }
 
-func (c *AutoScalerController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced}
+// RunWorker is a long-running function that will continually call the
+// processNextWorkItem function in order to read and process a message on the
+// workqueue.
+func (c *AutoScalerController) runWorker() {
+	// hot loop until we're told to stop.  processNextWorkItem will
+	// automatically wait until there's work available, so we don't worry
+	// about secondary waits
+	log.Info("Starting loop for AutoScaler controller")
+	for c.processNextWorkItem() {
+	}
+}
+
+func (c *AutoScalerController) handleDedicatedGameServerCol(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+	}
+
+	c.enqueueDedicatedGameServerCollection(object)
+}
+
+func (c *AutoScalerController) handleDedicatedGameServer(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+	}
+
+	//if this DGS has a parent DGSCol
+	if len(object.GetOwnerReferences()) > 0 {
+		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
+		if err != nil {
+			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s", object.GetName()))
+			return
+		}
+
+		c.enqueueDedicatedGameServerCollection(dgsCol)
+	}
 }

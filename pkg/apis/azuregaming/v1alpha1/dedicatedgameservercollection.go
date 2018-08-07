@@ -48,6 +48,7 @@ type DedicatedGameServerAutoScalerDetails struct {
 	Enabled                    bool   `json:"enabled"`
 	CooldownInMinutes          int    `json:"cooldownInMinutes"`
 	LastScaleOperationDateTime string `json:"lastScaleOperationDateTime"`
+	MaxPlayersPerServer        int    `json:"maxPlayersPerServer"`
 }
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource

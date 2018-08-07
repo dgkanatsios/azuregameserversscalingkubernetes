@@ -51,4 +51,5 @@ const (
 	MessageReplicasIncreased = "%s with name %s increased by %d replicas successfully"
 
 	MessageMarkedForDeletionDedicatedGameServerDeleted = "Dedicated Game Server %s that was MarkedForDeletion with 0 Active Players was deleted"
+	MessageAutoscalingNotConfigured                    = "Autoscaling is not configured for DedicatedGameServerCollection %s"
 )

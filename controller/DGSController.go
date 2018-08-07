@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
@@ -87,11 +87,22 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("DedicatedGameServer controller - update DGS")
-				//TODO: should update do something?
+				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
+				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
+
+				if oldDGS.ResourceVersion == newDGS.ResourceVersion {
+					return
+				}
+
+				//TODO: maybe an 'if' there to determine what has changed?
+				//normally, things that would change are
+				//DedicatedGameServerState and ActivePlayers
+				c.handleDedicatedGameServer(newObj)
+
 			},
 			DeleteFunc: func(obj interface{}) {
 				//TODO: should delete do something?
-				log.Print("DedicatedGameServer controller - delete")
+				log.Print("DedicatedGameServer controller - delete DGS")
 			},
 		},
 	)
@@ -140,7 +151,7 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 		dgs, err := c.dgsLister.DedicatedGameServers(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
 
 		if err != nil {
-			runtime.HandleError(fmt.Errorf("error getting DGS object for Pod %s. Maybe it has been deleted?", object.GetName()))
+			runtime.HandleError(fmt.Errorf("error getting DedicatedGameServer for Pod %s. Maybe it has been deleted?", object.GetName()))
 			return
 		}
 		//and enqueue it
@@ -256,31 +267,40 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 				c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error creating Pod for DedicatedGameServer - GameServer status", err.Error())
 				return err
 			}
-
-			return nil //exiting, will get pod details on pod.Update event (will come sometime next in the workqueue)
+			return nil //exiting, will get pod details on pod.Update event (will arrive later in the workqueue)
 		}
 		return err //pod cannot be listed
 	}
 
+	//check if DGS is markedForDeletionWithZeroPlayers
+	if c.isDGSMarkedForDeletionWithZeroPlayers(dgsTemp) {
+		err = c.dgsClient.DedicatedGameServers(namespace).Delete(dgsTemp.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			log.WithFields(log.Fields{
+				"Name":  name,
+				"Error": err.Error(),
+			}).Error("Cannot delete DedicatedGameServer")
+			runtime.HandleError(fmt.Errorf("DedicatedGameServer '%s' cannot be deleted", name))
+			return err
+		}
+		log.WithField("Name", dgsTemp.Name).Info("DedicatedGameServer with state MarkedForDeletion and with 0 ActivePlayers was deleted")
+		c.recorder.Event(dgsTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageMarkedForDeletionDedicatedGameServerDeleted, dgsTemp.Name))
+		return nil
+	}
+
+	// try to update DGS with Node's Public IP
 	// get the Node/Public IP for this Pod
 	var ip string
 	if pod.Spec.NodeName != "" { //no-empty string => pod has been scheduled
 		ip, err = c.getPublicIPForNode(pod.Spec.NodeName)
-
 		if err != nil {
-			log.WithField("node", pod.Spec.NodeName).Error("Error in getting Public IP for Node")
+			log.WithField("Node", pod.Spec.NodeName).Error("Error in getting Public IP for Node")
 			c.recorder.Event(pod, corev1.EventTypeWarning, "Error in getting Public IP for the Node", err.Error())
 			return err
 		}
 	}
 
-	//update the DGS
-	// fetch the latest version
-	dgsTemp, err = c.dgsLister.DedicatedGameServers(namespace).Get(name)
-	if err != nil {
-		log.WithField("name", name).Error("Cannot get DedicatedGameServer")
-		return err
-	}
+	// update the DGS
 	dgsToUpdate := dgsTemp.DeepCopy()
 	log.WithFields(log.Fields{
 		"serverName":      dgsTemp.Name,
@@ -301,13 +321,21 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToUpdate)
 
 	if err != nil {
-		log.Errorf("ERROR:%s", err.Error())
+		log.WithFields(log.Fields{
+			"Name":  name,
+			"Error": err.Error(),
+		}).Error("Error in updating DedicatedGameServer")
 		c.recorder.Event(dgsTemp, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServer for pod %s", name), err.Error())
 		return err
 	}
 
 	c.recorder.Event(dgsTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServer", dgsTemp.Name))
 	return nil
+}
+
+func (c *DedicatedGameServerController) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {
+	//check its state and active players
+	return dgs.Spec.ActivePlayers == 0 && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
 }
 
 func (c *DedicatedGameServerController) getPublicIPForNode(nodeName string) (string, error) {
@@ -338,7 +366,7 @@ func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface
 	c.workqueue.AddRateLimited(key)
 }
 
-func (c *DedicatedGameServerController) createNewPod(dgs *v1alpha1.DedicatedGameServer) error {
+func (c *DedicatedGameServerController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
 
 	pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 
@@ -350,6 +378,7 @@ func (c *DedicatedGameServerController) createNewPod(dgs *v1alpha1.DedicatedGame
 	return nil
 }
 
+// Run initiates the DedicatedGameServer controller
 func (c *DedicatedGameServerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()

@@ -37,7 +37,7 @@ type DedicatedGameServerSpec struct {
 	Ports         []PortInfoExtended `json:"ports"`
 	PublicIP      string             `json:"publicIP"`
 	NodeName      string             `json:"nodeName"`
-	ActivePlayers string             `json:"activePlayers"`
+	ActivePlayers int                `json:"activePlayers"`
 }
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource

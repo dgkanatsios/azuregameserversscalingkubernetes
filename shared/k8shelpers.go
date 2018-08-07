@@ -46,7 +46,7 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 			Image:         image,
 			Ports:         ports,
 			StartMap:      startmap,
-			ActivePlayers: "0",
+			ActivePlayers: 0,
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
@@ -180,7 +180,7 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 		return err
 	}
 
-	dgs.Spec.ActivePlayers = string(activePlayers)
+	dgs.Spec.ActivePlayers = activePlayers
 	dgs.Labels[LabelActivePlayers] = string(activePlayers)
 
 	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)

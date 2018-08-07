@@ -32,11 +32,11 @@ type DedicatedGameServerCollectionSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Replicas          int32                                `json:"replicas"`
-	Image             string                               `json:"image"`
-	StartMap          string                               `json:"startmap"`
-	Ports             []PortInfo                           `json:"ports"`
-	AutoScalerDetails DedicatedGameServerAutoScalerDetails `json:"autoScalerDetails"`
+	Replicas          int32                                 `json:"replicas"`
+	Image             string                                `json:"image"`
+	StartMap          string                                `json:"startmap"`
+	Ports             []PortInfo                            `json:"ports"`
+	AutoScalerDetails *DedicatedGameServerAutoScalerDetails `json:"autoScalerDetails"`
 }
 
 // DedicatedGameServerAutoScalerDetails contains details about the autoscaling of the dedicated game server collection

@@ -137,7 +137,11 @@ func (in *DedicatedGameServerCollectionSpec) DeepCopyInto(out *DedicatedGameServ
 		*out = make([]PortInfo, len(*in))
 		copy(*out, *in)
 	}
-	out.AutoScalerDetails = in.AutoScalerDetails
+	if in.AutoScalerDetails != nil {
+		in, out := &in.AutoScalerDetails, &out.AutoScalerDetails
+		*out = new(DedicatedGameServerAutoScalerDetails)
+		**out = **in
+	}
 	return
 }
 

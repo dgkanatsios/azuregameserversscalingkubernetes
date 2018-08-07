@@ -194,7 +194,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		// The DedicatedGameServerCollection resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("dgsCol '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("DedicatedGameServerCollection '%s' in work queue no longer exists", key))
 			return nil
 		}
 
@@ -202,7 +202,6 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	}
 
 	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
-
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
 	}
@@ -211,7 +210,11 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 
 	if err != nil {
-		log.Error(err.Error())
+		log.WithFields(log.Fields{
+			"DGSColName": dgsColTemp.Name,
+			"Selector":   selector,
+			"Error":      err.Error(),
+		}).Error("Cannot get DedicatedGameServers via Label selector")
 		return err
 	}
 
@@ -253,6 +256,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		}
 
 		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsColTemp.Name, increaseCount))
+		return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
 
 	} else if dgsExistingCount > int(dgsColTemp.Spec.Replicas) { //if there are more DGS than the ones we requested
 		// we need to decrease our DGS for this collection
@@ -286,14 +290,9 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		}
 
 		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsColTemp.Name, decreaseCount))
+		return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
 	}
 
-	//update DGSCol
-	//fetch latest version
-	dgsColTemp, err = c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
-	if err != nil {
-		log.Errorf("Cannot fetch DGSCol %s", name)
-	}
 	dgsColToUpdate := dgsColTemp.DeepCopy()
 
 	err = c.modifyAvailableReplicas(dgsColToUpdate)
@@ -319,7 +318,10 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 	if err != nil {
-		log.Errorf("ERROR in updating DGS Col:%s", err.Error())
+		log.WithFields(log.Fields{
+			"Name":  dgsColTemp.Name,
+			"Error": err.Error(),
+		}).Error("Error in updating DedicatedGameServerCollection")
 		c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Error updating DedicatedGameServerCollection", err.Error())
 		return err
 	}

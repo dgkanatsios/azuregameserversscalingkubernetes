@@ -27,6 +27,7 @@ import (
 )
 
 const autoscalerControllerAgentName = "auto-scaler-controller"
+const timeformat = "Jan 2, 2006 at 3:04pm (MST)"
 
 type AutoScalerController struct {
 	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
@@ -205,6 +206,37 @@ func (c *AutoScalerController) syncHandler(key string) error {
 		return nil
 	}
 
+	loc, err := time.LoadLocation("UTC")
+	if err != nil {
+		log.Error("Cannot load UTC time")
+		return err
+	}
+
+	// lastScaleOperationDateTime != "" => scale in/out has happened before, at least once
+	// let's see if time has passed since then is more than the cooldown threshold
+	if dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime != "" {
+
+		lastScaleOperation, err := time.ParseInLocation(timeformat, dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime, loc)
+
+		if err != nil {
+			log.WithFields(log.Fields{
+				"DGSColName":                 dgsColTemp.Name,
+				"LastScaleOperationDateTime": dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime,
+				"Error": err.Error(),
+			}).Info("Cannot parse LastScaleOperationDateTime string. Will ignore potential cooldown duration")
+		} else {
+
+			currentTime := time.Now().In(loc)
+
+			durationSinceLastScaleOperation := currentTime.Sub(lastScaleOperation)
+
+			// cooldown period has not passed
+			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.AutoScalerDetails.CooldownInMinutes) {
+				return nil
+			}
+		}
+	}
+
 	// grab all the DedicatedGameServers that belong to this DedicatedGameServerCollection
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
@@ -213,23 +245,57 @@ func (c *AutoScalerController) syncHandler(key string) error {
 	selector := labels.SelectorFromSet(set)
 	dgsRunningList, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 
+	// measure current load, i.e. total Active Players
 	totalActivePlayers := 0
 	for _, dgs := range dgsRunningList {
 		totalActivePlayers += dgs.Spec.ActivePlayers
 	}
 
+	// get scaler information
 	scalerDetails := dgsColTemp.Spec.AutoScalerDetails
 
+	// measure total player capacity
 	totalPlayerCapacity := scalerDetails.MaxPlayersPerServer * len(dgsRunningList)
 
 	if len(dgsRunningList) < scalerDetails.MinimumReplicas ||
 		(len(dgsRunningList) < scalerDetails.MaximumReplicas && totalActivePlayers/totalPlayerCapacity > scalerDetails.ScaleOutThreshold) {
+
 		//scale out
+		dgsColToUpdate := dgsColTemp.DeepCopy()
+		dgsColToUpdate.Spec.Replicas++
+
+		_, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+
+		if err != nil {
+			log.WithFields(log.Fields{
+				"DGSColName":          dgsColTemp.Name,
+				"totalActivePlayers":  totalActivePlayers,
+				"totalPlayerCapacity": totalPlayerCapacity,
+				"Error":               err.Error(),
+			}).Error("Cannot scale out")
+			return err
+		}
+		scalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
 	}
 
 	if (len(dgsRunningList) > scalerDetails.MinimumReplicas && totalActivePlayers/totalPlayerCapacity < scalerDetails.ScaleInThreshold) ||
 		len(dgsRunningList) > scalerDetails.MaximumReplicas {
 		//scale in
+		dgsColToUpdate := dgsColTemp.DeepCopy()
+		dgsColToUpdate.Spec.Replicas--
+
+		_, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+
+		if err != nil {
+			log.WithFields(log.Fields{
+				"DGSColName":          dgsColTemp.Name,
+				"totalActivePlayers":  totalActivePlayers,
+				"totalPlayerCapacity": totalPlayerCapacity,
+				"Error":               err.Error(),
+			}).Error("Cannot scale in")
+			return err
+		}
+		scalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
 	}
 
 	return nil

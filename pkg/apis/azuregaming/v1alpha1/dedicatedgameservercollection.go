@@ -46,7 +46,7 @@ type DedicatedGameServerAutoScalerDetails struct {
 	ScaleInThreshold           int    `json:"scaleInThreshold"`
 	ScaleOutThreshold          int    `json:"scaleOutThreshold"`
 	Enabled                    bool   `json:"enabled"`
-	CooldownInMinutes          int    `json:"cooldownInMinutes"`
+	CoolDownInMinutes          int    `json:"coolDownInMinutes"`
 	LastScaleOperationDateTime string `json:"lastScaleOperationDateTime"`
 	MaxPlayersPerServer        int    `json:"maxPlayersPerServer"`
 }

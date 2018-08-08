@@ -1,0 +1,24 @@
+apiVersion: azuregaming.com/v1alpha1
+kind: DedicatedGameServerCollection
+metadata:
+  name: openarena-collection-example
+spec:
+  image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.4
+  replicas: 5
+  startmap: dm4ish
+  ports:
+  - containerPort: 27950
+    protocol: UDP
+    name: secondary
+  - containerPort: 27960
+    protocol: UDP
+    name: primary
+  autoScalerDetails:
+    minimumReplicas: 5
+    maximumReplicas: 10
+    scaleInThreshold: 60
+    scaleOutThreshold: 80
+    enabled: true
+    coolDownInMinutes: 5
+    maxPlayersPerServer: 10
+  

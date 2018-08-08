@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	autoscalerenabled := flag.Bool("autoscalerenabled", false, "Determines whether Pod AutoScaler is enabled. Default: false")
+	autoscalerenabled := flag.Bool("autoscaler", false, "Determines whether Pod AutoScaler is enabled. Default: false")
 	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness, default 1")
 
 	flag.Parse()

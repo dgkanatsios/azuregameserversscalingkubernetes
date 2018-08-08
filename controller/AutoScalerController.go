@@ -27,7 +27,7 @@ import (
 )
 
 const autoscalerControllerAgentName = "auto-scaler-controller"
-const timeformat = "Jan 2, 2006 at 3:04pm (MST)"
+const timeformat = "2006-01-02 15:04:05.999999999 -0700 MST"
 
 type AutoScalerController struct {
 	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
@@ -62,10 +62,11 @@ func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *
 	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
 	c := &AutoScalerController{
-		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
 		dgsColLister:       dgsColInformer.Lister(),
-		dgsLister:          dgsInformer.Lister(),
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
+		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		dgsLister:          dgsInformer.Lister(),
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "AutoScalerSync"),
 		recorder:           recorder,
@@ -97,8 +98,9 @@ func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *
 	dgsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				// we're doing nothing on add
+				// the logic will run either on DGSCol add/update or DGS update
 				log.Print("AutoScaler controller - add DedicatedGameServer")
-				c.handleDedicatedGameServerCol(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				log.Print("AutoScaler controller - update DedicatedGameServer")
@@ -203,6 +205,7 @@ func (c *AutoScalerController) syncHandler(key string) error {
 	// check if both DGS and Pod status != Running
 	if dgsColTemp.Status.DedicatedGameServerCollectionState != dgsv1alpha1.DedicatedGameServerCollectionStateRunning ||
 		dgsColTemp.Status.PodCollectionState != corev1.PodRunning {
+		log.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because DedicatedGameServer and/or Pod states are not Running")
 		return nil
 	}
 
@@ -231,7 +234,8 @@ func (c *AutoScalerController) syncHandler(key string) error {
 			durationSinceLastScaleOperation := currentTime.Sub(lastScaleOperation)
 
 			// cooldown period has not passed
-			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.AutoScalerDetails.CooldownInMinutes) {
+			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.AutoScalerDetails.CoolDownInMinutes) {
+				log.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because coolDownPeriod has not passed")
 				return nil
 			}
 		}
@@ -257,12 +261,28 @@ func (c *AutoScalerController) syncHandler(key string) error {
 	// measure total player capacity
 	totalPlayerCapacity := scalerDetails.MaxPlayersPerServer * len(dgsRunningList)
 
+	currentLoad := float32(totalActivePlayers) / float32(totalPlayerCapacity)
+	scaleOutThresholdPercent := float32(scalerDetails.ScaleOutThreshold) / float32(100)
+	scaleInThresholdPercent := float32(scalerDetails.ScaleInThreshold) / float32(100)
+
+	// log.WithFields(log.Fields{
+	// 	"DGSCol":                   dgsColTemp.Name,
+	// 	"currentLoad":              currentLoad,
+	// 	"scaleOutThresholdPercent": scaleOutThresholdPercent,
+	// 	"scaleInThresholdPercent":  scaleInThresholdPercent,
+	// 	"len(dgsRunningList)":      len(dgsRunningList),
+	// 	"minReplicas":              scalerDetails.MinimumReplicas,
+	// 	"maxReplicas":              scalerDetails.MaximumReplicas,
+	// }).Info("Scaler details")
+
 	if len(dgsRunningList) < scalerDetails.MinimumReplicas ||
-		(len(dgsRunningList) < scalerDetails.MaximumReplicas && totalActivePlayers/totalPlayerCapacity > scalerDetails.ScaleOutThreshold) {
+		(len(dgsRunningList) < scalerDetails.MaximumReplicas && currentLoad > scaleOutThresholdPercent) {
 
 		//scale out
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas++
+		dgsColToUpdate.Spec.AutoScalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
+		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateCreating
 
 		_, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
@@ -275,14 +295,19 @@ func (c *AutoScalerController) syncHandler(key string) error {
 			}).Error("Cannot scale out")
 			return err
 		}
-		scalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
+
+		log.WithField("Name", dgsColToUpdate.Name).Info("Scale out occurred")
+
+		return nil
 	}
 
-	if (len(dgsRunningList) > scalerDetails.MinimumReplicas && totalActivePlayers/totalPlayerCapacity < scalerDetails.ScaleInThreshold) ||
+	if (len(dgsRunningList) > scalerDetails.MinimumReplicas && currentLoad < scaleInThresholdPercent) ||
 		len(dgsRunningList) > scalerDetails.MaximumReplicas {
 		//scale in
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas--
+		dgsColToUpdate.Spec.AutoScalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
+		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateCreating
 
 		_, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
@@ -295,7 +320,10 @@ func (c *AutoScalerController) syncHandler(key string) error {
 			}).Error("Cannot scale in")
 			return err
 		}
-		scalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
+
+		log.WithField("Name", dgsColToUpdate.Name).Info("Scale in occurred")
+
+		return nil
 	}
 
 	return nil

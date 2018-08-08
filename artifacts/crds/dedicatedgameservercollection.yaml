@@ -58,7 +58,11 @@ spec:
                   maximum: 100
                 Enabled:
                   type: boolean
-                CooldownInMinutes:
+                CoolDownInMinutes:
+                  type: integer
+                LastScaleOperationDateTime:
+                  type: string
+                MaxPlayersPerServer:
                   type: integer
             Ports:
               type: array

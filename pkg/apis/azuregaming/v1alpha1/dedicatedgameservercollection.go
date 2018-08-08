@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,15 +32,30 @@ type DedicatedGameServerCollectionSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Replicas int32      `json:"replicas"`
-	Image    string     `json:"image"`
-	StartMap string     `json:"startmap"`
-	Ports    []PortInfo `json:"ports"`
+	Replicas          int32                                 `json:"replicas"`
+	Image             string                                `json:"image"`
+	StartMap          string                                `json:"startmap"`
+	Ports             []PortInfo                            `json:"ports"`
+	AutoScalerDetails *DedicatedGameServerAutoScalerDetails `json:"autoScalerDetails"`
+}
+
+// DedicatedGameServerAutoScalerDetails contains details about the autoscaling of the dedicated game server collection
+type DedicatedGameServerAutoScalerDetails struct {
+	MinimumReplicas            int    `json:"minimumReplicas"`
+	MaximumReplicas            int    `json:"maximumReplicas"`
+	ScaleInThreshold           int    `json:"scaleInThreshold"`
+	ScaleOutThreshold          int    `json:"scaleOutThreshold"`
+	Enabled                    bool   `json:"enabled"`
+	CoolDownInMinutes          int    `json:"coolDownInMinutes"`
+	LastScaleOperationDateTime string `json:"lastScaleOperationDateTime"`
+	MaxPlayersPerServer        int    `json:"maxPlayersPerServer"`
 }
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionStatus struct {
-	AvailableReplicas int32 `json:"availableReplicas"`
+	AvailableReplicas                  int32                              `json:"availableReplicas"`
+	PodCollectionState                 corev1.PodPhase                    `json:"podsState"`
+	DedicatedGameServerCollectionState DedicatedGameServerCollectionState `json:"gameServersState"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

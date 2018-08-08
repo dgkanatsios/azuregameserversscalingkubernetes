@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/controller"
@@ -10,14 +10,14 @@ import (
 	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 )
 
 func main() {
+	autoscalerenabled := flag.Bool("autoscaler", false, "Determines whether Pod AutoScaler is enabled. Default: false")
+	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness, default 1")
+
+	flag.Parse()
 
 	client, dgsclient, err := shared.GetClientSet()
 
@@ -25,24 +25,17 @@ func main() {
 		log.Panic("Cannot initialize connection to cluster due to: %v", err)
 	}
 
-	flag.Parse()
-
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	sharedInformers := informers.NewSharedInformerFactory(client, 30*time.Minute)
-	dgsSharedInformers := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
+	sharedInformerFactory := informers.NewSharedInformerFactory(client, 30*time.Second)
+	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Second)
 
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
-		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())
 
-	dgsController := controller.NewDedicatedGameServerController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
-		dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformers.Core().V1().Pods())
-
-	podController := controller.NewPodController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
-		sharedInformers.Core().V1().Pods(), sharedInformers.Core().V1().Nodes())
-
-	garbageCollectionController := controller.NewGarbageCollectionController(client, dgsclient, dgsSharedInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+	dgsController := controller.NewDedicatedGameServerController(client, dgsclient,
+		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes())
 
 	err = controller.InitializePortRegistry(dgsclient)
 	if err != nil {
@@ -50,14 +43,19 @@ func main() {
 	}
 	log.Info("Initialized Port Registry")
 
-	go sharedInformers.Start(stopCh)
-	go dgsSharedInformers.Start(stopCh)
+	controllers := []controllerHelper{dgsColController, dgsController}
 
-	controllers := []controllerHelper{dgsColController, dgsController, podController, garbageCollectionController}
-
-	if err = runAllControllers(controllers, 1, stopCh); err != nil {
-		log.Fatalf("Error running controllers: %s", err.Error())
+	if *autoscalerenabled {
+		autoscalerController := controller.NewAutoScalerControllerController(client, dgsclient,
+			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
+			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())
+		controllers = append(controllers, autoscalerController)
 	}
+
+	go sharedInformerFactory.Start(stopCh)
+	go dgsSharedInformerFactory.Start(stopCh)
+
+	runAllControllers(controllers, *controllerthreadiness, stopCh)
 
 }
 
@@ -65,43 +63,25 @@ func main() {
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
-func runAllControllers(controllers []controllerHelper, controllerThreadiness int, stopCh <-chan struct{}) error {
-	defer runtime.HandleCrash()
-	for _, c := range controllers {
-		defer c.Workqueue().ShutDown()
-	}
+func runAllControllers(controllers []controllerHelper, controllerThreadiness int, stopCh <-chan struct{}) {
 
 	// Start the informer factories to begin populating the informer caches
 	log.Info("Starting controllers")
 
-	// Wait for the caches for all controllers to be synced before starting workers
-	log.Info("Waiting for informer caches to sync")
-	for _, c := range controllers {
-		if ok := cache.WaitForCacheSync(stopCh, c.ListersSynced()...); !ok {
-			return fmt.Errorf("failed to wait for caches to sync")
-		}
-	}
-
-	log.Info("Starting workers")
 	// for all our controllers
 	for _, c := range controllers {
-		// Launch a number of workers to process resources
-		for i := 0; i < controllerThreadiness; i++ {
-			// runWorker will loop until "something bad" happens.  The .Until will
-			// then rekick the worker after one second
-			go wait.Until(c.RunWorker, time.Second, stopCh)
-		}
+		go func(ch controllerHelper) {
+			err := ch.Run(controllerThreadiness, stopCh)
+			if err != nil {
+				log.Errorf("Cannot run controller %s", reflect.TypeOf(ch))
+			}
+		}(c)
 	}
 
-	log.Info("Started workers")
 	<-stopCh
-	log.Info("Shutting down workers")
-
-	return nil
+	log.Info("Controllers stopped")
 }
 
 type controllerHelper interface {
-	Workqueue() workqueue.RateLimitingInterface
-	RunWorker()
-	ListersSynced() []cache.InformerSynced
+	Run(controllerThreadiness int, stopCh <-chan struct{}) error
 }

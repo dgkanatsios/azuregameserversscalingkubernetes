@@ -41,6 +41,29 @@ spec:
               type: integer
               minimum: 1
               maximum: 100
+            AutoScalerDetails:
+              type: object
+              properties:
+                MinimumReplicas:
+                  type: integer
+                MaximumReplicas:
+                  type: integer
+                ScaleInThreshold:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                ScaleOutThreshold:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                Enabled:
+                  type: boolean
+                CoolDownInMinutes:
+                  type: integer
+                LastScaleOperationDateTime:
+                  type: string
+                MaxPlayersPerServer:
+                  type: integer
             Ports:
               type: array
               items:

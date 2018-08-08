@@ -26,10 +26,14 @@ func NewDedicatedGameServerCollection(name string, startmap string, image string
 }
 
 func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, ports []dgsv1alpha1.PortInfoExtended, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
+	initialState := dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{LabelServerName: name, LabelDedicatedGameServerCollectionName: dgsCol.Name},
+			Name: name,
+			Labels: map[string]string{LabelServerName: name,
+				LabelDedicatedGameServerCollectionName: dgsCol.Name,
+				LabelActivePlayers:                     "0",
+				LabelDedicatedGameServerState:          string(initialState)},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgsCol, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -39,15 +43,19 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 			},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Image:    image,
-			Ports:    ports,
-			StartMap: startmap,
+			Image:         image,
+			Ports:         ports,
+			StartMap:      startmap,
+			ActivePlayers: 0,
+		},
+		Status: dgsv1alpha1.DedicatedGameServerStatus{
+			DedicatedGameServerState: initialState,
 		},
 	}
 	return dedicatedgameserver
 }
 
-// NewPod returns a Kubernetes Pod struct
+// NewPod returns a Kubernetes Pod struct that has the same name as the provided DedicatedGameServer
 // It also sets a label called "DedicatedGameServer" with the value of the corresponding DedicatedGameServer resource
 func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, setServerStatusURL string) *core.Pod {
 	pod := &core.Pod{
@@ -58,7 +66,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
 					Version: dgsv1alpha1.SchemeGroupVersion.Version,
-					Kind:    "DedicatedGameServer",
+					Kind:    DedicatedGameServerKind,
 				}),
 			},
 		},
@@ -161,6 +169,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 	return pod
 }
 
+// UpdateActivePlayers updates the active players count for the server with name serverName
 func UpdateActivePlayers(serverName string, activePlayers int) error {
 	_, dgsClient, err := GetClientSet()
 	if err != nil {
@@ -171,8 +180,7 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 		return err
 	}
 
-	//dgsCopy := dgs.DeepCopy()
-	dgs.Spec.ActivePlayers = string(activePlayers)
+	dgs.Spec.ActivePlayers = activePlayers
 	dgs.Labels[LabelActivePlayers] = string(activePlayers)
 
 	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)
@@ -182,7 +190,8 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 	return nil
 }
 
-func UpdateGameServerStatus(serverName string, serverStatus string) error {
+// UpdateGameServerStatus updates the DedicatedGameServer with the serverName status
+func UpdateGameServerStatus(serverName string, serverStatus dgsv1alpha1.DedicatedGameServerState) error {
 	_, dgsClient, err := GetClientSet()
 	if err != nil {
 		return err
@@ -192,38 +201,14 @@ func UpdateGameServerStatus(serverName string, serverStatus string) error {
 		return err
 	}
 
-	dgsCopy := dgs.DeepCopy()
-	dgsCopy.Status.GameServerState = serverStatus
-	dgsCopy.Labels[LabelGameServerState] = serverStatus
+	dgs.Status.DedicatedGameServerState = serverStatus
+	dgs.Labels[LabelDedicatedGameServerState] = string(serverStatus)
 
-	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgsCopy)
+	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func GetDedicatedGameServersMarkedForDeletionWithZeroPlayers() ([]dgsv1alpha1.DedicatedGameServer, error) {
-	_, dgsClient, err := GetClientSet()
-	if err != nil {
-		return nil, err
-	}
-
-	set := labels.Set{
-		LabelGameServerState: GameServerStateMarkedForDeletion,
-		LabelActivePlayers:   "0",
-	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
-	selector := labels.SelectorFromSet(set)
-	dgsToDelete, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return dgsToDelete.Items, nil
 }
 
 func GetDedicatedGameServersPodStateRunning() ([]dgsv1alpha1.DedicatedGameServer, error) {

@@ -21,8 +21,3 @@ Interesting blog posts from Cloudark
 - https://itnext.io/analyzing-value-of-operator-framework-for-kubernetes-community-5a65abc259ec
 - https://itnext.io/under-the-hood-of-kubebuilder-framework-ff6b38c10796
 - https://medium.com/@cloudark/under-the-hood-of-the-operator-sdk-eebc8fdeebbf
-
-Other stuff
-
-- Couldn't get dep to work with client-go, so we used these [simple scripts](https://github.com/ahmetb/dotfiles/tree/master/bin) from [@ahmetb](https://github.com/ahmetb) to vendor the dependencies
-

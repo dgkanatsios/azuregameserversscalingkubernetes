@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	cache "k8s.io/client-go/tools/cache"
 
 	record "k8s.io/client-go/tools/record"
@@ -73,11 +75,11 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - add")
+				log.Print("DedicatedGameServerCollection controller - add DGSCol")
 				c.handleDedicatedGameServerCollection(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - update")
+				log.Print("DedicatedGameServerCollection controller - update DGSCol")
 				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 
@@ -85,30 +87,40 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 					return
 				}
 
-				c.handleDedicatedGameServerCollection(newObj)
+				//only enqueue if if the number of requested replicas has changed
+				//TODO: should we allow other updates?
+				if oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas {
+					c.handleDedicatedGameServerCollection(newObj)
+				}
+
 			},
 			DeleteFunc: func(obj interface{}) {
-				// IndexerInformer uses a delta nodeQueue, therefore for deletes we have to use this
-				// key function.
-				//key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				log.Print("DedicatedGameServerCollection controller - delete")
+				log.Print("DedicatedGameServerCollection controller - delete DGSCol")
+			},
+		},
+	)
+
+	dgsInformer.Informer().AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				log.Print("DedicatedGameServerCollection controller - add DGS")
+				c.handleDedicatedGameServer(obj)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				log.Print("DedicatedGameServerCollection controller - update DGS")
+				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
+				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
+
+				if oldDGS.ResourceVersion == newDGS.ResourceVersion {
+					return
+				}
+
+				c.handleDedicatedGameServer(newObj)
 			},
 		},
 	)
 
 	return c
-}
-
-// RunWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
-func (c *DedicatedGameServerCollectionController) RunWorker() {
-	// hot loop until we're told to stop.  processNextWorkItem will
-	// automatically wait until there's work available, so we don't worry
-	// about secondary waits
-	log.Info("Starting loop for DedicatedGameServerCollection controller")
-	for c.processNextWorkItem() {
-	}
 }
 
 // processNextWorkItem deals with one key off the queue.  It returns false
@@ -177,12 +189,12 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	}
 
 	// Get the DedicatedGameServerCollection resource with this namespace/name
-	dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
+	dgsColTemp, err := c.dgsColLister.DedicatedGameServerCollections(namespace).Get(name)
 	if err != nil {
 		// The DedicatedGameServerCollection resource may no longer exist, in which case we stop
 		// processing.
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("dgsCol '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("DedicatedGameServerCollection '%s' in work queue no longer exists", key))
 			return nil
 		}
 
@@ -190,32 +202,36 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	}
 
 	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
-
 	set := labels.Set{
-		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
 	}
 	// we seach via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
-	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
+	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 
 	if err != nil {
+		log.WithFields(log.Fields{
+			"DGSColName": dgsColTemp.Name,
+			"Selector":   selector,
+			"Error":      err.Error(),
+		}).Error("Cannot get DedicatedGameServers via Label selector")
 		return err
 	}
 
 	dgsExistingCount := len(dgsExisting)
 
 	// if there are less DedicatedGameServers than the ones we requested
-	if dgsExistingCount < int(dgsCol.Spec.Replicas) {
+	if dgsExistingCount < int(dgsColTemp.Spec.Replicas) {
 		//create them
-		increaseCount := int(dgsCol.Spec.Replicas) - dgsExistingCount
+		increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
 		for i := 0; i < increaseCount; i++ {
 			// create a random name for the dedicated name server
 			// the corresponding pod will have the same name as well
-			dgsName := dgsCol.Name + "-" + shared.RandString(5)
+			dgsName := dgsColTemp.Name + "-" + shared.RandString(5)
 
 			// first, get random ports
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
-			for _, portInfo := range dgsCol.Spec.Ports {
+			for _, portInfo := range dgsColTemp.Spec.Ports {
 				//get a random port
 				hostport, errPort := portRegistry.GetNewPort(dgsName)
 				if errPort != nil {
@@ -230,7 +246,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 			// each dedicated game server will have a name of
 			// DedicatedGameServerCollectioName + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsCol, dgsName, portsInfoExtended, dgsCol.Spec.StartMap, dgsCol.Spec.Image)
+			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, portsInfoExtended, dgsColTemp.Spec.StartMap, dgsColTemp.Spec.Image)
 			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -239,31 +255,33 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			}
 		}
 
-		c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsCol.Name, increaseCount))
+		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsColTemp.Name, increaseCount))
+		return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
 
-	} else if dgsExistingCount > int(dgsCol.Spec.Replicas) { //if there are more DGS than the ones we requested
+	} else if dgsExistingCount > int(dgsColTemp.Spec.Replicas) { //if there are more DGS than the ones we requested
 		// we need to decrease our DGS for this collection
 		// to accomplish this, we'll first find the number of DGS we need to decrease
-		decreaseCount := dgsExistingCount - int(dgsCol.Spec.Replicas)
+		decreaseCount := dgsExistingCount - int(dgsColTemp.Spec.Replicas)
 		// we'll remove random instances of DGS from our DGSCol
 		indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
 		for i := 0; i < len(indexesToDecrease); i++ {
-			dgsToMarkForDeletion, err := c.dgsClient.DedicatedGameServers(namespace).Get(dgsExisting[indexesToDecrease[i]].Name, metav1.GetOptions{})
+			dgsToMarkForDeletionTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(dgsExisting[indexesToDecrease[i]].Name)
+
 			if err != nil {
 				log.Error(err.Error())
 				return err
 			}
+			dgsToMarkForDeletionToUpdate := dgsToMarkForDeletionTemp.DeepCopy()
 			// update the DGS so it has no owners
-			//dgsToMarkForDeletionCopy := dgsToMarkForDeletion.DeepCopy()
-			dgsToMarkForDeletion.ObjectMeta.OwnerReferences = nil
+			dgsToMarkForDeletionToUpdate.ObjectMeta.OwnerReferences = nil
 			//remove the DGSCol name from the DGS labels
-			delete(dgsToMarkForDeletion.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
+			delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 			//set its state as marked for deletion
-			dgsToMarkForDeletion.Status.GameServerState = shared.GameServerStateMarkedForDeletion
-			dgsToMarkForDeletion.Labels[shared.LabelGameServerState] = shared.GameServerStateMarkedForDeletion
+			dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
+			dgsToMarkForDeletionToUpdate.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
 			//update the DGS CRD
-			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletion)
+			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionToUpdate)
 			if err != nil {
 				log.Error(err.Error())
 				return err
@@ -271,27 +289,127 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 		}
 
-		// we now have to update the DedicatedGameServerCollection instance with the new number of available replicas
-		dgsColCopy, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Get(name, metav1.GetOptions{})
-		if err != nil {
-			log.Error(err.Error())
-			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot get DedicatedGameServerCollection to update AvailableReplicas", err.Error())
-			return err
-		}
-
-		dgsColCopy.Status.AvailableReplicas -= int32(decreaseCount)
-		_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColCopy)
-		if err != nil {
-			log.Error(err.Error())
-			c.recorder.Event(dgsCol, corev1.EventTypeWarning, "Cannot update DedicatedGameServerCollection for AvailableReplicas", err.Error())
-			return err
-		}
-
-		c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsCol.Name, decreaseCount))
+		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsColTemp.Name, decreaseCount))
+		return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
 	}
 
-	c.recorder.Event(dgsCol, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServerCollection", dgsCol.Name))
+	dgsColToUpdate := dgsColTemp.DeepCopy()
+
+	err = c.modifyAvailableReplicas(dgsColToUpdate)
+	if err != nil {
+		c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - GameServer status", err.Error())
+		return err
+	}
+
+	//modify DGSCol.Status.DGSState
+	err = c.assignGameServerCollectionState(dgsColToUpdate)
+	if err != nil {
+		c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - GameServer status", err.Error())
+		return err
+	}
+
+	//modify DGSCol.Status.PodState
+	err = c.assignPodCollectionState(dgsColToUpdate)
+	if err != nil {
+		c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - Pod status", err.Error())
+		return err
+	}
+
+	_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Name":  dgsColTemp.Name,
+			"Error": err.Error(),
+		}).Error("Error in updating DedicatedGameServerCollection")
+		c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Error updating DedicatedGameServerCollection", err.Error())
+		return err
+	}
+
+	c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServerCollection", dgsColTemp.Name))
 	return nil
+}
+
+func (c *DedicatedGameServerCollectionController) modifyAvailableReplicas(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+
+	set := labels.Set{
+		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+	}
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsInstances, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
+
+	if err != nil {
+		return err
+	}
+
+	dgsCol.Status.AvailableReplicas = 0
+
+	for _, dgs := range dgsInstances {
+		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateRunning && dgs.Status.PodState == corev1.PodRunning {
+			dgsCol.Status.AvailableReplicas++
+		}
+	}
+
+	return nil
+}
+
+func (c *DedicatedGameServerCollectionController) assignGameServerCollectionState(
+	dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+
+	set := labels.Set{
+		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+	}
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsInstances, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
+
+	if err != nil {
+		return err
+	}
+
+	for _, dgs := range dgsInstances {
+		//at least one of the DGS is not running
+		if dgs.Status.DedicatedGameServerState != dgsv1alpha1.DedicatedGameServerStateRunning {
+			//so set the overall collection state as the state of this one
+			dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionState(dgs.Status.DedicatedGameServerState)
+			return nil
+		}
+	}
+	//all of the DGS are running, so set the DGSCol state as running
+	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateRunning
+	return nil
+
+}
+
+func (c *DedicatedGameServerCollectionController) assignPodCollectionState(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+	// if this Pod state is running, then we should check whether
+	// ALL the Pod in the Collection have the running state
+	// if true, then DGSCol Pod state is running
+	// else DGSCol Pod state is equal to this Pod State
+	set := labels.Set{
+		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
+	}
+	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsInstances, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
+
+	if err != nil {
+		return err
+	}
+
+	for _, dgs := range dgsInstances {
+		//one pod is not running
+		if dgs.Status.PodState != shared.PodStateRunning {
+			// so set the collection's Pod State to this one Pod's value
+			dgsCol.Status.PodCollectionState = dgs.Status.PodState
+			return nil
+		}
+	}
+	//all pods are running, so set the collection Pod State with the running value
+	dgsCol.Status.PodCollectionState = corev1.PodRunning
+	return nil
+
 }
 
 func (c *DedicatedGameServerCollectionController) handleDedicatedGameServerCollection(obj interface{}) {
@@ -314,6 +432,35 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServerColle
 	c.enqueueDedicatedGameServerCollection(object)
 }
 
+func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj interface{}) {
+	var object metav1.Object
+	var ok bool
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object, invalid type"))
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object tombstone, invalid type"))
+			return
+		}
+		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+	}
+
+	//if this DGS has a parent DGSCol
+	if len(object.GetOwnerReferences()) > 0 {
+		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
+		if err != nil {
+			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s", object.GetName()))
+			return
+		}
+
+		c.enqueueDedicatedGameServerCollection(dgsCol)
+	}
+}
+
 // enqueueDedicatedGameServerCollection takes a DedicatedGameServerCollection resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServerCollection.
@@ -327,10 +474,43 @@ func (c *DedicatedGameServerCollectionController) enqueueDedicatedGameServerColl
 	c.workqueue.AddRateLimited(key)
 }
 
-func (c *DedicatedGameServerCollectionController) Workqueue() workqueue.RateLimitingInterface {
-	return c.workqueue
+// runWorker is a long-running function that will continually call the
+// processNextWorkItem function in order to read and process a message on the
+// workqueue.
+func (c *DedicatedGameServerCollectionController) runWorker() {
+	// hot loop until we're told to stop.  processNextWorkItem will
+	// automatically wait until there's work available, so we don't worry
+	// about secondary waits
+	log.Info("Starting loop for DedicatedGameServerCollection controller")
+	for c.processNextWorkItem() {
+	}
 }
 
-func (c *DedicatedGameServerCollectionController) ListersSynced() []cache.InformerSynced {
-	return []cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced}
+func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+	defer runtime.HandleCrash()
+	defer c.workqueue.ShutDown()
+
+	// Start the informer factories to begin populating the informer caches
+	log.Info("Starting DedicatedGameServerCollection controller")
+
+	// Wait for the caches for all controllers to be synced before starting workers
+	log.Info("Waiting for informer caches to sync for DedicatedGameServerCollection controller")
+	if ok := cache.WaitForCacheSync(stopCh, c.dgsColListerSynced, c.dgsListerSynced); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
+
+	log.Info("Starting workers for DedicatedGameServerCollection controller")
+
+	// Launch a number of workers to process resources
+	for i := 0; i < controllerThreadiness; i++ {
+		// runWorker will loop until "something bad" happens.  The .Until will
+		// then rekick the worker after one second
+		go wait.Until(c.runWorker, time.Second, stopCh)
+	}
+
+	log.Info("Started workers for DedicatedGameServerCollection controller")
+	<-stopCh
+	log.Info("Shutting down workers for DedicatedGameServerCollection controller")
+
+	return nil
 }

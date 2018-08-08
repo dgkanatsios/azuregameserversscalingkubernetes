@@ -98,26 +98,21 @@ kubectl create secret generic openarena-storage-secret --from-literal=azurestora
 
 Create a Kubernetes secret that will hold our access code for the API:
 ```bash
+# just use a code that will be kept hidden
 kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 ```
 
 Create DedicatedGameServer Custom Resource Definition:
 ```bash
 cd artifacts
-kubectl apply -f artifacts/crd
+kubectl apply -f artifacts/crds
 ```
 
 Create `apiserver` and `controller` K8s deployments:
 ```bash
-kubectl apply -f deploy.apiserver-controller.yaml
+kubectl apply -f artifacts/deploy.apiserver-controller.yaml
+# use this file for a cluster not configured with RBAC authentication
+# kubectl apply -f artifacts/deploy.apiserver-controller.no-rbac.yaml
 ```
 
-To update your API and Controller deployments:
-```bash
-cd various
-./updatedeployments.sh
-```
-
-```bash
-az aks browse --resource-group $AKS_RESOURCE_GROUP --name $AKS_NAME
-```
+Now you can `cd` to the artifacts/examples folder to play with demo examples.

@@ -245,7 +245,7 @@ func (c *AutoScalerController) syncHandler(key string) error {
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
 	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsRunningList, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 

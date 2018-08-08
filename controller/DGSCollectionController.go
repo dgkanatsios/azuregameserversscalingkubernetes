@@ -205,7 +205,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
 	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
 
@@ -335,7 +335,7 @@ func (c *DedicatedGameServerCollectionController) modifyAvailableReplicas(dgsCol
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsInstances, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
 
@@ -360,7 +360,7 @@ func (c *DedicatedGameServerCollectionController) assignGameServerCollectionStat
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsInstances, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
 
@@ -390,7 +390,7 @@ func (c *DedicatedGameServerCollectionController) assignPodCollectionState(dgsCo
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsInstances, err := c.dgsLister.DedicatedGameServers(dgsCol.Namespace).List(selector)
 

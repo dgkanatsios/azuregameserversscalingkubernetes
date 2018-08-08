@@ -221,7 +221,7 @@ func GetDedicatedGameServersPodStateRunning() ([]dgsv1alpha1.DedicatedGameServer
 		//LabelGameServerState: GameServerStateRunning,
 		LabelPodState: PodStateRunning,
 	}
-	// we seach via Labels, each DGS will have the DGSCol name as a Label
+	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	dgsPodStateRunning, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
 		LabelSelector: selector.String(),

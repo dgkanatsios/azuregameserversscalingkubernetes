@@ -26,7 +26,7 @@ func NewDedicatedGameServerCollection(name string, startmap string, image string
 }
 
 func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, ports []dgsv1alpha1.PortInfoExtended, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
-	initialState := dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to creating
+	initialState := dgsv1alpha1.DedicatedGameServerStateCreating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

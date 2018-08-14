@@ -95,8 +95,6 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 				}
 
 				//TODO: maybe an 'if' there to determine what has changed?
-				//normally, things that would change are
-				//DedicatedGameServerState and ActivePlayers
 				c.handleDedicatedGameServer(newObj)
 
 			},
@@ -300,7 +298,17 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		}
 	}
 
-	// update the DGS
+	// we should continue here and update DGS on etcd if and only if one of the following fields has changed
+	// podState, publicIP, nodeName
+
+	if dgsTemp.Status.PodState == pod.Status.Phase &&
+		dgsTemp.Spec.PublicIP == ip &&
+		dgsTemp.Spec.NodeName == pod.Spec.NodeName {
+		c.recorder.Event(dgsTemp, corev1.EventTypeNormal, "Nothing has changed", "No change in PodState,PublicIP,NodeName fields")
+		return nil
+	}
+
+	// in all other cases (i.e. if one of the fields has changed), we should update the DGS
 	dgsToUpdate := dgsTemp.DeepCopy()
 	log.WithFields(log.Fields{
 		"serverName":      dgsTemp.Name,

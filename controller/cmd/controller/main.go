@@ -15,7 +15,7 @@ import (
 
 func main() {
 	autoscalerenabled := flag.Bool("autoscaler", false, "Determines whether Pod AutoScaler is enabled. Default: false")
-	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness, default 1")
+	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness, Default: 1")
 
 	flag.Parse()
 
@@ -28,8 +28,8 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	sharedInformerFactory := informers.NewSharedInformerFactory(client, 30*time.Second)
-	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Second)
+	sharedInformerFactory := informers.NewSharedInformerFactory(client, 30*time.Minute)
+	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
 
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())

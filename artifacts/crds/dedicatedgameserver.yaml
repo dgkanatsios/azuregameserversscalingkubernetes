@@ -21,6 +21,10 @@ spec:
     type: string
     description: state of the game server
     JSONPath: .status.gameServerState
+  - name: PodState
+    type: string
+    description: state of the game server's pod
+    JSONPath: .status.podState
   - name: Ports
     type: string
     description: port mapping of the game server

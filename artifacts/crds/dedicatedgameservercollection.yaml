@@ -16,14 +16,14 @@ spec:
   - name: Replicas
     type: string
     description: number of requested replicas
-    JSONPath: .spec.activePlayers
+    JSONPath: .spec.replicas
   - name: AvailableReplicas
     type: string
-    description: state of the game server
+    description: number of available replicas
     JSONPath: .status.availableReplicas
   - name: Ports
     type: string
-    description: ports requested by the server
+    description: ports requested for the servers
     JSONPath: .spec.ports
   validation:
    # openAPIV3Schema is the schema for validating custom objects.

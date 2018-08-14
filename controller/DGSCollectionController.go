@@ -94,9 +94,6 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 				}
 
 			},
-			DeleteFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - delete DGSCol")
-			},
 		},
 	)
 
@@ -383,10 +380,6 @@ func (c *DedicatedGameServerCollectionController) assignGameServerCollectionStat
 }
 
 func (c *DedicatedGameServerCollectionController) assignPodCollectionState(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
-	// if this Pod state is running, then we should check whether
-	// ALL the Pod in the Collection have the running state
-	// if true, then DGSCol Pod state is running
-	// else DGSCol Pod state is equal to this Pod State
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}

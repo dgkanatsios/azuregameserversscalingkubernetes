@@ -21,10 +21,14 @@ spec:
     type: string
     description: number of available replicas
     JSONPath: .status.availableReplicas
-  - name: Ports
+  - name: GameServerCollectionState
     type: string
-    description: ports requested for the servers
-    JSONPath: .spec.ports
+    description: state of the game server collection
+    JSONPath: .status.gameServersState
+  - name: PodCollectionState
+    type: string
+    description: state of the game server collection's pods
+    JSONPath: .status.podsState
   validation:
    # openAPIV3Schema is the schema for validating custom objects.
     openAPIV3Schema:

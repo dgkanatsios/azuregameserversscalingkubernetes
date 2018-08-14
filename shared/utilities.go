@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"time"
 
+	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	_ "github.com/joho/godotenv/autoload" // load env variables
 )
 
@@ -67,4 +68,23 @@ func GetRandomIndexes(length int, count int) []int {
 		sliceToReturn[i] = rand
 	}
 	return sliceToReturn
+}
+
+// HasDedicatedGameServerChanged returns true if *all* of the following DGS properties have changed
+// dgsState, podState, publicIP, nodeName, activePlayers
+// As expected, it returns false if at least one has changed
+func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
+	// we check if all of the following fields are the same
+	// dgsState, podState, publicIP, nodeName, activePlayers
+
+	if oldDGS.Status.DedicatedGameServerState == newDGS.Status.DedicatedGameServerState &&
+		oldDGS.Status.PodState == newDGS.Status.PodState &&
+		oldDGS.Spec.PublicIP == newDGS.Spec.PublicIP &&
+		oldDGS.Spec.NodeName == newDGS.Spec.NodeName &&
+		oldDGS.Spec.ActivePlayers == newDGS.Spec.ActivePlayers {
+
+		return false
+	}
+
+	return true
 }

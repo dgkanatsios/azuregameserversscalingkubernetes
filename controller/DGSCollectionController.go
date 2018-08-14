@@ -112,7 +112,9 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 					return
 				}
 
-				c.handleDedicatedGameServer(newObj)
+				if shared.HasDedicatedGameServerChanged(oldDGS, newDGS) {
+					c.handleDedicatedGameServer(newObj)
+				}
 			},
 		},
 	)

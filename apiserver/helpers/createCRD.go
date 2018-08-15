@@ -9,7 +9,7 @@ import (
 func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (dgsName string, err error) {
 
 	if dgsInfo.Name == "" {
-		dgsInfo.Name = "gameserver-" + shared.RandString(6)
+		dgsInfo.Name = shared.GenerateRandomName("gamesever")
 	}
 
 	//TODO: we used to pass a random port here. Maybe we should later the controller to create one if it's 0?
@@ -35,7 +35,7 @@ func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (dgsName stri
 func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInfo) (dgsColName string, err error) {
 
 	if dgs.Name == "" {
-		dgs.Name = "dgscollection-" + shared.RandString(6)
+		dgs.Name = shared.GenerateRandomName("dedicatedgameservercollection")
 	}
 
 	log.Printf("Creating DedicatedGameServerCollection %s", dgs.Name)

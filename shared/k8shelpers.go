@@ -12,8 +12,7 @@ import (
 func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{LabelDedicatedGameServerCollectionName: name},
+			Name: name,
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
 			Image:    image,

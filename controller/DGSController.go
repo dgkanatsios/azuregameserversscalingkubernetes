@@ -9,7 +9,6 @@ import (
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
-	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	log "github.com/sirupsen/logrus"
@@ -30,9 +29,9 @@ import (
 const dgsControllerAgentName = "dedigated-game-server-controller"
 
 type DedicatedGameServerController struct {
-	dgsClient        typeddgsv1alpha1.DedicatedGameServersGetter
-	podClient        typedcorev1.PodsGetter
-	nodeClient       typedcorev1.NodesGetter
+	dgsClient        dgsclientset.Interface
+	podClient        kubernetes.Interface
+	nodeClient       kubernetes.Interface
 	dgsLister        listerdgs.DedicatedGameServerLister
 	podLister        listercorev1.PodLister
 	nodeLister       listercorev1.NodeLister
@@ -64,9 +63,9 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
 	c := &DedicatedGameServerController{
-		dgsClient:        dgsclient.AzuregamingV1alpha1(),
-		podClient:        client.CoreV1(), //getter hits the live API server (can also create/update objects)
-		nodeClient:       client.CoreV1(),
+		dgsClient:        dgsclient,
+		podClient:        client, //getter hits the live API server (can also create/update objects)
+		nodeClient:       client,
 		dgsLister:        dgsInformer.Lister(),
 		podLister:        podInformer.Lister(), //lister hits the cache
 		nodeLister:       nodeInformer.Lister(),
@@ -273,7 +272,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 	//check if DGS is markedForDeletionWithZeroPlayers
 	if c.isDGSMarkedForDeletionWithZeroPlayers(dgsTemp) {
-		err = c.dgsClient.DedicatedGameServers(namespace).Delete(dgsTemp.Name, &metav1.DeleteOptions{})
+		err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Delete(dgsTemp.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			log.WithFields(log.Fields{
 				"Name":  name,
@@ -317,7 +316,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	dgsToUpdate.Spec.PublicIP = ip
 	dgsToUpdate.Spec.NodeName = pod.Spec.NodeName
 
-	_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToUpdate)
+	_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsToUpdate)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -369,7 +368,7 @@ func (c *DedicatedGameServerController) createNewPod(dgs *dgsv1alpha1.DedicatedG
 
 	pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
 
-	_, err := c.podClient.Pods(dgs.Namespace).Create(pod)
+	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {
 		return err
 	}

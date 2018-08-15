@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+const displayVariablesDuringTesting = false
+
 func TestPortRegistry(t *testing.T) {
 
 	portRegistryTest := newIndexedDictionary(20000, 20010)
@@ -18,13 +20,17 @@ func TestPortRegistry(t *testing.T) {
 
 	verifyGameServerPortsExist(portRegistryTest, "server1", registeredPortsServer1, t)
 
-	portRegistryTest.displayRegistry()
+	if displayVariablesDuringTesting {
+		portRegistryTest.displayRegistry()
+	}
 
 	portRegistryTest.assignUnregisteredPorts()
 
 	verifyUnregisteredPorts(portRegistryTest, t)
 
-	portRegistryTest.displayRegistry()
+	if displayVariablesDuringTesting {
+		portRegistryTest.displayRegistry()
+	}
 
 	peekPort, err := peekNextPort(portRegistryTest)
 	actualPort, _ := portRegistryTest.GetNewPort("server1")
@@ -99,7 +105,9 @@ func TestPortRegistry(t *testing.T) {
 	verifyGameServerPortsExist(portRegistryTest, "server1", registeredPortsServer1, t)
 	verifyGameServerPortsExist(portRegistryTest, "server2", registeredPortsServer2, t)
 
-	portRegistryTest.displayRegistry()
+	if displayVariablesDuringTesting {
+		portRegistryTest.displayRegistry()
+	}
 
 	_, err = peekNextPort(portRegistryTest)
 	if err == nil {
@@ -111,13 +119,17 @@ func TestPortRegistry(t *testing.T) {
 		t.Error("Should return an error")
 	}
 
-	portRegistryTest.displayRegistry()
+	if displayVariablesDuringTesting {
+		portRegistryTest.displayRegistry()
+	}
 
 	portRegistryTest.DeregisterServerPorts("server2")
 
 	verifyGameServerPortsDoNotExist(portRegistryTest, "server2", registeredPortsServer2, t)
 
-	portRegistryTest.displayRegistry()
+	if displayVariablesDuringTesting {
+		portRegistryTest.displayRegistry()
+	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server1")
@@ -131,7 +143,9 @@ func TestPortRegistry(t *testing.T) {
 	registeredPortsServer1 = append(registeredPortsServer1, actualPort)
 	verifyGameServerPortsExist(portRegistryTest, "server1", registeredPortsServer1, t)
 
-	portRegistryTest.displayRegistry()
+	if displayVariablesDuringTesting {
+		portRegistryTest.displayRegistry()
+	}
 
 }
 

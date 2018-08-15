@@ -6,8 +6,6 @@ import (
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
-	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
-
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,11 +36,11 @@ const (
 )
 
 type DedicatedGameServerCollectionController struct {
-	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
+	dgsColClient       dgsclientset.Interface
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
 	dgsColListerSynced cache.InformerSynced
 
-	dgsClient       typeddgsv1alpha1.DedicatedGameServersGetter
+	dgsClient       dgsclientset.Interface
 	dgsLister       listerdgs.DedicatedGameServerLister
 	dgsListerSynced cache.InformerSynced
 
@@ -50,7 +48,8 @@ type DedicatedGameServerCollectionController struct {
 	recorder  record.EventRecorder
 }
 
-func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+//func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerCollectionController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	log.Info("Creating Event broadcaster for DedicatedGameServerCollection controller")
@@ -60,10 +59,10 @@ func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dg
 	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsColControllerAgentName})
 
 	c := &DedicatedGameServerCollectionController{
-		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
+		dgsColClient:       dgsclient,
 		dgsColLister:       dgsColInformer.Lister(),
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
-		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		dgsClient:          dgsclient,
 		dgsLister:          dgsInformer.Lister(),
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
@@ -226,7 +225,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		for i := 0; i < increaseCount; i++ {
 			// create a random name for the dedicated name server
 			// the corresponding pod will have the same name as well
-			dgsName := dgsColTemp.Name + "-" + shared.RandString(5)
+			dgsName := shared.GenerateRandomName(dgsColTemp.Name)
 
 			// first, get random ports
 			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
@@ -246,7 +245,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			// each dedicated game server will have a name of
 			// DedicatedGameServerCollectioName + "-" + random name
 			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, portsInfoExtended, dgsColTemp.Spec.StartMap, dgsColTemp.Spec.Image)
-			_, err := c.dgsClient.DedicatedGameServers(namespace).Create(dgs)
+			_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
 				log.Error(err.Error())
@@ -280,7 +279,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
 			dgsToMarkForDeletionToUpdate.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
 			//update the DGS CRD
-			_, err = c.dgsClient.DedicatedGameServers(namespace).Update(dgsToMarkForDeletionToUpdate)
+			_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsToMarkForDeletionToUpdate)
 			if err != nil {
 				log.Error(err.Error())
 				return err
@@ -314,7 +313,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		return err
 	}
 
-	_, err = c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+	_, err = c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 	if err != nil {
 		log.WithFields(log.Fields{

@@ -12,8 +12,8 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano()) //randomize name creation
 }
 
-// RandString creates a random string with lowercase characters
-func RandString(n int) string {
+// randString creates a random string with lowercase characters
+func randString(n int) string {
 	letters := []rune("abcdefghijklmnopqrstuvwxyz")
 	b := make([]rune, n)
 	for i := range b {
@@ -81,10 +81,22 @@ func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServ
 		oldDGS.Status.PodState == newDGS.Status.PodState &&
 		oldDGS.Spec.PublicIP == newDGS.Spec.PublicIP &&
 		oldDGS.Spec.NodeName == newDGS.Spec.NodeName &&
-		oldDGS.Spec.ActivePlayers == newDGS.Spec.ActivePlayers {
+		oldDGS.Spec.ActivePlayers == newDGS.Spec.ActivePlayers &&
+		oldDGS.Spec.Image == newDGS.Spec.Image &&
+		oldDGS.Spec.StartMap == newDGS.Spec.StartMap {
+
+		//we should also check for ports as well
+		//or not? :)
 
 		return false
 	}
 
 	return true
+}
+
+// GenerateRandomName generates a random name with a prefix
+var GenerateRandomName func(prefix string) string
+
+func generateRandomName(prefix string) string {
+	return prefix + "-" + randString(5)
 }

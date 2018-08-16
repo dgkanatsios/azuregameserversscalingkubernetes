@@ -9,16 +9,20 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
+func NewDedicatedGameServerCollection(name string, namespace string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
 			Image:    image,
 			Replicas: replicas,
 			StartMap: startmap,
 			Ports:    ports,
+		},
+		Status: dgsv1alpha1.DedicatedGameServerCollectionStatus{
+			DedicatedGameServerCollectionState: dgsv1alpha1.DedicatedGameServerCollectionStateCreating,
 		},
 	}
 	return dedicatedgameservercollection
@@ -28,7 +32,8 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:      name,
+			Namespace: dgsCol.Namespace,
 			Labels: map[string]string{LabelServerName: name,
 				LabelDedicatedGameServerCollectionName: dgsCol.Name,
 				LabelActivePlayers:                     "0",

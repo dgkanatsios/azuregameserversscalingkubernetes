@@ -138,50 +138,6 @@ func (f *fixture) runController(dgsColName string, startInformers bool, expectEr
 	}
 }
 
-// checkAction verifies that expected and actual actions are equal and both have
-// same attached resources
-func checkAction(expected, actual core.Action, t *testing.T) {
-	if !(expected.Matches(actual.GetVerb(), actual.GetResource().Resource) && actual.GetSubresource() == expected.GetSubresource()) {
-		t.Errorf("Expected\n\t%#v\ngot\n\t%#v", expected, actual)
-		return
-	}
-
-	if reflect.TypeOf(actual) != reflect.TypeOf(expected) {
-		t.Errorf("Action has wrong type. Expected: %t. Got: %t", expected, actual)
-		return
-	}
-
-	switch a := actual.(type) {
-	case core.CreateAction:
-		e, _ := expected.(core.CreateAction)
-		expObject := e.GetObject()
-		object := a.GetObject()
-
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
-		}
-	case core.UpdateAction:
-		e, _ := expected.(core.UpdateAction)
-		expObject := e.GetObject()
-		object := a.GetObject()
-
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
-		}
-	case core.PatchAction:
-		e, _ := expected.(core.PatchAction)
-		expPatch := e.GetPatch()
-		patch := a.GetPatch()
-
-		if !reflect.DeepEqual(expPatch, expPatch) {
-			t.Errorf("Action %s %s has wrong patch\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expPatch, patch))
-		}
-	}
-}
-
 func (f *fixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
 	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
 	f.dgsActions = append(f.dgsActions, action)
@@ -208,7 +164,7 @@ func getKey(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.T) str
 
 func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f := newFixture(t)
-	dgsCol := newDedicatedGameServerCollection("test", 1, nil, "myimage", "startMap")
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
@@ -220,19 +176,19 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f.run(getKey(dgsCol, t))
 }
 
-// func TestDoNothing(t *testing.T) {
-// 	f := newFixture(t)
-// 	foo := newFoo("test", int32Ptr(1))
-// 	d := newDeployment(foo)
+func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
+	f := newFixture(t)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test", nil, "startMap", "myimage")
 
-// 	f.fooLister = append(f.fooLister, foo)
-// 	f.objects = append(f.objects, foo)
-// 	f.deploymentLister = append(f.deploymentLister, d)
-// 	f.kubeobjects = append(f.kubeobjects, d)
+	f.dgsColLister = append(f.dgsColLister, dgsCol)
+	f.dgsLister = append(f.dgsLister, dgs)
+	f.dgsObjects = append(f.dgsObjects, dgsCol)
+	f.dgsObjects = append(f.dgsObjects, dgs)
 
-// 	f.expectUpdateFooStatusAction(foo)
-// 	f.run(getKey(foo, t))
-// }
+	f.expectUpdateDedicatedGameServerCollectionStatusAction(dgsCol)
+	f.run(getKey(dgsCol, t))
+}
 
 // func TestUpdateDeployment(t *testing.T) {
 // 	f := newFixture(t)
@@ -285,4 +241,48 @@ func filterInformerActions(actions []core.Action) []core.Action {
 	}
 
 	return ret
+}
+
+// checkAction verifies that expected and actual actions are equal and both have
+// same attached resources
+func checkAction(expected, actual core.Action, t *testing.T) {
+	if !(expected.Matches(actual.GetVerb(), actual.GetResource().Resource) && actual.GetSubresource() == expected.GetSubresource()) {
+		t.Errorf("Expected\n\t%#v\ngot\n\t%#v", expected, actual)
+		return
+	}
+
+	if reflect.TypeOf(actual) != reflect.TypeOf(expected) {
+		t.Errorf("Action has wrong type. Expected: %t. Got: %t", expected, actual)
+		return
+	}
+
+	switch a := actual.(type) {
+	case core.CreateAction:
+		e, _ := expected.(core.CreateAction)
+		expObject := e.GetObject()
+		object := a.GetObject()
+
+		if !reflect.DeepEqual(expObject, object) {
+			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
+				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
+		}
+	case core.UpdateAction:
+		e, _ := expected.(core.UpdateAction)
+		expObject := e.GetObject()
+		object := a.GetObject()
+
+		if !reflect.DeepEqual(expObject, object) {
+			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
+				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
+		}
+	case core.PatchAction:
+		e, _ := expected.(core.PatchAction)
+		expPatch := e.GetPatch()
+		patch := a.GetPatch()
+
+		if !reflect.DeepEqual(expPatch, expPatch) {
+			t.Errorf("Action %s %s has wrong patch\nDiff:\n %s",
+				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expPatch, patch))
+		}
+	}
 }

@@ -40,7 +40,7 @@ func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInf
 
 	log.Printf("Creating DedicatedGameServerCollection %s", dgs.Name)
 
-	dgsCol := shared.NewDedicatedGameServerCollection(dgs.Name, dgs.StartMap, dgs.Image, dgs.Replicas, dgs.Ports)
+	dgsCol := shared.NewDedicatedGameServerCollection(dgs.Name, dgs.Namespace, dgs.StartMap, dgs.Image, dgs.Replicas, dgs.Ports)
 
 	_, dgsClient, err := shared.GetClientSet()
 	if err != nil {

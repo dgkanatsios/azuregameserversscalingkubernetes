@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -46,8 +47,10 @@ func newFixture(t *testing.T) *fixture {
 	//currently, DGS names are generated randomly
 	//however, we can't compare random names using deepEqual tests
 	//so, we'll override the method that generates the names
+	i := 0
 	shared.GenerateRandomName = func(prefix string) string {
-		return prefix
+		i++
+		return fmt.Sprintf("%s%d", prefix, i)
 	}
 
 	f := &fixture{}
@@ -169,7 +172,7 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
-	expDGS := shared.NewDedicatedGameServer(dgsCol, "test", nil, "startMap", "myimage")
+	expDGS := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
 
 	f.expectCreateDedicatedGameServerAction(expDGS)
 
@@ -179,7 +182,7 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 	f := newFixture(t)
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test", nil, "startMap", "myimage")
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
@@ -190,38 +193,38 @@ func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 	f.run(getKey(dgsCol, t))
 }
 
-// func TestUpdateDeployment(t *testing.T) {
-// 	f := newFixture(t)
-// 	foo := newFoo("test", int32Ptr(1))
-// 	d := newDeployment(foo)
+func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
+	f := newFixture(t)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
 
-// 	Update replicas
-// 	foo.Spec.Replicas = int32Ptr(2)
-// 	expDeployment := newDeployment(foo)
+	//Update replicas
+	dgsCol.Spec.Replicas = 2
+	dgsExpected := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
 
-// 	f.fooLister = append(f.fooLister, foo)
-// 	f.objects = append(f.objects, foo)
-// 	f.deploymentLister = append(f.deploymentLister, d)
-// 	f.kubeobjects = append(f.kubeobjects, d)
+	f.dgsColLister = append(f.dgsColLister, dgsCol)
+	f.dgsLister = append(f.dgsLister, dgs)
+	f.dgsObjects = append(f.dgsObjects, dgsCol)
+	f.dgsObjects = append(f.dgsObjects, dgs)
 
-// 	f.expectUpdateFooStatusAction(foo)
-// 	f.expectUpdateDeploymentAction(expDeployment)
-// 	f.run(getKey(foo, t))
-// }
+	f.expectCreateDedicatedGameServerAction(dgsExpected)
+	f.run(getKey(dgsCol, t))
+}
 
 // func TestNotControlledByUs(t *testing.T) {
 // 	f := newFixture(t)
-// 	foo := newFoo("test", int32Ptr(1))
-// 	d := newDeployment(foo)
+// 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+// 	dgs := shared.NewDedicatedGameServer(dgsCol, "randomDGS", nil, "startMap", "myimage")
 
-// 	d.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
+// 	dgs.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
+// 	delete(dgs.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 
-// 	f.fooLister = append(f.fooLister, foo)
-// 	f.objects = append(f.objects, foo)
-// 	f.deploymentLister = append(f.deploymentLister, d)
-// 	f.kubeobjects = append(f.kubeobjects, d)
+// 	f.dgsColLister = append(f.dgsColLister, dgsCol)
+// 	f.dgsLister = append(f.dgsLister, dgs)
+// 	f.dgsObjects = append(f.dgsObjects, dgsCol)
+// 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-// 	f.runExpectError(getKey(foo, t))
+// 	f.run(getKey(dgsCol, t))
 // }
 
 // filterInformerActions filters list and watch actions for testing resources.
@@ -261,7 +264,6 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		e, _ := expected.(core.CreateAction)
 		expObject := e.GetObject()
 		object := a.GetObject()
-
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))

@@ -32,7 +32,7 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 
 	dgsList, err := clientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
 	if err != nil {
-		log.Error("Error getting Dedicated Game Servers List: %v", err)
+		log.Errorf("Error getting Dedicated Game Servers List: %v", err)
 		return err
 	}
 

@@ -56,6 +56,31 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 			DedicatedGameServerState: initialState,
 		},
 	}
+
+	return dedicatedgameserver
+}
+
+func NewDedicatedGameServerWithNoParent(namespace string, name string, ports []dgsv1alpha1.PortInfoExtended, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
+	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
+	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{LabelServerName: name,
+				LabelActivePlayers:            "0",
+				LabelDedicatedGameServerState: string(initialState)},
+		},
+		Spec: dgsv1alpha1.DedicatedGameServerSpec{
+			Image:         image,
+			Ports:         ports,
+			StartMap:      startmap,
+			ActivePlayers: 0,
+		},
+		Status: dgsv1alpha1.DedicatedGameServerStatus{
+			DedicatedGameServerState: initialState,
+		},
+	}
+
 	return dedicatedgameserver
 }
 

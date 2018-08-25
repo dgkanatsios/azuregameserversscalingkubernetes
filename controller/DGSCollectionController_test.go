@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	log "github.com/sirupsen/logrus"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	informers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +28,7 @@ var (
 	noResyncPeriodFunc = func() time.Duration { return 0 }
 )
 
-type fixture struct {
+type dgsColFixture struct {
 	t *testing.T
 
 	k8sClient *k8sfake.Clientset
@@ -41,7 +43,7 @@ type fixture struct {
 	dgsObjects []runtime.Object
 }
 
-func newFixture(t *testing.T) *fixture {
+func newDGSColFixture(t *testing.T) *dgsColFixture {
 
 	//stupid hack
 	//currently, DGS names are generated randomly
@@ -53,7 +55,7 @@ func newFixture(t *testing.T) *fixture {
 		return fmt.Sprintf("%s%d", prefix, i)
 	}
 
-	f := &fixture{}
+	f := &dgsColFixture{}
 	f.t = t
 	f.dgsObjects = []runtime.Object{}
 	return f
@@ -75,7 +77,7 @@ func newDedicatedGameServerCollection(name string, replicas int32, ports []dgsv1
 	}
 }
 
-func (f *fixture) newDedicatedGameServerCollectionController() (*DedicatedGameServerCollectionController, informers.SharedInformerFactory) {
+func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DedicatedGameServerCollectionController, informers.SharedInformerFactory) {
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
@@ -100,15 +102,15 @@ func (f *fixture) newDedicatedGameServerCollectionController() (*DedicatedGameSe
 	return testController, crdInformers
 }
 
-func (f *fixture) run(dgsColName string) {
+func (f *dgsColFixture) run(dgsColName string) {
 	f.runController(dgsColName, true, false)
 }
 
-func (f *fixture) runExpectError(dgsColName string) {
+func (f *dgsColFixture) runExpectError(dgsColName string) {
 	f.runController(dgsColName, true, true)
 }
 
-func (f *fixture) runController(dgsColName string, startInformers bool, expectError bool) {
+func (f *dgsColFixture) runController(dgsColName string, startInformers bool, expectError bool) {
 	testController, crdInformers := f.newDedicatedGameServerCollectionController()
 	if startInformers {
 		stopCh := make(chan struct{})
@@ -124,7 +126,7 @@ func (f *fixture) runController(dgsColName string, startInformers bool, expectEr
 	}
 
 	//for this controller, we're getting only the actions on dgsClient
-	actions := filterInformerActions(f.dgsClient.Actions())
+	actions := filterInformerActionsDGSCol(f.dgsClient.Actions())
 
 	for i, action := range actions {
 		if len(f.dgsActions) < i+1 {
@@ -141,22 +143,22 @@ func (f *fixture) runController(dgsColName string, startInformers bool, expectEr
 	}
 }
 
-func (f *fixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
+func (f *dgsColFixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
 	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
 	f.dgsActions = append(f.dgsActions, action)
 }
 
-func (f *fixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
+func (f *dgsColFixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
 	f.dgsActions = append(f.dgsActions, action)
 }
 
-func (f *fixture) expectUpdateDedicatedGameServerCollectionStatusAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) {
+func (f *dgsColFixture) expectUpdateDedicatedGameServerCollectionAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
 	f.dgsActions = append(f.dgsActions, action)
 }
 
-func getKey(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.T) string {
+func getKeyDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.T) string {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(dgsCol)
 	if err != nil {
 		t.Errorf("Unexpected error getting key for DGSCol %v: %v", dgsCol.Name, err)
@@ -166,7 +168,7 @@ func getKey(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.T) str
 }
 
 func TestCreatesDedicatedGameServerCollection(t *testing.T) {
-	f := newFixture(t)
+	f := newDGSColFixture(t)
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
@@ -176,11 +178,11 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 
 	f.expectCreateDedicatedGameServerAction(expDGS)
 
-	f.run(getKey(dgsCol, t))
+	f.run(getKeyDGSCol(dgsCol, t))
 }
 
 func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
-	f := newFixture(t)
+	f := newDGSColFixture(t)
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
 	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
 
@@ -189,48 +191,53 @@ func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-	f.expectUpdateDedicatedGameServerCollectionStatusAction(dgsCol)
-	f.run(getKey(dgsCol, t))
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
+	f.run(getKeyDGSCol(dgsCol, t))
 }
 
 func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
-	f := newFixture(t)
+	f := newDGSColFixture(t)
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
 	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
-
-	//Update replicas
-	dgsCol.Spec.Replicas = 2
-	dgsExpected := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
+	//Update replicas
+	dgsCol.Spec.Replicas = 2
+	dgsExpected := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
+
 	f.expectCreateDedicatedGameServerAction(dgsExpected)
-	f.run(getKey(dgsCol, t))
+	f.run(getKeyDGSCol(dgsCol, t))
 }
 
-// func TestNotControlledByUs(t *testing.T) {
-// 	f := newFixture(t)
-// 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-// 	dgs := shared.NewDedicatedGameServer(dgsCol, "randomDGS", nil, "startMap", "myimage")
+func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
+	f := newDGSColFixture(t)
 
-// 	dgs.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
-// 	delete(dgs.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateRunning
+	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
-// 	f.dgsColLister = append(f.dgsColLister, dgsCol)
-// 	f.dgsLister = append(f.dgsLister, dgs)
-// 	f.dgsObjects = append(f.dgsObjects, dgsCol)
-// 	f.dgsObjects = append(f.dgsObjects, dgs)
+	dgs := shared.NewDedicatedGameServerWithNoParent(dgsCol.Namespace, "test0", nil, "startMap", "myimage")
 
-// 	f.run(getKey(dgsCol, t))
-// }
+	f.dgsColLister = append(f.dgsColLister, dgsCol)
+	f.dgsLister = append(f.dgsLister, dgs)
+	f.dgsObjects = append(f.dgsObjects, dgsCol)
+	f.dgsObjects = append(f.dgsObjects, dgs)
 
-// filterInformerActions filters list and watch actions for testing resources.
+	//Update replicas
+	dgsCol.Spec.Replicas = 0
+
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
+	f.run(getKeyDGSCol(dgsCol, t))
+}
+
+// filterInformerActionsDGSCol filters list and watch actions for testing resources.
 // Since list and watch don't change resource state we can filter it to lower
 // noise level in our tests.
-func filterInformerActions(actions []core.Action) []core.Action {
+func filterInformerActionsDGSCol(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
@@ -265,6 +272,8 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		expObject := e.GetObject()
 		object := a.GetObject()
 		if !reflect.DeepEqual(expObject, object) {
+			log.Printf("lala%#v", (expObject.(*dgsv1alpha1.DedicatedGameServerCollection)).Status)
+			log.Printf("lolo%#v", (object.(*dgsv1alpha1.DedicatedGameServerCollection)).Status)
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
 		}

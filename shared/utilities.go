@@ -34,6 +34,9 @@ func GetPodNameFromServiceName(serviceName string) string {
 
 // GetRandomInt returns a random number
 func GetRandomInt(min int, max int) int {
+	if max-min == 0 { //Intn panics if argument is <=0
+		return 0
+	}
 	return rand.Intn(max-min) + min
 }
 

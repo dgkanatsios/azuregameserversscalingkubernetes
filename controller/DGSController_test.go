@@ -1,17 +1,17 @@
 package controller
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
-	informers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kubeinformers "k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -24,9 +24,11 @@ type dgsFixture struct {
 	k8sClient *k8sfake.Clientset
 	dgsClient *fake.Clientset
 	// Objects to put in the store.
-	dgsColLister []*dgsv1alpha1.DedicatedGameServerCollection
-	dgsLister    []*dgsv1alpha1.DedicatedGameServer
+
+	dgsLister []*dgsv1alpha1.DedicatedGameServer
+	podLister []*corev1.Pod
 	// Actions expected to happen on the client.
+	k8sActions []core.Action
 	dgsActions []core.Action
 	// Objects from here preloaded into NewSimpleFake.
 	k8sObjects []runtime.Object
@@ -35,88 +37,69 @@ type dgsFixture struct {
 
 func newDGSFixture(t *testing.T) *dgsFixture {
 
-	//stupid hack
-	//currently, DGS names are generated randomly
-	//however, we can't compare random names using deepEqual tests
-	//so, we'll override the method that generates the names
-	i := 0
-	shared.GenerateRandomName = func(prefix string) string {
-		i++
-		return fmt.Sprintf("%s%d", prefix, i)
-	}
-
 	f := &dgsFixture{}
 	f.t = t
+
 	f.dgsObjects = []runtime.Object{}
+	f.k8sObjects = []runtime.Object{}
+
 	return f
 }
 
-func newDedicatedGameServer(name string, replicas int32, ports []dgsv1alpha1.PortInfo, image string, startMap string) *dgsv1alpha1.DedicatedGameServerCollection {
-	return &dgsv1alpha1.DedicatedGameServerCollection{
-		TypeMeta: metav1.TypeMeta{APIVersion: dgsv1alpha1.SchemeGroupVersion.String()},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: metav1.NamespaceDefault,
-		},
-		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
-			Replicas: replicas,
-			Ports:    ports,
-			Image:    image,
-			StartMap: startMap,
-		},
-	}
-}
+func (f *dgsFixture) newDedicatedGameServerController() (*DedicatedGameServerController,
+	dgsinformers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 
-func (f *dgsFixture) newDedicatedGameServerController() (*DedicatedGameServerCollectionController, informers.SharedInformerFactory) {
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
-	crdInformers := informers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
+	k8sInformers := kubeinformers.NewSharedInformerFactory(f.k8sClient, noResyncPeriodFunc())
+	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
-	testController := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+	testController := NewDedicatedGameServerController(f.k8sClient, f.dgsClient,
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), k8sInformers.Core().V1().Pods(), k8sInformers.Core().V1().Nodes())
 
-	testController.dgsColListerSynced = alwaysReady
 	testController.dgsListerSynced = alwaysReady
+	testController.podListerSynced = alwaysReady
+
 	testController.recorder = &record.FakeRecorder{}
 
-	for _, dgsCol := range f.dgsColLister {
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections().Informer().GetIndexer().Add(dgsCol)
-	}
-
 	for _, dgs := range f.dgsLister {
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(dgs)
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(dgs)
 	}
 
-	return testController, crdInformers
+	for _, pod := range f.podLister {
+		k8sInformers.Core().V1().Pods().Informer().GetIndexer().Add(pod)
+	}
+
+	return testController, dgsInformers, k8sInformers
 }
 
-func (f *dgsFixture) run(dgsColName string) {
-	f.runController(dgsColName, true, false)
+func (f *dgsFixture) run(dgsName string) {
+	f.runController(dgsName, true, false)
 }
 
-func (f *dgsFixture) runExpectError(dgsColName string) {
-	f.runController(dgsColName, true, true)
+func (f *dgsFixture) runExpectError(dgsName string) {
+	f.runController(dgsName, true, true)
 }
 
-func (f *dgsFixture) runController(dgsColName string, startInformers bool, expectError bool) {
-	testController, crdInformers := f.newDedicatedGameServerController()
+func (f *dgsFixture) runController(dgsName string, startInformers bool, expectError bool) {
+
+	testController, dgsInformers, k8sInformers := f.newDedicatedGameServerController()
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
-		crdInformers.Start(stopCh)
+		dgsInformers.Start(stopCh)
+		k8sInformers.Start(stopCh)
 	}
 
-	err := testController.syncHandler(dgsColName)
+	err := testController.syncHandler(dgsName)
 	if !expectError && err != nil {
-		f.t.Errorf("error syncing DGSCol: %v", err)
+		f.t.Errorf("error syncing DGS: %v", err)
 	} else if expectError && err == nil {
-		f.t.Error("expected error syncing DGSCol, got nil")
+		f.t.Error("expected error syncing DGS, got nil")
 	}
 
-	//for this controller, we're getting only the actions on dgsClient
-	actions := filterInformerActionsDGSCol(f.dgsClient.Actions())
+	actions := filterInformerActionsDGS(f.dgsClient.Actions())
 
 	for i, action := range actions {
 		if len(f.dgsActions) < i+1 {
@@ -131,20 +114,35 @@ func (f *dgsFixture) runController(dgsColName string, startInformers bool, expec
 	if len(f.dgsActions) > len(actions) {
 		f.t.Errorf("%d additional expected actions:%+v", len(f.dgsActions)-len(actions), f.dgsActions[len(actions):])
 	}
+
+	k8sActions := filterInformerActionsDGS(f.k8sClient.Actions())
+	for i, action := range k8sActions {
+		if len(f.k8sActions) < i+1 {
+			f.t.Errorf("%d unexpected actions: %+v", len(k8sActions)-len(f.k8sActions), k8sActions[i:])
+			break
+		}
+
+		expectedAction := f.k8sActions[i]
+		checkAction(expectedAction, action, f.t)
+	}
+
+	if len(f.k8sActions) > len(k8sActions) {
+		f.t.Errorf("%d additional expected actions:%+v", len(f.k8sActions)-len(k8sActions), f.k8sActions[len(k8sActions):])
+	}
 }
 
-func (f *dgsFixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
-	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
+func (f *dgsFixture) expectCreatePodAction(p *corev1.Pod) {
+	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "pods"}, p.Namespace, p)
+	f.k8sActions = append(f.k8sActions, action)
+}
+
+func (f *dgsFixture) expectDeleteDGSAction(dgs *dgsv1alpha1.DedicatedGameServer) {
+	action := core.NewDeleteAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs.Name)
 	f.dgsActions = append(f.dgsActions, action)
 }
 
-func (f *dgsFixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
-	f.dgsActions = append(f.dgsActions, action)
-}
-
-func (f *dgsFixture) expectUpdateDedicatedGameServerCollectionAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
+func (f *dgsFixture) expectUpdateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer) {
+	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs)
 	f.dgsActions = append(f.dgsActions, action)
 }
 
@@ -155,4 +153,84 @@ func getKeyDGS(dgs *dgsv1alpha1.DedicatedGameServer, t *testing.T) string {
 		return ""
 	}
 	return key
+}
+
+func TestCreatesPod(t *testing.T) {
+	f := newDGSFixture(t)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
+
+	f.dgsLister = append(f.dgsLister, dgs)
+	f.dgsObjects = append(f.dgsObjects, dgs)
+
+	expPod := shared.NewPod(dgs, "", "")
+
+	f.expectCreatePodAction(expPod)
+
+	f.run(getKeyDGS(dgs, t))
+}
+
+func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
+	f := newDGSFixture(t)
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
+
+	dgs.Spec.ActivePlayers = 0
+	dgs.Labels[shared.LabelActivePlayers] = "0"
+	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
+	dgs.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
+
+	delPod := shared.NewPod(dgs, "", "")
+
+	f.podLister = append(f.podLister, delPod)
+	f.k8sObjects = append(f.k8sObjects, delPod)
+
+	f.dgsLister = append(f.dgsLister, dgs)
+	f.dgsObjects = append(f.dgsObjects, dgs)
+
+	f.expectDeleteDGSAction(dgs)
+
+	f.run(getKeyDGS(dgs, t))
+}
+
+func TestDGSStatusIsUpdated(t *testing.T) {
+	f := newDGSFixture(t)
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
+	dgs.Spec.ActivePlayers = 0
+	dgs.Labels[shared.LabelActivePlayers] = "0"
+	dgs.Labels[shared.LabelPodState] = ""
+
+	pod := shared.NewPod(dgs, "", "")
+
+	f.podLister = append(f.podLister, pod)
+	f.k8sObjects = append(f.k8sObjects, pod)
+
+	f.dgsLister = append(f.dgsLister, dgs)
+	f.dgsObjects = append(f.dgsObjects, dgs)
+
+	f.expectUpdateDGSAction(dgs)
+
+	f.run(getKeyDGS(dgs, t))
+}
+
+// filterInformerActionsDGS filters list and watch actions for testing resources.
+// Since list and watch don't change resource state we can filter it to lower
+// noise level in our tests.
+func filterInformerActionsDGS(actions []core.Action) []core.Action {
+	ret := []core.Action{}
+	for _, action := range actions {
+		if len(action.GetNamespace()) == 0 &&
+			(action.Matches("list", "pods") ||
+				action.Matches("watch", "pods") ||
+				action.Matches("list", "dedicatedgameservers") ||
+				action.Matches("watch", "dedicatedgameservers")) {
+			continue
+		}
+		ret = append(ret, action)
+	}
+
+	return ret
 }

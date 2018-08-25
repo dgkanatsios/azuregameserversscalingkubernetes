@@ -29,12 +29,14 @@ import (
 const dgsControllerAgentName = "dedigated-game-server-controller"
 
 type DedicatedGameServerController struct {
-	dgsClient        dgsclientset.Interface
-	podClient        kubernetes.Interface
-	nodeClient       kubernetes.Interface
-	dgsLister        listerdgs.DedicatedGameServerLister
-	podLister        listercorev1.PodLister
-	nodeLister       listercorev1.NodeLister
+	dgsClient  dgsclientset.Interface
+	podClient  kubernetes.Interface
+	nodeClient kubernetes.Interface
+
+	dgsLister  listerdgs.DedicatedGameServerLister
+	podLister  listercorev1.PodLister
+	nodeLister listercorev1.NodeLister
+
 	dgsListerSynced  cache.InformerSynced
 	podListerSynced  cache.InformerSynced
 	nodeListerSynced cache.InformerSynced
@@ -49,7 +51,7 @@ type DedicatedGameServerController struct {
 	recorder record.EventRecorder
 }
 
-func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
 	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer) *DedicatedGameServerController {
 	// Create event broadcaster
@@ -98,10 +100,6 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 				}
 
 			},
-			DeleteFunc: func(obj interface{}) {
-				//TODO: should delete do something?
-				log.Print("DedicatedGameServer controller - delete DGS")
-			},
 		},
 	)
 	podInformer.Informer().AddEventHandler(
@@ -122,7 +120,6 @@ func NewDedicatedGameServerController(client *kubernetes.Clientset, dgsclient *d
 			},
 		},
 	)
-
 	return c
 }
 

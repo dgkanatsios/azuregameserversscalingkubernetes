@@ -36,13 +36,14 @@ const (
 )
 
 type DedicatedGameServerCollectionController struct {
-	dgsColClient       dgsclientset.Interface
-	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
-	dgsColListerSynced cache.InformerSynced
+	dgsColClient dgsclientset.Interface
+	dgsClient    dgsclientset.Interface
 
-	dgsClient       dgsclientset.Interface
-	dgsLister       listerdgs.DedicatedGameServerLister
-	dgsListerSynced cache.InformerSynced
+	dgsColLister listerdgs.DedicatedGameServerCollectionLister
+	dgsLister    listerdgs.DedicatedGameServerLister
+
+	dgsColListerSynced cache.InformerSynced
+	dgsListerSynced    cache.InformerSynced
 
 	workqueue workqueue.RateLimitingInterface
 	recorder  record.EventRecorder
@@ -60,10 +61,10 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 
 	c := &DedicatedGameServerCollectionController{
 		dgsColClient:       dgsclient,
-		dgsColLister:       dgsColInformer.Lister(),
-		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
 		dgsClient:          dgsclient,
+		dgsColLister:       dgsColInformer.Lister(),
 		dgsLister:          dgsInformer.Lister(),
+		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
 		recorder:           recorder,

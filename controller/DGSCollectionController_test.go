@@ -11,9 +11,8 @@ import (
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
-	informers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
@@ -61,45 +60,29 @@ func newDGSColFixture(t *testing.T) *dgsColFixture {
 	return f
 }
 
-func newDedicatedGameServerCollection(name string, replicas int32, ports []dgsv1alpha1.PortInfo, image string, startMap string) *dgsv1alpha1.DedicatedGameServerCollection {
-	return &dgsv1alpha1.DedicatedGameServerCollection{
-		TypeMeta: metav1.TypeMeta{APIVersion: dgsv1alpha1.SchemeGroupVersion.String()},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: metav1.NamespaceDefault,
-		},
-		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
-			Replicas: replicas,
-			Ports:    ports,
-			Image:    image,
-			StartMap: startMap,
-		},
-	}
-}
-
-func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DedicatedGameServerCollectionController, informers.SharedInformerFactory) {
+func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DedicatedGameServerCollectionController, dgsinformers.SharedInformerFactory) {
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
-	crdInformers := informers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
+	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
 	testController := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServers())
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers())
 
 	testController.dgsColListerSynced = alwaysReady
 	testController.dgsListerSynced = alwaysReady
 	testController.recorder = &record.FakeRecorder{}
 
 	for _, dgsCol := range f.dgsColLister {
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections().Informer().GetIndexer().Add(dgsCol)
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections().Informer().GetIndexer().Add(dgsCol)
 	}
 
 	for _, dgs := range f.dgsLister {
-		crdInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(dgs)
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(dgs)
 	}
 
-	return testController, crdInformers
+	return testController, dgsInformers
 }
 
 func (f *dgsColFixture) run(dgsColName string) {
@@ -111,11 +94,11 @@ func (f *dgsColFixture) runExpectError(dgsColName string) {
 }
 
 func (f *dgsColFixture) runController(dgsColName string, startInformers bool, expectError bool) {
-	testController, crdInformers := f.newDedicatedGameServerCollectionController()
+	testController, dgsInformers := f.newDedicatedGameServerCollectionController()
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
-		crdInformers.Start(stopCh)
+		dgsInformers.Start(stopCh)
 	}
 
 	err := testController.syncHandler(dgsColName)
@@ -272,8 +255,8 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		expObject := e.GetObject()
 		object := a.GetObject()
 		if !reflect.DeepEqual(expObject, object) {
-			log.Printf("lala%#v", (expObject.(*dgsv1alpha1.DedicatedGameServerCollection)).Status)
-			log.Printf("lolo%#v", (object.(*dgsv1alpha1.DedicatedGameServerCollection)).Status)
+			log.Print(expObject)
+			log.Print(object)
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
 		}

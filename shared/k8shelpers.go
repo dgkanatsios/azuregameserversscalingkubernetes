@@ -89,8 +89,9 @@ func NewDedicatedGameServerWithNoParent(namespace string, name string, ports []d
 func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, setServerStatusURL string) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   dgs.Name,
-			Labels: map[string]string{LabelDedicatedGameServer: dgs.Name},
+			Name:      dgs.Name,
+			Namespace: dgs.Namespace,
+			Labels:    map[string]string{LabelDedicatedGameServer: dgs.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,

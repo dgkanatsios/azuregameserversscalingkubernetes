@@ -9,17 +9,20 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func NewDedicatedGameServerCollection(name string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
+func NewDedicatedGameServerCollection(name string, namespace string, startmap string, image string, replicas int32, ports []dgsv1alpha1.PortInfo) *dgsv1alpha1.DedicatedGameServerCollection {
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{LabelDedicatedGameServerCollectionName: name},
+			Name:      name,
+			Namespace: namespace,
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerCollectionSpec{
 			Image:    image,
 			Replicas: replicas,
 			StartMap: startmap,
 			Ports:    ports,
+		},
+		Status: dgsv1alpha1.DedicatedGameServerCollectionStatus{
+			DedicatedGameServerCollectionState: dgsv1alpha1.DedicatedGameServerCollectionStateCreating,
 		},
 	}
 	return dedicatedgameservercollection
@@ -29,7 +32,8 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:      name,
+			Namespace: dgsCol.Namespace,
 			Labels: map[string]string{LabelServerName: name,
 				LabelDedicatedGameServerCollectionName: dgsCol.Name,
 				LabelActivePlayers:                     "0",
@@ -52,6 +56,31 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 			DedicatedGameServerState: initialState,
 		},
 	}
+
+	return dedicatedgameserver
+}
+
+func NewDedicatedGameServerWithNoParent(namespace string, name string, ports []dgsv1alpha1.PortInfoExtended, startmap string, image string) *dgsv1alpha1.DedicatedGameServer {
+	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
+	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{LabelServerName: name,
+				LabelActivePlayers:            "0",
+				LabelDedicatedGameServerState: string(initialState)},
+		},
+		Spec: dgsv1alpha1.DedicatedGameServerSpec{
+			Image:         image,
+			Ports:         ports,
+			StartMap:      startmap,
+			ActivePlayers: 0,
+		},
+		Status: dgsv1alpha1.DedicatedGameServerStatus{
+			DedicatedGameServerState: initialState,
+		},
+	}
+
 	return dedicatedgameserver
 }
 
@@ -60,8 +89,9 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, setServerStatusURL string) *core.Pod {
 	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   dgs.Name,
-			Labels: map[string]string{LabelDedicatedGameServer: dgs.Name},
+			Name:      dgs.Name,
+			Namespace: dgs.Namespace,
+			Labels:    map[string]string{LabelDedicatedGameServer: dgs.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,

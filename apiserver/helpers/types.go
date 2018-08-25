@@ -18,7 +18,8 @@ type ServerActivePlayers struct {
 }
 
 type DedicatedGameServerCollectionInfo struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 	dgsv1alpha1.DedicatedGameServerCollectionSpec
 }
 

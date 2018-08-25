@@ -22,7 +22,7 @@ func main() {
 	client, dgsclient, err := shared.GetClientSet()
 
 	if err != nil {
-		log.Panic("Cannot initialize connection to cluster due to: %v", err)
+		log.Panicf("Cannot initialize connection to cluster due to: %v", err)
 	}
 
 	// set up signals so we handle the first shutdown signal gracefully

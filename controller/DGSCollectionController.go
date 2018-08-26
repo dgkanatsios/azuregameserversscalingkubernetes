@@ -49,7 +49,6 @@ type DedicatedGameServerCollectionController struct {
 	recorder  record.EventRecorder
 }
 
-//func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerCollectionController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
@@ -223,22 +222,20 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	if dgsExistingCount < int(dgsColTemp.Spec.Replicas) {
 		//create them
 		increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
+
 		for i := 0; i < increaseCount; i++ {
 			// create a random name for the dedicated name server
 			// the corresponding pod will have the same name as well
 			dgsName := shared.GenerateRandomName(dgsColTemp.Name)
 
 			// first, get random ports
-
-			for i = 0; i < len(dgsColTemp.Spec.Template.Containers[0].Ports); i++ {
+			for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
 				//get a random port
 				hostport, errPort := portRegistry.GetNewPort(dgsName)
 				if errPort != nil {
 					return errPort
 				}
-
-				dgsColTemp.Spec.Template.Containers[0].Ports[i].HostPort = hostport
-
+				dgsColTemp.Spec.Template.Containers[0].Ports[j].HostPort = hostport
 			}
 
 			// each dedicated game server will have a name of
@@ -247,6 +244,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
+				c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot create dedicated game server", err.Error())
 				log.Error(err.Error())
 				return err
 			}

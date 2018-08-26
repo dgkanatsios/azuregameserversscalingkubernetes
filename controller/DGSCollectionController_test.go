@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
-	log "github.com/sirupsen/logrus"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
@@ -26,6 +25,14 @@ var (
 	alwaysReady        = func() bool { return true }
 	noResyncPeriodFunc = func() time.Duration { return 0 }
 )
+
+var podSpec = corev1.PodSpec{
+	Containers: []corev1.Container{
+		corev1.Container{
+			Ports: []corev1.ContainerPort{}, // if we create any ports here we need to initialize port registry before (during??) running the test
+		},
+	},
+}
 
 type dgsColFixture struct {
 	t *testing.T
@@ -152,12 +159,13 @@ func getKeyDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.
 
 func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
-	expDGS := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
+	expDGS := shared.NewDedicatedGameServer(dgsCol, "test1", podSpec)
 
 	f.expectCreateDedicatedGameServerAction(expDGS)
 
@@ -166,8 +174,9 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 
 func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 	f := newDGSColFixture(t)
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
@@ -180,8 +189,9 @@ func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 
 func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
@@ -190,7 +200,7 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 
 	//Update replicas
 	dgsCol.Spec.Replicas = 2
-	dgsExpected := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
+	dgsExpected := shared.NewDedicatedGameServer(dgsCol, "test1", podSpec)
 
 	f.expectCreateDedicatedGameServerAction(dgsExpected)
 	f.run(getKeyDGSCol(dgsCol, t))
@@ -199,11 +209,12 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+
 	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateRunning
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
-	dgs := shared.NewDedicatedGameServerWithNoParent(dgsCol.Namespace, "test0", nil, "startMap", "myimage")
+	dgs := shared.NewDedicatedGameServerWithNoParent(dgsCol.Namespace, "test0", podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
@@ -254,9 +265,8 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		e, _ := expected.(core.CreateAction)
 		expObject := e.GetObject()
 		object := a.GetObject()
+
 		if !reflect.DeepEqual(expObject, object) {
-			log.Print(expObject)
-			log.Print(object)
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
 		}

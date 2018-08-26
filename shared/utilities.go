@@ -85,11 +85,10 @@ func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServ
 		oldDGS.Spec.PublicIP == newDGS.Spec.PublicIP &&
 		oldDGS.Spec.NodeName == newDGS.Spec.NodeName &&
 		oldDGS.Spec.ActivePlayers == newDGS.Spec.ActivePlayers &&
-		oldDGS.Spec.Image == newDGS.Spec.Image &&
-		oldDGS.Spec.StartMap == newDGS.Spec.StartMap {
+		oldDGS.Spec.Template.Containers[0].Image == newDGS.Spec.Template.Containers[0].Image {
 
 		//we should also check for ports as well
-		//or not? :)
+		//or not :)
 
 		return false
 	}

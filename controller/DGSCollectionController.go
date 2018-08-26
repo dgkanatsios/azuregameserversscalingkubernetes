@@ -229,23 +229,21 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 			dgsName := shared.GenerateRandomName(dgsColTemp.Name)
 
 			// first, get random ports
-			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
-			for _, portInfo := range dgsColTemp.Spec.Ports {
+
+			for i = 0; i < len(dgsColTemp.Spec.Template.Containers[0].Ports); i++ {
 				//get a random port
 				hostport, errPort := portRegistry.GetNewPort(dgsName)
 				if errPort != nil {
 					return errPort
 				}
 
-				portsInfoExtended = append(portsInfoExtended, dgsv1alpha1.PortInfoExtended{
-					PortInfo: portInfo,
-					HostPort: int32(hostport),
-				})
+				dgsColTemp.Spec.Template.Containers[0].Ports[i].HostPort = hostport
+
 			}
 
 			// each dedicated game server will have a name of
 			// DedicatedGameServerCollectioName + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, portsInfoExtended, dgsColTemp.Spec.StartMap, dgsColTemp.Spec.Image)
+			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, dgsColTemp.Spec.Template)
 			_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {

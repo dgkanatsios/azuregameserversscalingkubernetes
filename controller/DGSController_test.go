@@ -157,8 +157,9 @@ func getKeyDGS(dgs *dgsv1alpha1.DedicatedGameServer, t *testing.T) string {
 
 func TestCreatesPod(t *testing.T) {
 	f := newDGSFixture(t)
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", nil, "startMap", "myimage")
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", podSpec)
 
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
@@ -173,8 +174,8 @@ func TestCreatesPod(t *testing.T) {
 func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 	f := newDGSFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", podSpec)
 
 	dgs.Spec.ActivePlayers = 0
 	dgs.Labels[shared.LabelActivePlayers] = "0"
@@ -197,8 +198,9 @@ func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 func TestDGSStatusIsUpdated(t *testing.T) {
 	f := newDGSFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, "startMap", "myimage", 1, nil)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", nil, "startMap", "myimage")
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", podSpec)
+
 	dgs.Spec.ActivePlayers = 0
 	dgs.Labels[shared.LabelActivePlayers] = "0"
 	dgs.Labels[shared.LabelPodState] = ""
@@ -226,7 +228,9 @@ func filterInformerActionsDGS(actions []core.Action) []core.Action {
 			(action.Matches("list", "pods") ||
 				action.Matches("watch", "pods") ||
 				action.Matches("list", "dedicatedgameservers") ||
-				action.Matches("watch", "dedicatedgameservers")) {
+				action.Matches("watch", "dedicatedgameservers") ||
+				action.Matches("list", "nodes") ||
+				action.Matches("watch", "nodes")) {
 			continue
 		}
 		ret = append(ret, action)

@@ -38,8 +38,14 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 
 	if len(dgsList.Items) > 0 {
 		for _, dgs := range dgsList.Items {
-			ports := make([]int32, len(dgs.Spec.Ports))
-			for i, portInfo := range dgs.Spec.Ports {
+
+			if len(dgs.Spec.Template.Containers) == 0 {
+				log.Errorf("DGS with name %s has a problem in its Pod Template: %#v", dgs.Name, dgs)
+				continue
+			}
+
+			ports := make([]int32, len(dgs.Spec.Template.Containers[0].Ports))
+			for i, portInfo := range dgs.Spec.Template.Containers[0].Ports {
 				ports[i] = portInfo.HostPort
 			}
 			portRegistry.assignRegisteredPorts(ports, dgs.Name)
@@ -63,7 +69,6 @@ func (id *IndexedDictionary) displayRegistry() {
 
 // GetNewPort returns and registers a new port for the designated game server. Locks a mutex
 func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
-
 	mutex.Lock()
 	defer mutex.Unlock()
 

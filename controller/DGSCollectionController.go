@@ -49,7 +49,6 @@ type DedicatedGameServerCollectionController struct {
 	recorder  record.EventRecorder
 }
 
-//func NewDedicatedGameServerCollectionController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerCollectionController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
@@ -223,32 +222,29 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	if dgsExistingCount < int(dgsColTemp.Spec.Replicas) {
 		//create them
 		increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
+
 		for i := 0; i < increaseCount; i++ {
 			// create a random name for the dedicated name server
 			// the corresponding pod will have the same name as well
 			dgsName := shared.GenerateRandomName(dgsColTemp.Name)
 
 			// first, get random ports
-			var portsInfoExtended []dgsv1alpha1.PortInfoExtended
-			for _, portInfo := range dgsColTemp.Spec.Ports {
+			for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
 				//get a random port
 				hostport, errPort := portRegistry.GetNewPort(dgsName)
 				if errPort != nil {
 					return errPort
 				}
-
-				portsInfoExtended = append(portsInfoExtended, dgsv1alpha1.PortInfoExtended{
-					PortInfo: portInfo,
-					HostPort: int32(hostport),
-				})
+				dgsColTemp.Spec.Template.Containers[0].Ports[j].HostPort = hostport
 			}
 
 			// each dedicated game server will have a name of
 			// DedicatedGameServerCollectioName + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, portsInfoExtended, dgsColTemp.Spec.StartMap, dgsColTemp.Spec.Image)
+			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, dgsColTemp.Spec.Template)
 			_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
+				c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot create dedicated game server", err.Error())
 				log.Error(err.Error())
 				return err
 			}

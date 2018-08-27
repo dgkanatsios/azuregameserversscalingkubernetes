@@ -15,4 +15,4 @@ COPY --from=builder /build/apiserver ./
 COPY --from=builder /build/cmd/apiserver/html ./html
 CMD ["./apiserver"]
 EXPOSE 8000
-LABEL Name=docker_openarena_k8s_apiserver
+LABEL Name=aks_gaming_apiserver

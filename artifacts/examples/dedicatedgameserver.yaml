@@ -3,5 +3,26 @@ kind: DedicatedGameServer
 metadata:
   name: openarena-example
 spec:
-  image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.4
-  startmap: dm4ish
+  template: 
+    restartPolicy: Never
+    dnsPolicy: ClusterFirstWithHostNet
+    containers:
+    - name: openarena
+      image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.4
+      env:
+      - name: OA_STARTMAP
+        value: "dm4ish"
+      - name: OA_PORT
+        value: "27960"
+      volumeMounts:
+      - name: openarenavolume
+        mountPath: /data
+      ports:
+      - containerPort: 27960
+        protocol: UDP  
+    volumes:
+    - name: openarenavolume
+      azureFile:
+        secretName: openarena-storage-secret
+        shareName: openarenadata
+        readOnly: false

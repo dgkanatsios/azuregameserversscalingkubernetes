@@ -32,12 +32,10 @@ type DedicatedGameServerSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Image         string             `json:"image"`
-	StartMap      string             `json:"startmap"`
-	Ports         []PortInfoExtended `json:"ports"`
-	PublicIP      string             `json:"publicIP"`
-	NodeName      string             `json:"nodeName"`
-	ActivePlayers int                `json:"activePlayers"`
+	Template      corev1.PodSpec `json:"template"`
+	PublicIP      string         `json:"publicIP"`
+	NodeName      string         `json:"nodeName"`
+	ActivePlayers int            `json:"activePlayers"`
 }
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource

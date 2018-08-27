@@ -36,8 +36,8 @@ Project is composed of 3 Docker images:
 Beforementioned images are hosted on Docker Hub
 
 - [OpenArena for Kubernetes](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s/)
-- [API Server](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s_apiserver/)
-- [Custom Kubernetes Controller](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s_controller/)
+- [API Server](https://hub.docker.com/r/dgkanatsios/aks_gaming_apiserver/)
+- [Custom Kubernetes Controller](https://hub.docker.com/r/dgkanatsios/aks_gaming_controller/)
 
 ### Autoscaler
 

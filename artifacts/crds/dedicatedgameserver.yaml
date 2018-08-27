@@ -12,9 +12,9 @@ spec:
     singular: dedicatedgameserver
     shortNames:
     - dgs
-  subresources:
-    # status enables the status subresource.
-    status: {}
+  # subresources:
+  #   # status enables the status subresource.
+  #   status: {}
   additionalPrinterColumns:
   - name: ActivePlayers
     type: string

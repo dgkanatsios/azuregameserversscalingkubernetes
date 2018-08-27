@@ -27,7 +27,7 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 }
 
 func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
-	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
+	initialState := dgsv1alpha1.DedicatedGameServerStateRunning // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

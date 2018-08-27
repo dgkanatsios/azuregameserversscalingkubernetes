@@ -57,8 +57,8 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dgsInfo helpers.DedicatedGameServerInfo
-	err = json.NewDecoder(r.Body).Decode(&dgsInfo)
+	var dgs dgsv1alpha1.DedicatedGameServer
+	err = json.NewDecoder(r.Body).Decode(&dgs)
 
 	if err != nil {
 		w.WriteHeader(400)
@@ -66,7 +66,7 @@ func createDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	podname, err := helpers.CreateDedicatedGameServerCRD(dgsInfo)
+	podname, err := helpers.CreateDedicatedGameServerCRD(dgs.Name, dgs.Spec.Template)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())
@@ -93,8 +93,8 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var dgsColInfo helpers.DedicatedGameServerCollectionInfo
-	err = json.NewDecoder(r.Body).Decode(&dgsColInfo)
+	var dgsCol dgsv1alpha1.DedicatedGameServerCollection
+	err = json.NewDecoder(r.Body).Decode(&dgsCol)
 
 	if err != nil {
 		w.WriteHeader(400)
@@ -102,7 +102,7 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	colname, err := helpers.CreateDedicatedGameServerCollectionCRD(dgsColInfo)
+	colname, err := helpers.CreateDedicatedGameServerCollectionCRD(dgsCol.Name, dgsCol.Spec.Replicas, dgsCol.Spec.Template)
 
 	if err != nil {
 		log.Printf("error encountered: %s", err.Error())

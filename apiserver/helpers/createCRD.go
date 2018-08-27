@@ -1,22 +1,20 @@
 package helpers
 
 import (
-	log "github.com/sirupsen/logrus"
-
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 )
 
-func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (dgsName string, err error) {
+func CreateDedicatedGameServerCRD(dgsName string, podSpec corev1.PodSpec) (finalDDGSName string, err error) {
 
-	if dgsInfo.Name == "" {
-		dgsInfo.Name = shared.GenerateRandomName("gamesever")
+	if dgsName == "" {
+		dgsName = shared.GenerateRandomName("gameserver")
 	}
 
-	//TODO: we used to pass a random port here. Maybe we should later the controller to create one if it's 0?
+	log.Printf("Creating DedicatedGameServer %s", dgsName)
 
-	log.Printf("Creating DedicatedGameServer %s", dgsInfo.Name)
-
-	dgs := shared.NewDedicatedGameServer(nil, dgsInfo.Name, dgsInfo.Ports, dgsInfo.StartMap, dgsInfo.Image)
+	dgs := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, dgsName, podSpec)
 
 	_, dgsClient, err := shared.GetClientSet()
 	if err != nil {
@@ -32,15 +30,15 @@ func CreateDedicatedGameServerCRD(dgsInfo DedicatedGameServerInfo) (dgsName stri
 
 }
 
-func CreateDedicatedGameServerCollectionCRD(dgs DedicatedGameServerCollectionInfo) (dgsColName string, err error) {
+func CreateDedicatedGameServerCollectionCRD(dgsColName string, replicas int32, podSpec corev1.PodSpec) (finalDGSColName string, err error) {
 
-	if dgs.Name == "" {
-		dgs.Name = shared.GenerateRandomName("dedicatedgameservercollection")
+	if dgsColName == "" {
+		dgsColName = shared.GenerateRandomName("dedicatedgameservercollection")
 	}
 
-	log.Printf("Creating DedicatedGameServerCollection %s", dgs.Name)
+	log.Printf("Creating DedicatedGameServerCollection %s", dgsColName)
 
-	dgsCol := shared.NewDedicatedGameServerCollection(dgs.Name, dgs.Namespace, dgs.StartMap, dgs.Image, dgs.Replicas, dgs.Ports)
+	dgsCol := shared.NewDedicatedGameServerCollection(dgsColName, shared.GameNamespace, replicas, podSpec)
 
 	_, dgsClient, err := shared.GetClientSet()
 	if err != nil {

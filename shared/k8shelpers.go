@@ -78,9 +78,15 @@ func NewDedicatedGameServerWithNoParent(namespace string, name string, template 
 	return dedicatedgameserver
 }
 
+// APIDetails contains the information that allows our DedicatedGameServer to communicate with the API Server
+type APIDetails struct {
+	SetActivePlayersURL string
+	SetServerStatusURL  string
+}
+
 // NewPod returns a Kubernetes Pod struct that has the same name as the provided DedicatedGameServer
 // It also sets a label called "DedicatedGameServer" with the value of the corresponding DedicatedGameServer resource
-func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, setServerStatusURL string) *corev1.Pod {
+func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails) *corev1.Pod {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dgs.Name,
@@ -99,8 +105,8 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, setActivePlayersURL string, se
 
 	// assign special ENV
 	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SERVER_NAME", Value: dgs.Name})
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SET_ACTIVE_PLAYERS_URL", Value: setActivePlayersURL})
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SET_SERVER_STATUS_URL", Value: setServerStatusURL})
+	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SET_ACTIVE_PLAYERS_URL", Value: apiDetails.SetActivePlayersURL})
+	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SET_SERVER_STATUS_URL", Value: apiDetails.SetServerStatusURL})
 	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "POD_NAMESPACE", Value: dgs.Namespace})
 
 	pod.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet //https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/

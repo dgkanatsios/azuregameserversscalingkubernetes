@@ -34,7 +34,7 @@ type DedicatedGameServerCollectionSpec struct {
 	// this is where you would put your custom resource data
 	Replicas          int32                                 `json:"replicas"`
 	Template          corev1.PodSpec                        `json:"template"`
-	AutoScalerDetails *DedicatedGameServerAutoScalerDetails `json:"autoScalerDetails"`
+	AutoScalerDetails *DedicatedGameServerAutoScalerDetails `json:"autoScalerDetails,omitempty"`
 }
 
 // DedicatedGameServerAutoScalerDetails contains details about the autoscaling of the dedicated game server collection

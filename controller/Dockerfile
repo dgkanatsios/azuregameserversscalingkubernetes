@@ -13,4 +13,4 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /build/controller .
 CMD ["./controller"]
-LABEL Name=docker_openarena_k8s_controller
+LABEL Name=aks_gaming_controller

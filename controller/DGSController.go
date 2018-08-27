@@ -363,7 +363,11 @@ func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface
 
 func (c *DedicatedGameServerController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
 
-	pod := shared.NewPod(dgs, shared.GetActivePlayersSetURL(), shared.GetServerStatusSetURL())
+	pod := shared.NewPod(dgs,
+		shared.APIDetails{
+			SetActivePlayersURL: shared.GetActivePlayersSetURL(),
+			SetServerStatusURL:  shared.GetServerStatusSetURL(),
+		})
 
 	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {

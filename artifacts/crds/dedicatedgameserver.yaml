@@ -12,6 +12,9 @@ spec:
     singular: dedicatedgameserver
     shortNames:
     - dgs
+  subresources:
+    # status enables the status subresource.
+    status: {}
   additionalPrinterColumns:
   - name: ActivePlayers
     type: string
@@ -29,6 +32,10 @@ spec:
     type: string
     description: port mapping of the game server
     JSONPath: .spec.template.containers[0].ports
+  - name: PublicIP
+    type: string
+    description: node's public IP for this DedicatedGameServer
+    JSONPath: .spec.publicIP
   validation:
    # openAPIV3Schema is the schema for validating custom objects.
     openAPIV3Schema:

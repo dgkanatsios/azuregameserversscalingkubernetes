@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
 
@@ -17,14 +16,10 @@ import (
 
 var portRegistry *IndexedDictionary
 var clientset *dgsclientset.Clientset
-var mutex = &sync.Mutex{}
 
 // InitializePortRegistry initializes the IndexedDictionary that holds the port registry.
 // Intended to be called only once. Locks a mutex
 func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	clientset = dgsclientset
 
@@ -54,6 +49,8 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 
 	portRegistry.assignUnregisteredPorts()
 
+	go portRegistry.portProducer()
+
 	return nil
 
 }
@@ -69,35 +66,55 @@ func (id *IndexedDictionary) displayRegistry() {
 
 // GetNewPort returns and registers a new port for the designated game server. Locks a mutex
 func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	portRequests <- serverName
 
-	initialIndex := id.NextFreePortIndex
-	for {
-		if id.Ports[id.Indexes[id.NextFreePortIndex]] == false {
-			//we found a port
-			port := id.Indexes[id.NextFreePortIndex]
-			id.Ports[port] = true
-			id.GameServerPorts[serverName] = fmt.Sprintf("%d,%s", port, id.GameServerPorts[serverName])
-			id.increaseNextFreePortIndex()
-			return port, nil
-		}
+	port := <-portResponses
 
-		id.increaseNextFreePortIndex()
-
-		if initialIndex == id.NextFreePortIndex {
-			//we did a full loop - no empty ports
-			return 0, errors.New("Cannot register a new port. No more slots")
-		}
+	if port == -1 {
+		return -1, errors.New("Cannot register a new port. No more slots")
 	}
 
+	return port, nil
+}
+
+var portRequests = make(chan string, 100)
+var portResponses = make(chan int32, 100)
+
+func (id *IndexedDictionary) portProducer() {
+	for serverName := range portRequests { //wait till a new request comes
+		log.Print("lala request")
+		initialIndex := id.NextFreePortIndex
+		for {
+			if id.Ports[id.Indexes[id.NextFreePortIndex]] == false {
+				//we found a port
+				port := id.Indexes[id.NextFreePortIndex]
+				id.Ports[port] = true
+				id.GameServerPorts[serverName] = fmt.Sprintf("%d,%s", port, id.GameServerPorts[serverName])
+				id.increaseNextFreePortIndex()
+
+				//port is set
+				portResponses <- port
+				break
+			}
+
+			id.increaseNextFreePortIndex()
+
+			if initialIndex == id.NextFreePortIndex {
+				//we did a full loop - no empty ports
+				portResponses <- -1
+				break
+			}
+		}
+	}
+}
+
+func StopPortRegistry() {
+	close(portRequests)
+	close(portResponses)
 }
 
 // DeregisterServerPorts deregisters all ports for the designated server. Locks a mutex
 func (id *IndexedDictionary) DeregisterServerPorts(serverName string) {
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	ports := strings.Split(id.GameServerPorts[serverName], ",")
 

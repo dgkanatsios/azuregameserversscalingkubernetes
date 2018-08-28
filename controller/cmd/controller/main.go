@@ -80,6 +80,8 @@ func runAllControllers(controllers []controllerHelper, controllerThreadiness int
 
 	<-stopCh
 	log.Info("Controllers stopped")
+	controller.StopPortRegistry()
+	log.Info("PortRegistry stopped")
 }
 
 type controllerHelper interface {

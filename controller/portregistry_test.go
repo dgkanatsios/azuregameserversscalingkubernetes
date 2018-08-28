@@ -11,6 +11,7 @@ const displayVariablesDuringTesting = false
 
 func TestPortRegistry(t *testing.T) {
 
+	// start of initialization
 	portRegistryTest := newIndexedDictionary(20000, 20010)
 
 	registeredPortsServer1 := []int32{20002, 20004, 20006, 20008}
@@ -32,74 +33,84 @@ func TestPortRegistry(t *testing.T) {
 		portRegistryTest.displayRegistry()
 	}
 
+	go portRegistryTest.portProducer()
+	// end of initialization
+
 	peekPort, err := peekNextPort(portRegistryTest)
 	actualPort, _ := portRegistryTest.GetNewPort("server1")
 	registeredPortsServer1 = append(registeredPortsServer1, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server1")
 	registeredPortsServer1 = append(registeredPortsServer1, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server1")
 	registeredPortsServer1 = append(registeredPortsServer1, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server1")
 	registeredPortsServer1 = append(registeredPortsServer1, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server2")
 	registeredPortsServer2 = append(registeredPortsServer2, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server2")
 	registeredPortsServer2 = append(registeredPortsServer2, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server2")
 	registeredPortsServer2 = append(registeredPortsServer2, actualPort)
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	verifyGameServerPortsExist(portRegistryTest, "server1", registeredPortsServer1, t)
@@ -112,6 +123,7 @@ func TestPortRegistry(t *testing.T) {
 	_, err = peekNextPort(portRegistryTest)
 	if err == nil {
 		t.Errorf("Error should not be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	_, err = portRegistryTest.GetNewPort("server2")
@@ -134,10 +146,11 @@ func TestPortRegistry(t *testing.T) {
 	peekPort, err = peekNextPort(portRegistryTest)
 	actualPort, _ = portRegistryTest.GetNewPort("server1")
 	if actualPort != peekPort {
-		t.Errorf("Wrong port returned")
+		t.Errorf("Wrong port returned, peekPort:%d,actualPort:%d", peekPort, actualPort)
 	}
 	if err != nil {
 		t.Errorf("Error should be nil")
+		t.Errorf("Error:%s", err.Error())
 	}
 
 	registeredPortsServer1 = append(registeredPortsServer1, actualPort)
@@ -146,6 +159,8 @@ func TestPortRegistry(t *testing.T) {
 	if displayVariablesDuringTesting {
 		portRegistryTest.displayRegistry()
 	}
+
+	StopPortRegistry()
 
 }
 
@@ -198,16 +213,16 @@ func verifyGameServerPortsDoNotExist(portRegistry *IndexedDictionary, serverName
 	}
 }
 
-func peekNextPort(portRegistry *IndexedDictionary) (int32, error) {
-	tempPointer := portRegistry.NextFreePortIndex
+func peekNextPort(pr *IndexedDictionary) (int32, error) {
+	tempPointer := pr.NextFreePortIndex
 	tempPointerCopy := tempPointer
 	for {
-		if !portRegistry.Ports[portRegistry.Indexes[tempPointer]] { //port not taken
-			return portRegistry.Indexes[tempPointer], nil
+		if !pr.Ports[pr.Indexes[tempPointer]] { //port not taken
+			return pr.Indexes[tempPointer], nil
 		}
 
 		tempPointer++
-		if tempPointer == (portRegistry.Max - portRegistry.Min + 1) {
+		if tempPointer == (pr.Max - pr.Min + 1) {
 			tempPointer = 0
 		}
 

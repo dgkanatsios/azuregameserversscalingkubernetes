@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: docker-openarena-k8s-apiserver
-        image: docker.io/dgkanatsios/aks_gaming_apiserver:0.0.14
+        image: docker.io/dgkanatsios/aks_gaming_apiserver:0.0.15
         imagePullPolicy: Always
         args: ["./apiserver","port","8000"]
         env:
@@ -61,7 +61,7 @@ spec:
     spec:
       containers:
       - name: docker-openarena-k8s-controller
-        image: docker.io/dgkanatsios/aks_gaming_controller:0.0.14
+        image: docker.io/dgkanatsios/aks_gaming_controller:0.0.15
         imagePullPolicy: Always
         env:
           - name: STORAGE_ACCOUNT_NAME

@@ -4,8 +4,8 @@ const GameDockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.4"
 const APIAccessCodeSecretName = "apiaccesscode"
 
 const (
-	setActivePlayersURLPrefix = "http://docker-openarena-k8s-apiserver/setactiveplayers?code="
-	setServerStatusURLPrefix  = "http://docker-openarena-k8s-apiserver/setserverstatus?code="
+	setActivePlayersURLPrefix = "http://aks-gaming-apiserver/setactiveplayers?code="
+	setServerStatusURLPrefix  = "http://aks-gaming-apiserver/setserverstatus?code="
 )
 
 const (

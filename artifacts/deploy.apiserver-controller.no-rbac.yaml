@@ -1,42 +1,26 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: game
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: docker-openarena-k8s-apiserver
+  name: aks-gaming-apiserver
   labels:
-    name: docker-openarena-k8s-apiserver
+    name: aks-gaming-apiserver
 spec:
   selector:
     matchLabels: 
-      name: docker-openarena-k8s-apiserver
+      name: aks-gaming-apiserver
   strategy:
     type: RollingUpdate
   replicas: 1
   template:
     metadata:
       labels:
-        name: docker-openarena-k8s-apiserver
+        name: aks-gaming-apiserver
     spec:
       containers:
-      - name: docker-openarena-k8s-apiserver
-        image: docker.io/dgkanatsios/aks_gaming_apiserver:0.0.16
+      - name: aks-gaming-apiserver
+        image: docker.io/dgkanatsios/aks_gaming_apiserver:0.0.17
         imagePullPolicy: Always
         args: ["./apiserver","port","8000"]
-        env:
-          - name: STORAGE_ACCOUNT_NAME
-            valueFrom:
-              secretKeyRef:
-                name: openarena-storage-secret
-                key: azurestorageaccountname
-          - name: STORAGE_ACCOUNT_KEY
-            valueFrom:
-              secretKeyRef:
-                name: openarena-storage-secret
-                key: azurestorageaccountkey
         ports:
         - containerPort: 8000
           protocol: TCP
@@ -44,43 +28,32 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: docker-openarena-k8s-controller
+  name: aks-gaming-controller
   labels:
-    name: docker-openarena-k8s-controller
+    name: aks-gaming-controller
 spec:
   selector:
     matchLabels: 
-      name: docker-openarena-k8s-controller
+      name: aks-gaming-controller
   strategy:
     type: RollingUpdate
   replicas: 1
   template:
     metadata:
       labels:
-        name: docker-openarena-k8s-controller
+        name:aks-gaming-controller
     spec:
       containers:
-      - name: docker-openarena-k8s-controller
-        image: docker.io/dgkanatsios/aks_gaming_controller:0.0.16
+      - name: aks-gaming-controller
+        image: docker.io/dgkanatsios/aks_gaming_controller:0.0.17
         imagePullPolicy: Always
-        env:
-          - name: STORAGE_ACCOUNT_NAME
-            valueFrom:
-              secretKeyRef:
-                name: openarena-storage-secret
-                key: azurestorageaccountname
-          - name: STORAGE_ACCOUNT_KEY
-            valueFrom:
-              secretKeyRef:
-                name: openarena-storage-secret
-                key: azurestorageaccountkey
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: docker-openarena-k8s-apiserver
+  name: aks-gaming-apiserver
   labels:
-    name: docker-openarena-k8s-apiserver
+    name: aks-gaming-apiserver
 spec:
   ports:
     # the port that this service should serve on
@@ -90,5 +63,5 @@ spec:
       name: http
   # label keys and values that must match in order to receive traffic for this service
   selector:
-    name: docker-openarena-k8s-apiserver
+    name: aks-gaming-apiserver
   type: LoadBalancer

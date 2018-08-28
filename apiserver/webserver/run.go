@@ -200,14 +200,16 @@ func setActivePlayersHandler(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&serverActivePlayers)
 
 	if err != nil {
+		log.Errorf("Error in deserialization: %v", err)
 		w.WriteHeader(500)
-		w.Write([]byte("Error setting Active Players: " + err.Error()))
+		w.Write([]byte("Error in deserialization: " + err.Error()))
 		return
 	}
 
 	err = shared.UpdateActivePlayers(serverActivePlayers.ServerName, serverActivePlayers.PlayerCount)
 
 	if err != nil {
+		log.Errorf("Error in setting Active Players: %v", err)
 		w.WriteHeader(500)
 		w.Write([]byte("Error setting Active Players: " + err.Error()))
 		return

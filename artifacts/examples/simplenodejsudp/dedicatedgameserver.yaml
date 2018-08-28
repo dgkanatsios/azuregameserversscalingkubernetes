@@ -1,0 +1,14 @@
+apiVersion: azuregaming.com/v1alpha1
+kind: DedicatedGameServer
+metadata:
+  name: simplenodejsudp-example
+spec:
+  template: 
+    restartPolicy: Never
+    dnsPolicy: ClusterFirstWithHostNet
+    containers:
+    - name: simplenodejsudp
+      image: docker.io/dgkanatsios/simplenodejsudp:0.0.1
+      ports:
+      - containerPort: 22222
+        protocol: UDP

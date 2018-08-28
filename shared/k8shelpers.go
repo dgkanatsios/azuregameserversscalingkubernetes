@@ -1,6 +1,8 @@
 package shared
 
 import (
+	"strconv"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
@@ -126,8 +128,10 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 		return err
 	}
 
+	activePlayersString := strconv.Itoa(activePlayers)
+
 	dgs.Spec.ActivePlayers = activePlayers
-	dgs.Labels[LabelActivePlayers] = string(activePlayers)
+	dgs.Labels[LabelActivePlayers] = activePlayersString
 
 	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)
 	if err != nil {

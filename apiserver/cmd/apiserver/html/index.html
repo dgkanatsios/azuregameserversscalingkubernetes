@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -56,7 +57,8 @@
                     <th>Players</th>
                     <th>Ports</th>
                     <th>DedicatedGameServerCollectionName</th>
-                    <th>GameServerState</th>
+                    <th>DedicatedGameServerState</th>
+                    <th>PodState</th>
                 </tr>
             </thead>
             <tbody>
@@ -87,9 +89,10 @@
                         <td>${el.spec.nodeName}</td>
                         <td>${el.spec.publicIP}</td>
                         <td>${el.spec.activePlayers}</td>
-                        <td>${JSON.stringify(el.spec.ports)}</td>
+                        <td>${JSON.stringify(el.spec.template.containers[0].ports)}</td>
                         <td>${el.metadata.labels.DedicatedGameServerCollectionName}</td>
-                        <td>${el.metadata.labels.GameServerState}</td>
+                        <td>${el.metadata.labels.DedicatedGameServerState}</td>
+                        <td>${el.status.podState}</td>
                         </tr>`
                     );
                 });

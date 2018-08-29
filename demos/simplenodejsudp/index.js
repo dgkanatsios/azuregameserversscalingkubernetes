@@ -1,15 +1,17 @@
 // https://gist.github.com/ryanjon2040/f29787b866316357016971b9c9c363bb
 
 // port to listen to
-var PORT = 22222; // Change to your port number
+const PORT = 22222; // Change to your port number
 
-var HOST = '127.0.0.1';
+const HOST = '127.0.0.1';
 
 // Load datagram module
-var dgram = require('dgram');
+const dgram = require('dgram');
+
+const request = require('requestretry');
 
 // Create a new instance of dgram socket
-var server = dgram.createSocket('udp4');
+const server = dgram.createSocket('udp4');
 
 /**
 Once the server is created and binded, some events are automatically created.
@@ -36,6 +38,29 @@ server.on('message', function (message, remote) {
 server.on('error', (err) => {
   console.log(`server error:\n${err.stack}`);
   server.close();
+});
+
+const postData = {
+  serverName: process.env.SERVER_NAME, 
+  status: "Running",
+  podNamespace: process.env.POD_NAMESPACE
+};
+
+// send "Running" to the APIServer
+request({
+  url: process.env.SET_SERVER_STATUS_URL,
+  json: postData,
+  method: 'POST',
+  maxAttempts: 5, // (default) try 5 times
+  retryDelay: 5000, // (default) wait for 5s before trying again
+  retryStrategy: request.RetryStrategies.HTTPOrNetworkError // (default) retry on 5xx or network errors
+}, function (err, response, body) {
+  // this callback will only be called when the request succeeded or after maxAttempts or on error
+  if (err) {
+      console.log(err);
+  } else if (response) {
+      console.log("Set status running OK");
+  }
 });
 
 // Finally bind our server to the given port and host so that listening event starts happening.

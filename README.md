@@ -20,10 +20,10 @@ This repository aims to provide a solution for managing containerized dedicated 
 
 ## Architecture
 
-We are using [Kubernetes Custom Resource Definitions (CRDs)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) to represent our game server entities. Specifically, we have two core entities:
+We are using [Kubernetes Custom Resource Definitions (CRDs)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) to represent our dedicated game servers. Specifically, we have two core entities:
 
 - DedicatedGameServer ([YAML](/artifacts/crds/dedicatedgameserver.yaml), [Go](/pkg/apis/azuregaming/v1alpha1/dedicatedgameserver.go)): represents the game server itself. You may find referenced as DGS in the source code. Each DedicatedGameServer has a corresponding Pod which will run the Docker container for your game. We are using Kubernetes `hostPort` to run the dedicated game servers. Ports are bound automatically via a custom portregistry object.
-- DedicatedGameServerCollection ([YAML](/artifacts/crds/dedicatedgameservercollection.yaml), [Go](/pkg/apis/azuregaming/v1alpha1/dedicatedgameservercollection.go)): represents a collection of related DedicatedGameServers. These game servers can be scaled in/out, share a common container image and are created simultaneously.
+- DedicatedGameServerCollection ([YAML](/artifacts/crds/dedicatedgameservercollection.yaml), [Go](/pkg/apis/azuregaming/v1alpha1/dedicatedgameservercollection.go)): represents a collection of related DedicatedGameServers. These game servers can be scaled in/out, share a common container image and are created as a set/collection.
 
 Project is composed of 3 Docker images:
 

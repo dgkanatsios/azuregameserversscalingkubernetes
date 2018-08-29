@@ -10,6 +10,10 @@ Check out a [project](https://github.com/dgkanatsios/AzureContainerInstancesMana
 
 Game Servers are loaded on each Node on a specific port (conceptually similar to docker run dedicatedgameserver -p X:Y). Port mapping is managed by our project.
 
+## Why are you keeping duplicate values (both in CRD .Spec and in Labels) about ActivePlayers, PodState and DedicatedGameServer?
+
+We need to be able to query them via our APIServer. Currently, you can GET normal K8s objects via filters [source](https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/), however there is an [open issue](https://github.com/kubernetes/kubernetes/issues/53459) regarding CRDs.
+
 ## How did you end up using this networking solution? I know that Kubernetes has a thing called 'services' that allows exposing applications on the Internet (and a lot more).
 
 Correct, [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/) are a way to expose a set of Pods via a DNS name. Traffic sent to this Service is distributed to this set of Pods via a specified Load Balancing Algorithm. A certain type of Service, called [Load Balancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer) allows exposing a set of Pods over the Internet, via a cloud provider's Load Balancer Service. In the case of Azure, a service called [Azure Load Balancer](https://docs.microsoft.com/en-us/azure/load-balancer/load-balancer-overview) is used.

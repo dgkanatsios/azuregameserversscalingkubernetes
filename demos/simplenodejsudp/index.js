@@ -2,7 +2,7 @@
 
 // port to listen to
 const PORT = 22222; // Change to your port number
-
+const os = require('os');
 const HOST = '127.0.0.1';
 
 // Load datagram module
@@ -28,7 +28,10 @@ server.on('listening', function () {
 // That means, when we use FUDPPing::UDPEcho in Unreal Engine 4 this event will trigger.
 server.on('message', function (message, remote) {
     console.log('Message received from ' + remote.address + ':' + remote.port +' - ' + message.toString());
-    server.send(message, 0, message.length, remote.port, remote.address, function(err, bytes) {
+
+    const returnMessage = Buffer.from(`${os.hostname()} says: ${message.toString()}`);
+
+    server.send(returnMessage, 0, returnMessage.length, remote.port, remote.address, function(err, bytes) {
 	  if (err) throw err;
 	  console.log('UDP message sent to ' + remote.address +':'+ remote.port + '\n');
 	});
@@ -39,6 +42,21 @@ server.on('error', (err) => {
   console.log(`server error:\n${err.stack}`);
   server.close();
 });
+
+if (!process.env.SERVER_NAME){
+  console.log("$SERVER_NAME is not defined");
+  process.exit(-1);
+}
+
+if (!process.env.POD_NAMESPACE){
+  console.log("$POD_NAMESPACE is not defined");
+  process.exit(-1);
+}
+
+if (!process.env.SET_SERVER_STATUS_URL){
+  console.log("$SET_SERVER_STATUS_URL is not defined");
+  process.exit(-1);
+}
 
 const postData = {
   serverName: process.env.SERVER_NAME, 

@@ -3,7 +3,7 @@
 // port to listen to
 const PORT = 22222; // Change to your port number
 const os = require('os');
-const HOST = '127.0.0.1';
+const HOST = '0.0.0.0';
 
 // Load datagram module
 const dgram = require('dgram');
@@ -43,20 +43,20 @@ server.on('error', (err) => {
   server.close();
 });
 
-if (!process.env.SERVER_NAME){
-  console.log("$SERVER_NAME is not defined");
-  process.exit(-1);
-}
+// if (!process.env.SERVER_NAME){
+//   console.log("$SERVER_NAME is not defined");
+//   process.exit(-1);
+// }
 
-if (!process.env.POD_NAMESPACE){
-  console.log("$POD_NAMESPACE is not defined");
-  process.exit(-1);
-}
+// if (!process.env.POD_NAMESPACE){
+//   console.log("$POD_NAMESPACE is not defined");
+//   process.exit(-1);
+// }
 
-if (!process.env.SET_SERVER_STATUS_URL){
-  console.log("$SET_SERVER_STATUS_URL is not defined");
-  process.exit(-1);
-}
+// if (!process.env.SET_SERVER_STATUS_URL){
+//   console.log("$SET_SERVER_STATUS_URL is not defined");
+//   process.exit(-1);
+// }
 
 const postData = {
   serverName: process.env.SERVER_NAME, 
@@ -64,22 +64,22 @@ const postData = {
   podNamespace: process.env.POD_NAMESPACE
 };
 
-// send "Running" to the APIServer
-request({
-  url: process.env.SET_SERVER_STATUS_URL,
-  json: postData,
-  method: 'POST',
-  maxAttempts: 5, // (default) try 5 times
-  retryDelay: 5000, // (default) wait for 5s before trying again
-  retryStrategy: request.RetryStrategies.HTTPOrNetworkError // (default) retry on 5xx or network errors
-}, function (err, response, body) {
-  // this callback will only be called when the request succeeded or after maxAttempts or on error
-  if (err) {
-      console.log(err);
-  } else if (response) {
-      console.log("Set status running OK");
-  }
-});
+// // send "Running" to the APIServer
+// request({
+//   url: process.env.SET_SERVER_STATUS_URL,
+//   json: postData,
+//   method: 'POST',
+//   maxAttempts: 5, // (default) try 5 times
+//   retryDelay: 5000, // (default) wait for 5s before trying again
+//   retryStrategy: request.RetryStrategies.HTTPOrNetworkError // (default) retry on 5xx or network errors
+// }, function (err, response, body) {
+//   // this callback will only be called when the request succeeded or after maxAttempts or on error
+//   if (err) {
+//       console.log(err);
+//   } else if (response) {
+//       console.log("Set status running OK");
+//   }
+// });
 
 // Finally bind our server to the given port and host so that listening event starts happening.
 server.bind(PORT, HOST);

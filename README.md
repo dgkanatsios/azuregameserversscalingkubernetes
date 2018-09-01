@@ -43,5 +43,4 @@ Beforementioned images are hosted on Docker Hub
 
 Project contains an **experimental** Pod autoscaler, you can find it in the AutoScalerController file and you can configure it when deploying your DedicatedGameServerCollection resource. This autoscaler (if enabled) will scale in/out the DedicatedGameServers in the collection based on the `ActivePlayers` metric. Each game server can hold a specific amount of players, if more of them are lining up in our matchmaking server, then we are clearly in need of more DedicatedGameServer instances (and their corresponding Pods).
 
-
 This is not an official Microsoft product.

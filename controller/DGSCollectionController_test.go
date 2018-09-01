@@ -49,16 +49,16 @@ type dgsColFixture struct {
 	dgsObjects []runtime.Object
 }
 
+var nameSuffix = "0"
+
 func newDGSColFixture(t *testing.T) *dgsColFixture {
 
 	//stupid hack
 	//currently, DGS names are generated randomly
 	//however, we can't compare random names using deepEqual tests
 	//so, we'll override the method that generates the names
-	i := 0
 	shared.GenerateRandomName = func(prefix string) string {
-		i++
-		return fmt.Sprintf("%s%d", prefix, i)
+		return fmt.Sprintf("%s%s", prefix, nameSuffix)
 	}
 
 	f := &dgsColFixture{}
@@ -160,12 +160,13 @@ func getKeyDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.
 func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
+	nameSuffix = "0"
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
-	expDGS := shared.NewDedicatedGameServer(dgsCol, "test1", podSpec)
+	expDGS := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	f.expectCreateDedicatedGameServerAction(expDGS)
 
@@ -175,8 +176,9 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 	f := newDGSColFixture(t)
 
+	nameSuffix = "0"
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test1", podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
@@ -190,8 +192,9 @@ func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
 func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
+	nameSuffix = "0"
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, "test0", podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)
@@ -200,7 +203,8 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 
 	//Update replicas
 	dgsCol.Spec.Replicas = 2
-	dgsExpected := shared.NewDedicatedGameServer(dgsCol, "test1", podSpec)
+	nameSuffix = "1"
+	dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	f.expectCreateDedicatedGameServerAction(dgsExpected)
 	f.run(getKeyDGSCol(dgsCol, t))
@@ -209,12 +213,13 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
+	nameSuffix = "0"
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 
 	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateRunning
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
-	dgs := shared.NewDedicatedGameServerWithNoParent(dgsCol.Namespace, "test0", podSpec)
+	dgs := shared.NewDedicatedGameServerWithNoParent(dgsCol.Namespace, "test15", podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsLister = append(f.dgsLister, dgs)

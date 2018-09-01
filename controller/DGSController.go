@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
@@ -117,6 +118,10 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 					return
 				}
 				c.handlePod(newObj)
+			},
+			DeleteFunc: func(obj interface{}) {
+				log.Print("DedicatedGameServer controller - delete pod")
+				c.handlePod(obj)
 			},
 		},
 	)
@@ -251,22 +256,6 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		return err
 	}
 
-	// Let's see if the corresponding pod exists - Pod and DGS have the same name
-	pod, err := c.podLister.Pods(namespace).Get(name)
-	if err != nil {
-		// if pod does not exist
-		if errors.IsNotFound(err) {
-			// we'll create it
-			err = c.createNewPod(dgsTemp)
-			if err != nil {
-				c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error creating Pod for DedicatedGameServer - GameServer status", err.Error())
-				return err
-			}
-			return nil //exiting, will get pod details on pod.Update event (will arrive later in the workqueue)
-		}
-		return err //pod cannot be listed
-	}
-
 	//check if DGS is markedForDeletionWithZeroPlayers
 	if c.isDGSMarkedForDeletionWithZeroPlayers(dgsTemp) {
 		err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Delete(dgsTemp.Name, &metav1.DeleteOptions{})
@@ -281,6 +270,22 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		log.WithField("Name", dgsTemp.Name).Info("DedicatedGameServer with state MarkedForDeletion and with 0 ActivePlayers was deleted")
 		c.recorder.Event(dgsTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageMarkedForDeletionDedicatedGameServerDeleted, dgsTemp.Name))
 		return nil
+	}
+
+	pod, err := c.GetPodForDGS(dgsTemp)
+
+	if err != nil {
+		return err
+	}
+
+	if pod == nil {
+		// no pod found, create one
+		err = c.createNewPod(dgsTemp)
+		if err != nil {
+			c.recorder.Event(dgsTemp, corev1.EventTypeWarning, "Error creating Pod for DedicatedGameServer - GameServer status", err.Error())
+			return err
+		}
+		return nil //exiting, will get pod details on pod.Update event (will arrive later in the workqueue)
 	}
 
 	// try to update DGS with Node's Public IP
@@ -326,6 +331,30 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 	c.recorder.Event(dgsTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageResourceSynced, "DedicatedGameServer", dgsTemp.Name))
 	return nil
+}
+
+func (c *DedicatedGameServerController) GetPodForDGS(dgs *dgsv1alpha1.DedicatedGameServer) (*corev1.Pod, error) {
+	// Let's see if the corresponding pod for this DGS exists
+	// grab all the DedicatedGameServers that belong to this DedicatedGameServerCollection
+	set := labels.Set{
+		shared.LabelDedicatedGameServerName: dgs.Name,
+	}
+	// we search via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	pods, err := c.podLister.Pods(dgs.Namespace).List(selector)
+
+	if err != nil {
+		return nil, err //pods cannot be listed
+	}
+
+	// if no pod that belong to this DGS are listed
+	if len(pods) == 0 {
+		return nil, nil
+	}
+
+	//TODO: check if len(pods) > 1 ???
+	return pods[0], nil
+
 }
 
 func (c *DedicatedGameServerController) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {

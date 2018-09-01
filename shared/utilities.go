@@ -22,16 +22,6 @@ func randString(n int) string {
 	return string(b)
 }
 
-// GetServiceNameFromPodName converts the name of the pod to a similar name for the service
-func GetServiceNameFromPodName(podName string) string {
-	return podName
-}
-
-// GetPodNameFromServiceName converts the name of the service to a similar name for the pod
-func GetPodNameFromServiceName(serviceName string) string {
-	return serviceName
-}
-
 // GetRandomInt returns a random number
 func GetRandomInt(min int, max int) int {
 	if max-min == 0 { //Intn panics if argument is <=0

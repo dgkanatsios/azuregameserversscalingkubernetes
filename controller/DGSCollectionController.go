@@ -224,8 +224,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
 
 		for i := 0; i < increaseCount; i++ {
-			// create a random name for the dedicated name server
-			// the corresponding pod will have the same name as well
+
 			dgsName := shared.GenerateRandomName(dgsColTemp.Name)
 
 			// first, get random ports
@@ -240,7 +239,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 			// each dedicated game server will have a name of
 			// DedicatedGameServerCollectioName + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsName, dgsColTemp.Spec.Template)
+			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template)
 			_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Create(dgs)
 
 			if err != nil {
@@ -391,7 +390,7 @@ func (c *DedicatedGameServerCollectionController) assignPodCollectionState(dgsCo
 
 	for _, dgs := range dgsInstances {
 		//one pod is not running
-		if dgs.Status.PodState != shared.PodStateRunning {
+		if dgs.Status.PodState != corev1.PodRunning {
 			// so set the collection's Pod State to this one Pod's value
 			dgsCol.Status.PodCollectionState = dgs.Status.PodState
 			return nil

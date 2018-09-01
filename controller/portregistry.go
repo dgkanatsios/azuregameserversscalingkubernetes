@@ -82,7 +82,7 @@ var portResponses = make(chan int32, 100)
 
 func (id *IndexedDictionary) portProducer() {
 	for serverName := range portRequests { //wait till a new request comes
-		log.Print("lala request")
+
 		initialIndex := id.NextFreePortIndex
 		for {
 			if id.Ports[id.Indexes[id.NextFreePortIndex]] == false {

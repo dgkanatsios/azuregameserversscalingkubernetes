@@ -28,13 +28,14 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 	return dedicatedgameservercollection
 }
 
-func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, name string, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
+func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
+	dgsName := GenerateRandomName(dgsCol.Name)
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      dgsName,
 			Namespace: dgsCol.Namespace,
-			Labels: map[string]string{LabelServerName: name,
+			Labels: map[string]string{LabelServerName: dgsName,
 				LabelDedicatedGameServerCollectionName: dgsCol.Name,
 				LabelActivePlayers:                     "0",
 				LabelDedicatedGameServerState:          string(initialState)},
@@ -58,13 +59,14 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, n
 	return dedicatedgameserver
 }
 
-func NewDedicatedGameServerWithNoParent(namespace string, name string, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
+func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
+	dgsName := GenerateRandomName(namePrefix)
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      dgsName,
 			Namespace: namespace,
-			Labels: map[string]string{LabelServerName: name,
+			Labels: map[string]string{LabelServerName: dgsName,
 				LabelActivePlayers:            "0",
 				LabelDedicatedGameServerState: string(initialState)},
 		},
@@ -86,14 +88,15 @@ type APIDetails struct {
 	SetServerStatusURL  string
 }
 
-// NewPod returns a Kubernetes Pod struct that has the same name as the provided DedicatedGameServer
+// NewPod returns a Kubernetes Pod struct
 // It also sets a label called "DedicatedGameServer" with the value of the corresponding DedicatedGameServer resource
 func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails) *corev1.Pod {
+	podName := GenerateRandomName(dgs.Name)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dgs.Name,
+			Name:      podName,
 			Namespace: dgs.Namespace,
-			Labels:    map[string]string{LabelDedicatedGameServer: dgs.Name},
+			Labels:    map[string]string{LabelDedicatedGameServerName: dgs.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -168,8 +171,8 @@ func GetDedicatedGameServersPodStateRunning() ([]dgsv1alpha1.DedicatedGameServer
 	}
 
 	set := labels.Set{
-		//LabelGameServerState: GameServerStateRunning,
-		LabelPodState: PodStateRunning,
+		LabelDedicatedGameServerState: string(dgsv1alpha1.DedicatedGameServerStateRunning),
+		LabelPodState:                 string(corev1.PodRunning),
 	}
 	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)

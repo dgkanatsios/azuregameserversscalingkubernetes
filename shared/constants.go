@@ -16,14 +16,10 @@ const (
 	MinPort = 20000
 	// MaxPort is maximum Port Number
 	MaxPort = 30000
-
-	PodStateTerminating = "Terminating"
-	PodStatePending     = "Pending"
-	PodStateRunning     = "Running"
 )
 
 const (
-	LabelDedicatedGameServer               = "DedicatedGameServer"
+	LabelDedicatedGameServerName           = "DedicatedGameServerName"
 	LabelServerName                        = "ServerName"
 	LabelDedicatedGameServerCollectionName = "DedicatedGameServerCollectionName"
 	LabelActivePlayers                     = "ActivePlayers"

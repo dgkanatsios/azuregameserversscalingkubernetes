@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	log "github.com/sirupsen/logrus"

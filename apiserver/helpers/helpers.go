@@ -3,7 +3,7 @@ package helpers
 import (
 	"net/http"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 )
 
 func IsAPICallAuthenticated(w http.ResponseWriter, r *http.Request) (bool, error) {

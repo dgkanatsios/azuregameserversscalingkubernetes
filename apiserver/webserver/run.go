@@ -10,7 +10,7 @@ import (
 
 	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
-	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	"github.com/gorilla/mux"
 )
 
@@ -29,6 +29,9 @@ func Run(port int, listrunningauth bool) error {
 		listPodStateRunningRequiresAuth = true
 		route.Queries("code", "{code}")
 	}
+
+
+	// Dedicated Game Server API methods
 	router.HandleFunc("/setactiveplayers", setActivePlayersHandler).Methods("POST")
 	router.HandleFunc("/setserverstatus", setServerStatusHandler).Methods("POST")
 

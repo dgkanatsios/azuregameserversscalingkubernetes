@@ -1,8 +1,8 @@
 package shared
 
-const GameDockerImage = "docker.io/dgkanatsios/docker_openarena_k8s:0.0.4"
 const APIAccessCodeSecretName = "apiaccesscode"
 
+// make sure to change the host values if the K8s service name for the API Server is changed
 const (
 	setActivePlayersURLPrefix = "http://aks-gaming-apiserver/setactiveplayers?code="
 	setServerStatusURLPrefix  = "http://aks-gaming-apiserver/setserverstatus?code="

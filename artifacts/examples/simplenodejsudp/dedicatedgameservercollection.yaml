@@ -9,7 +9,7 @@ spec:
     dnsPolicy: ClusterFirstWithHostNet
     containers:
     - name: simplenodejsudp
-      image: docker.io/dgkanatsios/simplenodejsudp:0.0.3
+      image: docker.io/dgkanatsios/simplenodejsudp:0.0.4
       ports:
       - containerPort: 22222
         protocol: UDP

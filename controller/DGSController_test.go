@@ -3,7 +3,7 @@ package controller
 import (
 	"testing"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"

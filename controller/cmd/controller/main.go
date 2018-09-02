@@ -8,14 +8,14 @@ import (
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/controller"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
-	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	log "github.com/sirupsen/logrus"
 	informers "k8s.io/client-go/informers"
 )
 
 func main() {
-	autoscalerenabled := flag.Bool("autoscaler", false, "Determines whether Pod AutoScaler is enabled. Default: false")
-	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness, Default: 1")
+	podautoscalerenabled := flag.Bool("podautoscaler", false, "Determines whether Pod AutoScaler is enabled. Default: false")
+	controllerthreadiness := flag.Int("controllerthreadiness", 1, "Controller Threadiness. Default: 1")
 
 	flag.Parse()
 
@@ -45,11 +45,11 @@ func main() {
 
 	controllers := []controllerHelper{dgsColController, dgsController}
 
-	if *autoscalerenabled {
-		autoscalerController := controller.NewAutoScalerControllerController(client, dgsclient,
+	if *podautoscalerenabled {
+		podAutoscalerController := controller.NewPodAutoScalerControllerController(client, dgsclient,
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())
-		controllers = append(controllers, autoscalerController)
+		controllers = append(controllers, podAutoscalerController)
 	}
 
 	go sharedInformerFactory.Start(stopCh)

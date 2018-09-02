@@ -7,6 +7,7 @@ import (
 
 var accesscode string
 
+// AuthenticateWebServerCode authenticates the user request by comparing the given code with the actual
 func AuthenticateWebServerCode(code string) (bool, error) {
 	correctCode, err := getAccessCode()
 

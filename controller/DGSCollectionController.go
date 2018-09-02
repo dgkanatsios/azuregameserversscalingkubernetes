@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +35,7 @@ const (
 	dgsColControllerAgentName = "dedigated-game-server-collection-controller"
 )
 
+// DedicatedGameServerCollectionController represents a controller for a Dedicated Game Server Collection
 type DedicatedGameServerCollectionController struct {
 	dgsColClient dgsclientset.Interface
 	dgsClient    dgsclientset.Interface
@@ -49,6 +50,7 @@ type DedicatedGameServerCollectionController struct {
 	recorder  record.EventRecorder
 }
 
+// NewDedicatedGameServerCollectionController initializes and returns a new DedicatedGameServerCollectionController instance
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerCollectionController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
@@ -88,7 +90,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 
 				//only enqueue if if the number of requested replicas has changed
 				//TODO: should we allow other updates?
-				if oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas {
+				if c.hasDedicatedGameServerCollectionChanged(oldDGSCol, newDGSCol) {
 					c.handleDedicatedGameServerCollection(newObj)
 				}
 
@@ -174,6 +176,18 @@ func (c *DedicatedGameServerCollectionController) processNextWorkItem() bool {
 	return true
 }
 
+func (c *DedicatedGameServerCollectionController) getDGSForDGSCol(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection) ([]*dgsv1alpha1.DedicatedGameServer, error) {
+	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
+	set := labels.Set{
+		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
+	}
+	// we search via Labels, each DGS will have the DGSCol name as a Label
+	selector := labels.SelectorFromSet(set)
+	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
+
+	return dgsExisting, err
+}
+
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
@@ -199,20 +213,13 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		return err
 	}
 
-	// Find out how many DedicatedGameServer replicas exist for this DedicatedGameServerCollection
-	set := labels.Set{
-		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
-	}
-	// we search via Labels, each DGS will have the DGSCol name as a Label
-	selector := labels.SelectorFromSet(set)
-	dgsExisting, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).List(selector)
+	dgsExisting, err := c.getDGSForDGSCol(dgsColTemp)
 
 	if err != nil {
 		log.WithFields(log.Fields{
 			"DGSColName": dgsColTemp.Name,
-			"Selector":   selector,
 			"Error":      err.Error(),
-		}).Error("Cannot get DedicatedGameServers via Label selector")
+		}).Error("Cannot get DedicatedGameServers for DedicatedGameServerCollection via Label selector")
 		return err
 	}
 
@@ -220,76 +227,43 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 	// if there are less DedicatedGameServers than the ones we requested
 	if dgsExistingCount < int(dgsColTemp.Spec.Replicas) {
-		//create them
-		increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
+		err = c.increaseDGSReplicas(dgsColTemp, dgsExistingCount)
 
-		for i := 0; i < increaseCount; i++ {
-
-			dgsName := shared.GenerateRandomName(dgsColTemp.Name)
-
-			// first, get random ports
-			for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
-				//get a random port
-				hostport, errPort := portRegistry.GetNewPort(dgsName)
-				if errPort != nil {
-					return errPort
-				}
-				dgsColTemp.Spec.Template.Containers[0].Ports[j].HostPort = hostport
-			}
-
-			// each dedicated game server will have a name of
-			// DedicatedGameServerCollectioName + "-" + random name
-			dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template)
-			_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Create(dgs)
-
-			if err != nil {
-				c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot create dedicated game server", err.Error())
-				log.Error(err.Error())
-				return err
-			}
+		if err != nil {
+			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot increase dedicated game servers", err.Error())
+			log.WithFields(log.Fields{
+				"DGSColName": dgsColTemp.Name,
+				"Error":      err.Error(),
+			}).Error("Cannot increase dedicated game servers")
+			return err
 		}
 
-		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsColTemp.Name, increaseCount))
-		return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
+		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasIncreased, "DedicatedGameServerCollection", dgsColTemp.Name, int(dgsColTemp.Spec.Replicas)-dgsExistingCount))
+		return nil //exiting sync handler, further DGS updates will propagate here as well via another item in the workqueue
 
 	} else if dgsExistingCount > int(dgsColTemp.Spec.Replicas) { //if there are more DGS than the ones we requested
-		// we need to decrease our DGS for this collection
-		// to accomplish this, we'll first find the number of DGS we need to decrease
-		decreaseCount := dgsExistingCount - int(dgsColTemp.Spec.Replicas)
-		// we'll remove random instances of DGS from our DGSCol
-		indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
-		for i := 0; i < len(indexesToDecrease); i++ {
-			dgsToMarkForDeletionTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(dgsExisting[indexesToDecrease[i]].Name)
+		err = c.decreaseDGSReplicas(dgsColTemp, dgsExisting)
 
-			if err != nil {
-				log.Error(err.Error())
-				return err
-			}
-			dgsToMarkForDeletionToUpdate := dgsToMarkForDeletionTemp.DeepCopy()
-			// update the DGS so it has no owners
-			dgsToMarkForDeletionToUpdate.ObjectMeta.OwnerReferences = nil
-			//remove the DGSCol name from the DGS labels
-			delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
-			//set its state as marked for deletion
-			dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
-			dgsToMarkForDeletionToUpdate.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
-			//update the DGS CRD
-			_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsToMarkForDeletionToUpdate)
-			if err != nil {
-				log.Error(err.Error())
-				return err
-			}
-
+		if err != nil {
+			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot decrease dedicated game servers", err.Error())
+			log.WithFields(log.Fields{
+				"DGSColName": dgsColTemp.Name,
+				"Error":      err.Error(),
+			}).Error("Cannot decrease dedicated game servers")
+			return err
 		}
 
-		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsColTemp.Name, decreaseCount))
-		return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
+		c.recorder.Event(dgsColTemp, corev1.EventTypeNormal, shared.DedicatedGameServerReplicasChanged, fmt.Sprintf(shared.MessageReplicasDecreased, "DedicatedGameServerCollection", dgsColTemp.Name, dgsExistingCount-int(dgsColTemp.Spec.Replicas)))
+		return nil //exiting sync handler, further DGS updates will propagate here as well via another item in the workqueue
 	}
+
+	// if we reach this point, this means that the number of requested replicas is equal to the number of the available ones
+	// next step would be to modify the various DGSCol statuses
 
 	dgsColToUpdate := dgsColTemp.DeepCopy()
 
-	err = c.modifyAvailableReplicas(dgsColToUpdate)
+	err = c.modifyAvailableReplicasStatus(dgsColToUpdate)
 	if err != nil {
 		c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Error setting DedicatedGameServerCollection - GameServer status", err.Error())
 		return err
@@ -324,7 +298,69 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	return nil
 }
 
-func (c *DedicatedGameServerCollectionController) modifyAvailableReplicas(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection, dgsExistingCount int) error {
+	//create them
+	increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
+
+	for i := 0; i < increaseCount; i++ {
+		dgsName := shared.GenerateRandomName(dgsColTemp.Name)
+		// first, get random ports
+		for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
+			//get a random port
+			hostport, errPort := portRegistry.GetNewPort(dgsName)
+			if errPort != nil {
+				return errPort
+			}
+			dgsColTemp.Spec.Template.Containers[0].Ports[j].HostPort = hostport
+		}
+
+		// each dedicated game server will have a name of
+		// DedicatedGameServerCollectioName + "-" + random name
+		dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template)
+		_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(dgsColTemp.Namespace).Create(dgs)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection, dgsExisting []*dgsv1alpha1.DedicatedGameServer) error {
+	dgsExistingCount := len(dgsExisting)
+	// we need to decrease our DGS for this collection
+	// to accomplish this, we'll first find the number of DGS we need to decrease
+	decreaseCount := dgsExistingCount - int(dgsColTemp.Spec.Replicas)
+	// we'll remove random instances of DGS from our DGSCol
+	indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
+
+	for i := 0; i < len(indexesToDecrease); i++ {
+		dgsToMarkForDeletionTemp, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).Get(dgsExisting[indexesToDecrease[i]].Name)
+
+		if err != nil {
+			return err
+		}
+		dgsToMarkForDeletionToUpdate := dgsToMarkForDeletionTemp.DeepCopy()
+		// update the DGS so it has no owners
+		dgsToMarkForDeletionToUpdate.ObjectMeta.OwnerReferences = nil
+		//remove the DGSCol name from the DGS labels
+		delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
+		//set its state as marked for deletion
+		dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
+		dgsToMarkForDeletionToUpdate.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
+		//update the DGS CRD
+		_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(dgsColTemp.Namespace).Update(dgsToMarkForDeletionToUpdate)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
+}
+
+func (c *DedicatedGameServerCollectionController) modifyAvailableReplicasStatus(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
 
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
@@ -503,4 +539,8 @@ func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int,
 	log.Info("Shutting down workers for DedicatedGameServerCollection controller")
 
 	return nil
+}
+
+func (c *DedicatedGameServerCollectionController) hasDedicatedGameServerCollectionChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
+	return oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas
 }

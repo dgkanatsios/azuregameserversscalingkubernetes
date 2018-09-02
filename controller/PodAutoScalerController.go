@@ -12,7 +12,7 @@ import (
 	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/shared"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +29,7 @@ import (
 const autoscalerControllerAgentName = "auto-scaler-controller"
 const timeformat = "2006-01-02 15:04:05.999999999 -0700 MST"
 
-type AutoScalerController struct {
+type PodAutoScalerController struct {
 	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
 	dgsClient          typeddgsv1alpha1.DedicatedGameServersGetter
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
@@ -48,9 +48,9 @@ type AutoScalerController struct {
 	recorder record.EventRecorder
 }
 
-func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+func NewPodAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer,
-	dgsInformer informerdgs.DedicatedGameServerInformer) *AutoScalerController {
+	dgsInformer informerdgs.DedicatedGameServerInformer) *PodAutoScalerController {
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
@@ -61,7 +61,7 @@ func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
-	c := &AutoScalerController{
+	c := &PodAutoScalerController{
 		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
 		dgsColLister:       dgsColInformer.Lister(),
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
@@ -122,7 +122,7 @@ func NewAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *
 
 // processNextWorkItem deals with one key off the queue.  It returns false
 // when it's time to quit.
-func (c *AutoScalerController) processNextWorkItem() bool {
+func (c *PodAutoScalerController) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
 	if shutdown {
@@ -176,7 +176,7 @@ func (c *AutoScalerController) processNextWorkItem() bool {
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
-func (c *AutoScalerController) syncHandler(key string) error {
+func (c *PodAutoScalerController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -225,7 +225,7 @@ func (c *AutoScalerController) syncHandler(key string) error {
 			log.WithFields(log.Fields{
 				"DGSColName":                 dgsColTemp.Name,
 				"LastScaleOperationDateTime": dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime,
-				"Error": err.Error(),
+				"Error":                      err.Error(),
 			}).Info("Cannot parse LastScaleOperationDateTime string. Will ignore potential cooldown duration")
 		} else {
 
@@ -332,7 +332,7 @@ func (c *AutoScalerController) syncHandler(key string) error {
 // enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServer.
-func (c *AutoScalerController) enqueueDedicatedGameServerCollection(obj interface{}) {
+func (c *PodAutoScalerController) enqueueDedicatedGameServerCollection(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -343,7 +343,7 @@ func (c *AutoScalerController) enqueueDedicatedGameServerCollection(obj interfac
 }
 
 // Run initiates the AutoScalerController
-func (c *AutoScalerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+func (c *PodAutoScalerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
@@ -375,7 +375,7 @@ func (c *AutoScalerController) Run(controllerThreadiness int, stopCh <-chan stru
 // RunWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
-func (c *AutoScalerController) runWorker() {
+func (c *PodAutoScalerController) runWorker() {
 	// hot loop until we're told to stop.  processNextWorkItem will
 	// automatically wait until there's work available, so we don't worry
 	// about secondary waits
@@ -384,7 +384,7 @@ func (c *AutoScalerController) runWorker() {
 	}
 }
 
-func (c *AutoScalerController) handleDedicatedGameServerCol(obj interface{}) {
+func (c *PodAutoScalerController) handleDedicatedGameServerCol(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -404,7 +404,7 @@ func (c *AutoScalerController) handleDedicatedGameServerCol(obj interface{}) {
 	c.enqueueDedicatedGameServerCollection(object)
 }
 
-func (c *AutoScalerController) handleDedicatedGameServer(obj interface{}) {
+func (c *PodAutoScalerController) handleDedicatedGameServer(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {

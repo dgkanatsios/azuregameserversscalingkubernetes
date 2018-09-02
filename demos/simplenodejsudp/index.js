@@ -48,11 +48,6 @@ if (!process.env.SERVER_NAME){
   process.exit(-1);
 }
 
-if (!process.env.POD_NAMESPACE){
-  console.log("$POD_NAMESPACE is not defined");
-  process.exit(-1);
-}
-
 if (!process.env.SET_SERVER_STATUS_URL){
   console.log("$SET_SERVER_STATUS_URL is not defined");
   process.exit(-1);
@@ -60,8 +55,7 @@ if (!process.env.SET_SERVER_STATUS_URL){
 
 const postData = {
   serverName: process.env.SERVER_NAME, 
-  status: "Running",
-  podNamespace: process.env.POD_NAMESPACE
+  status: "Running"
 };
 
 // // send "Running" to the APIServer

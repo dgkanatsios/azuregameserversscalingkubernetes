@@ -63,12 +63,18 @@ func GetRandomIndexes(length int, count int) []int {
 	return sliceToReturn
 }
 
+// GenerateRandomName generates a random name with a prefix
+var GenerateRandomName func(prefix string) string
+
+func generateRandomName(prefix string) string {
+	return prefix + "-" + randString(5)
+}
+
 // HasDedicatedGameServerChanged returns true if *all* of the following DGS properties have changed
 // dgsState, podState, publicIP, nodeName, activePlayers
 // As expected, it returns false if at least one has changed
 func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
 	// we check if all of the following fields are the same
-	// dgsState, podState, publicIP, nodeName, activePlayers
 
 	if oldDGS.Status.DedicatedGameServerState == newDGS.Status.DedicatedGameServerState &&
 		oldDGS.Status.PodState == newDGS.Status.PodState &&
@@ -84,11 +90,4 @@ func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServ
 	}
 
 	return true
-}
-
-// GenerateRandomName generates a random name with a prefix
-var GenerateRandomName func(prefix string) string
-
-func generateRandomName(prefix string) string {
-	return prefix + "-" + randString(5)
 }

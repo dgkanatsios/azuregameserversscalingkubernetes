@@ -21,3 +21,11 @@ Correct, [Kubernetes Services](https://kubernetes.io/docs/concepts/services-netw
 In our case, each Dedicated Game Server is a single entity. There is no need for an extra layer to do the Load Balancing, since players are connecting directly to the game server. Moreover, the use of a Load Balancer Service was rejected because a) it would be an overkill to have a unique Load Balancer for each Dedicated Game Server and b) (most importantly) the presense of a Load Balancer would add unnecessary network hops, thus increasing the Latency. Another solution we tested was this of a [NodePort Service](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport). This was abandoned as well because of the overhead of managing the Services. Consequently, the only remaining solution was to expose the Nodes to the Internet via Public IPs. AKS does not allow that by default in the time of writing, so we wrote [this](https://github.com/dgkanatsios/AksNodePublicIPController) utility to implement this functionality. 
 
 First effort was to use `hostPort` functionality for each Pod, so we would hook up the container to each Node's network layer. This would require us to have the Dedicated Game Server listen to a specific port, which could easily become an issue in the future. So, we ended up using Kubernetes `hostPort` for each Pod. This way, we manage the Port mapping on each Node ourselves for each Pod.
+
+## How can I view the Kubernetes Master control plane logs?
+
+Check [here](https://docs.microsoft.com/en-us/azure/aks/view-master-logs)
+
+## How can I view the kubelet logs in a Node?
+
+Check [here](https://docs.microsoft.com/en-us/azure/aks/kubelet-logs)

@@ -32,7 +32,7 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 // DedicatedGameServerCollection and has the designated PodSpec
 func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
 	dgsName := GenerateRandomName(dgsCol.Name)
-	initialState := dgsv1alpha1.DedicatedGameServerStateRunning // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
+	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dgsName,

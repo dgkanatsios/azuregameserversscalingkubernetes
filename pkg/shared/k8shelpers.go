@@ -28,6 +28,8 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 	return dedicatedgameservercollection
 }
 
+// NewDedicatedGameServer returns a new DedicatedGameServer object that belongs to the specified
+// DedicatedGameServerCollection and has the designated PodSpec
 func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
 	dgsName := GenerateRandomName(dgsCol.Name)
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating

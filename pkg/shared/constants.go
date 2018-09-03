@@ -19,12 +19,13 @@ const (
 )
 
 const (
-	LabelDedicatedGameServerName           = "DedicatedGameServerName"
-	LabelServerName                        = "ServerName"
-	LabelDedicatedGameServerCollectionName = "DedicatedGameServerCollectionName"
-	LabelActivePlayers                     = "ActivePlayers"
-	LabelDedicatedGameServerState          = "DedicatedGameServerState"
-	LabelPodState                          = "PodState"
+	LabelDedicatedGameServerName                   = "DedicatedGameServerName"
+	LabelServerName                                = "ServerName"
+	LabelDedicatedGameServerCollectionName         = "DedicatedGameServerCollectionName"
+	LabelOriginalDedicatedGameServerCollectionName = "OriginalDedicatedGameServerCollectionName"
+	LabelActivePlayers                             = "ActivePlayers"
+	LabelDedicatedGameServerState                  = "DedicatedGameServerState"
+	LabelPodState                                  = "PodState"
 )
 
 const (

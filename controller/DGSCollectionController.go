@@ -349,6 +349,8 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 		//set its state as marked for deletion
 		dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
 		dgsToMarkForDeletionToUpdate.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
+		//mark its previous owner
+		dgsToMarkForDeletionToUpdate.ObjectMeta.Labels[shared.LabelOriginalDedicatedGameServerCollectionName] = dgsColTemp.Name
 		//update the DGS CRD
 		_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(dgsColTemp.Namespace).Update(dgsToMarkForDeletionToUpdate)
 		if err != nil {
@@ -475,9 +477,26 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
+	// when we get a DGS, we will enqueue the DGSCol only if
+	// i) DGS has a parent DGSCol, so that DGSCol get updated with new status etc.
+	// ii) DGS *had* a parent DGSCol. This means that DGS is now MarkedForDeletion, so we need to issue updates on the DGSCol
+	// in order to assign a proper value to the AvailableReplicas value
+	// this comes as a fix to https://github.com/dgkanatsios/AzureGameServersScalingKubernetes/issues/31
+
 	//if this DGS has a parent DGSCol
 	if len(object.GetOwnerReferences()) > 0 {
 		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
+		if err != nil {
+			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s", object.GetName()))
+			return
+		}
+
+		c.enqueueDedicatedGameServerCollection(dgsCol)
+	}
+
+	//if this DGS had a parent DGSCol
+	if parent, ok := object.GetLabels()[shared.LabelOriginalDedicatedGameServerCollectionName]; ok {
+		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(parent)
 		if err != nil {
 			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s", object.GetName()))
 			return

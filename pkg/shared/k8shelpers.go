@@ -30,8 +30,8 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 
 // NewDedicatedGameServer returns a new DedicatedGameServer object that belongs to the specified
 // DedicatedGameServerCollection and has the designated PodSpec
-func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
-	dgsName := GenerateRandomName(dgsCol.Name)
+func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec, namegenerator RandomNameGenerator) *dgsv1alpha1.DedicatedGameServer {
+	dgsName := namegenerator.GenerateName(dgsCol.Name)
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,8 +61,8 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t
 	return dedicatedgameserver
 }
 
-func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
-	dgsName := GenerateRandomName(namePrefix)
+func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, template corev1.PodSpec, namegenerator RandomNameGenerator) *dgsv1alpha1.DedicatedGameServer {
+	dgsName := namegenerator.GenerateName(namePrefix)
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,8 +92,8 @@ type APIDetails struct {
 
 // NewPod returns a Kubernetes Pod struct
 // It also sets a label called "DedicatedGameServer" with the value of the corresponding DedicatedGameServer resource
-func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails) *corev1.Pod {
-	podName := GenerateRandomName(dgs.Name)
+func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails, namegenerator RandomNameGenerator) *corev1.Pod {
+	podName := namegenerator.GenerateName(dgs.Name)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,

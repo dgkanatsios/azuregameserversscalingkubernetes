@@ -5,10 +5,12 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/controller"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
-	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
 	log "github.com/sirupsen/logrus"
 	informers "k8s.io/client-go/informers"
 )
@@ -32,10 +34,14 @@ func main() {
 	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
 
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
-		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(), dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())
+		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
+		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
+		shared.NewRealRandomNameGenerator())
 
 	dgsController := controller.NewDedicatedGameServerController(client, dgsclient,
-		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(), sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes())
+		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
+		sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes(),
+		shared.NewRealRandomNameGenerator())
 
 	err = controller.InitializePortRegistry(dgsclient)
 	if err != nil {
@@ -48,7 +54,7 @@ func main() {
 	if *podautoscalerenabled {
 		podAutoscalerController := controller.NewPodAutoScalerControllerController(client, dgsclient,
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
-			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers())
+			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(), clockwork.NewRealClock())
 		controllers = append(controllers, podAutoscalerController)
 	}
 

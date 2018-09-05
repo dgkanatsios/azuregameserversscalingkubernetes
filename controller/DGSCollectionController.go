@@ -46,13 +46,16 @@ type DedicatedGameServerCollectionController struct {
 	dgsColListerSynced cache.InformerSynced
 	dgsListerSynced    cache.InformerSynced
 
+	namegenerator shared.RandomNameGenerator
+
 	workqueue workqueue.RateLimitingInterface
 	recorder  record.EventRecorder
 }
 
 // NewDedicatedGameServerCollectionController initializes and returns a new DedicatedGameServerCollectionController instance
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
-	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer) *DedicatedGameServerCollectionController {
+	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer,
+	randomNameGenerator shared.RandomNameGenerator) *DedicatedGameServerCollectionController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	log.Info("Creating Event broadcaster for DedicatedGameServerCollection controller")
 	eventBroadcaster := record.NewBroadcaster()
@@ -67,6 +70,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 		dgsLister:          dgsInformer.Lister(),
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
+		namegenerator:      randomNameGenerator,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
 		recorder:           recorder,
 	}
@@ -303,7 +307,7 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 	increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
 
 	for i := 0; i < increaseCount; i++ {
-		dgsName := shared.GenerateRandomName(dgsColTemp.Name)
+		dgsName := c.namegenerator.GenerateName(dgsColTemp.Name)
 		// first, get random ports
 		for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
 			//get a random port
@@ -316,7 +320,7 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 
 		// each dedicated game server will have a name of
 		// DedicatedGameServerCollectioName + "-" + random name
-		dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template)
+		dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template, c.namegenerator)
 		_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(dgsColTemp.Namespace).Create(dgs)
 
 		if err != nil {

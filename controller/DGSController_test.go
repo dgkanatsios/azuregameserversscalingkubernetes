@@ -33,6 +33,8 @@ type dgsFixture struct {
 	// Objects from here preloaded into NewSimpleFake.
 	k8sObjects []runtime.Object
 	dgsObjects []runtime.Object
+
+	namegenerator shared.FakeRandomNameGenerator
 }
 
 func newDGSFixture(t *testing.T) *dgsFixture {
@@ -42,6 +44,8 @@ func newDGSFixture(t *testing.T) *dgsFixture {
 
 	f.dgsObjects = []runtime.Object{}
 	f.k8sObjects = []runtime.Object{}
+
+	f.namegenerator = shared.NewFakeRandomNameGenerator()
 
 	return f
 }
@@ -56,7 +60,8 @@ func (f *dgsFixture) newDedicatedGameServerController() (*DedicatedGameServerCon
 	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
 	testController := NewDedicatedGameServerController(f.k8sClient, f.dgsClient,
-		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), k8sInformers.Core().V1().Pods(), k8sInformers.Core().V1().Nodes())
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), k8sInformers.Core().V1().Pods(),
+		k8sInformers.Core().V1().Nodes(), f.namegenerator)
 
 	testController.dgsListerSynced = alwaysReady
 	testController.podListerSynced = alwaysReady
@@ -152,20 +157,21 @@ func getKeyDGS(dgs *dgsv1alpha1.DedicatedGameServer, t *testing.T) string {
 		t.Errorf("Unexpected error getting key for DGS %v: %v", dgs.Name, err)
 		return ""
 	}
+
 	return key
 }
 
 func TestCreatesPod(t *testing.T) {
 	f := newDGSFixture(t)
 
-	nameSuffix = "0"
+	f.namegenerator.SetName("test0")
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-	expPod := shared.NewPod(dgs, shared.APIDetails{"", ""})
+	expPod := shared.NewPod(dgs, shared.APIDetails{"", ""}, f.namegenerator)
 
 	f.expectCreatePodAction(expPod)
 
@@ -175,16 +181,16 @@ func TestCreatesPod(t *testing.T) {
 func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 	f := newDGSFixture(t)
 
-	nameSuffix = "0"
+	f.namegenerator.SetName("test0")
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
 	dgs.Spec.ActivePlayers = 0
 	dgs.Labels[shared.LabelActivePlayers] = "0"
 	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
 	dgs.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
 
-	delPod := shared.NewPod(dgs, shared.APIDetails{"", ""})
+	delPod := shared.NewPod(dgs, shared.APIDetails{"", ""}, f.namegenerator)
 
 	f.podLister = append(f.podLister, delPod)
 	f.k8sObjects = append(f.k8sObjects, delPod)
@@ -200,15 +206,15 @@ func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 func TestDGSStatusIsUpdated(t *testing.T) {
 	f := newDGSFixture(t)
 
-	nameSuffix = "0"
+	f.namegenerator.SetName("test0")
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
 	dgs.Spec.ActivePlayers = 0
 	dgs.Labels[shared.LabelActivePlayers] = "0"
 	dgs.Labels[shared.LabelPodState] = ""
 
-	pod := shared.NewPod(dgs, shared.APIDetails{"", ""})
+	pod := shared.NewPod(dgs, shared.APIDetails{"", ""}, f.namegenerator)
 
 	f.podLister = append(f.podLister, pod)
 	f.k8sObjects = append(f.k8sObjects, pod)

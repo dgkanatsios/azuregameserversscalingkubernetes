@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"k8s.io/client-go/kubernetes"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
-	typeddgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/typed/azuregaming/v1alpha1"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
@@ -29,14 +30,16 @@ import (
 const autoscalerControllerAgentName = "auto-scaler-controller"
 const timeformat = "2006-01-02 15:04:05.999999999 -0700 MST"
 
+// PodAutoScalerController is the struct that represents the PodAutoScalerController
 type PodAutoScalerController struct {
-	dgsColClient       typeddgsv1alpha1.DedicatedGameServerCollectionsGetter
-	dgsClient          typeddgsv1alpha1.DedicatedGameServersGetter
+	dgsColClient       dgsclientset.Interface
+	dgsClient          dgsclientset.Interface
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
 	dgsLister          listerdgs.DedicatedGameServerLister
 	dgsColListerSynced cache.InformerSynced
 	dgsListerSynced    cache.InformerSynced
 
+	clock clockwork.Clock
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -48,9 +51,9 @@ type PodAutoScalerController struct {
 	recorder record.EventRecorder
 }
 
-func NewPodAutoScalerControllerController(client *kubernetes.Clientset, dgsclient *dgsclientset.Clientset,
+func NewPodAutoScalerControllerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer,
-	dgsInformer informerdgs.DedicatedGameServerInformer) *PodAutoScalerController {
+	dgsInformer informerdgs.DedicatedGameServerInformer, clockImpl clockwork.Clock) *PodAutoScalerController {
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
@@ -62,12 +65,13 @@ func NewPodAutoScalerControllerController(client *kubernetes.Clientset, dgsclien
 	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
 	c := &PodAutoScalerController{
-		dgsColClient:       dgsclient.AzuregamingV1alpha1(),
+		dgsColClient:       dgsclient,
 		dgsColLister:       dgsColInformer.Lister(),
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
-		dgsClient:          dgsclient.AzuregamingV1alpha1(),
+		dgsClient:          dgsclient,
 		dgsLister:          dgsInformer.Lister(),
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
+		clock:              clockImpl,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "AutoScalerSync"),
 		recorder:           recorder,
 	}
@@ -226,10 +230,10 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 				"DGSColName":                 dgsColTemp.Name,
 				"LastScaleOperationDateTime": dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime,
 				"Error":                      err.Error(),
-			}).Info("Cannot parse LastScaleOperationDateTime string. Will ignore potential cooldown duration")
+			}).Info("Cannot parse LastScaleOperationDateTime string. Will ignore cooldown duration")
 		} else {
 
-			currentTime := time.Now().In(loc)
+			currentTime := c.clock.Now().In(loc)
 
 			durationSinceLastScaleOperation := currentTime.Sub(lastScaleOperation)
 
@@ -281,10 +285,10 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		//scale out
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas++
-		dgsColToUpdate.Spec.AutoScalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
+		dgsColToUpdate.Spec.AutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
 		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateCreating
 
-		_, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -296,7 +300,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 			return err
 		}
 
-		log.WithField("Name", dgsColToUpdate.Name).Info("Scale out occurred")
+		log.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale out occurred")
 
 		return nil
 	}
@@ -306,10 +310,10 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		//scale in
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas--
-		dgsColToUpdate.Spec.AutoScalerDetails.LastScaleOperationDateTime = time.Now().In(loc).String()
+		dgsColToUpdate.Spec.AutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
 		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateCreating
 
-		_, err := c.dgsColClient.DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
+		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -321,7 +325,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 			return err
 		}
 
-		log.WithField("Name", dgsColToUpdate.Name).Info("Scale in occurred")
+		log.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale in occurred")
 
 		return nil
 	}

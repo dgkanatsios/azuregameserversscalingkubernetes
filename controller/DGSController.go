@@ -41,6 +41,9 @@ type DedicatedGameServerController struct {
 	dgsListerSynced  cache.InformerSynced
 	podListerSynced  cache.InformerSynced
 	nodeListerSynced cache.InformerSynced
+
+	namegenerator shared.RandomNameGenerator
+
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -54,7 +57,8 @@ type DedicatedGameServerController struct {
 
 func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
-	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer) *DedicatedGameServerController {
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer,
+	randomNameGenerator shared.RandomNameGenerator) *DedicatedGameServerController {
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
@@ -75,6 +79,7 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 		dgsListerSynced:  dgsInformer.Informer().HasSynced,
 		podListerSynced:  podInformer.Informer().HasSynced,
 		nodeListerSynced: nodeInformer.Informer().HasSynced,
+		namegenerator:    randomNameGenerator,
 		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
 		recorder:         recorder,
 	}
@@ -402,7 +407,8 @@ func (c *DedicatedGameServerController) createNewPod(dgs *dgsv1alpha1.DedicatedG
 		shared.APIDetails{
 			SetActivePlayersURL: shared.GetActivePlayersSetURL(),
 			SetServerStatusURL:  shared.GetServerStatusSetURL(),
-		})
+		},
+		c.namegenerator)
 
 	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {

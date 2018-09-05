@@ -121,6 +121,10 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 					c.handleDedicatedGameServer(newObj)
 				}
 			},
+			DeleteFunc: func(obj interface{}) {
+				log.Print("DedicatedGameServerCollection controller - delete DGS")
+				c.handleDedicatedGameServer(obj)
+			},
 		},
 	)
 

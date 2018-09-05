@@ -339,6 +339,8 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 	// we'll remove random instances of DGS from our DGSCol
 	indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
+	log.Printf("lala %d %d", decreaseCount, len(indexesToDecrease))
+
 	for i := 0; i < len(indexesToDecrease); i++ {
 		dgsToMarkForDeletionTemp, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).Get(dgsExisting[indexesToDecrease[i]].Name)
 
@@ -498,7 +500,7 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 		c.enqueueDedicatedGameServerCollection(dgsCol)
 	}
 
-	//if this DGS had a parent DGSCol
+	//if this DGS -had- a parent DGSCol
 	if parent, ok := object.GetLabels()[shared.LabelOriginalDedicatedGameServerCollectionName]; ok {
 		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(parent)
 		if err != nil {

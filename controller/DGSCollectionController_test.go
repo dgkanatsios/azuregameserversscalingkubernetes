@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+	"github.com/jonboulle/clockwork"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
@@ -47,6 +48,7 @@ type dgsColFixture struct {
 	k8sObjects []runtime.Object
 	dgsObjects []runtime.Object
 
+	clock         clockwork.FakeClock
 	namegenerator shared.FakeRandomNameGenerator
 }
 
@@ -55,6 +57,7 @@ func newDGSColFixture(t *testing.T) *dgsColFixture {
 	f := &dgsColFixture{}
 	f.t = t
 	f.dgsObjects = []runtime.Object{}
+	f.clock = clockwork.NewFakeClockAt(fixedTime)
 	f.namegenerator = shared.NewFakeRandomNameGenerator()
 	return f
 }
@@ -67,7 +70,7 @@ func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*Dedicated
 
 	testController := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
-		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.namegenerator)
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.namegenerator, f.clock)
 
 	testController.dgsColListerSynced = alwaysReady
 	testController.dgsListerSynced = alwaysReady
@@ -160,7 +163,13 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f.namegenerator.SetName("test0")
 	expDGS := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
+	if dgsCol.Annotations == nil {
+		dgsCol.Annotations = make(map[string]string)
+	}
+	dgsCol.Annotations[shared.AnnoLastScaleOutDateTime] = f.clock.Now().In(time.UTC).String()
+
 	f.expectCreateDedicatedGameServerAction(expDGS)
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
 
 	f.run(getKeyDGSCol(dgsCol, t))
 }
@@ -198,7 +207,13 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f.namegenerator.SetName("test1")
 	dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
+	if dgsCol.Annotations == nil {
+		dgsCol.Annotations = make(map[string]string)
+	}
+	dgsCol.Annotations[shared.AnnoLastScaleOutDateTime] = f.clock.Now().In(time.UTC).String()
+
 	f.expectCreateDedicatedGameServerAction(dgsExpected)
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
 	f.run(getKeyDGSCol(dgsCol, t))
 }
 

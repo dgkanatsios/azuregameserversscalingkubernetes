@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +48,7 @@ type DedicatedGameServerCollectionController struct {
 	dgsColListerSynced cache.InformerSynced
 	dgsListerSynced    cache.InformerSynced
 
+	clock         clockwork.Clock
 	namegenerator shared.RandomNameGenerator
 
 	workqueue workqueue.RateLimitingInterface
@@ -55,7 +58,7 @@ type DedicatedGameServerCollectionController struct {
 // NewDedicatedGameServerCollectionController initializes and returns a new DedicatedGameServerCollectionController instance
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer,
-	randomNameGenerator shared.RandomNameGenerator) *DedicatedGameServerCollectionController {
+	randomNameGenerator shared.RandomNameGenerator, clockImpl clockwork.Clock) *DedicatedGameServerCollectionController {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 	log.Info("Creating Event broadcaster for DedicatedGameServerCollection controller")
 	eventBroadcaster := record.NewBroadcaster()
@@ -71,6 +74,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
 		namegenerator:      randomNameGenerator,
+		clock:              clockImpl,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
 		recorder:           recorder,
 	}
@@ -342,7 +346,7 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 	if dgsColToUpdate.Annotations == nil {
 		dgsColToUpdate.Annotations = make(map[string]string)
 	}
-	dgsColToUpdate.Annotations["LastScaleOutDateTime"] = time.Now().In(time.UTC).String()
+	dgsColToUpdate.Annotations["LastScaleOutDateTime"] = c.clock.Now().In(time.UTC).String()
 	//update the DGS CRD
 	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
 	if err != nil {
@@ -394,7 +398,7 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 	if dgsColToUpdate.Annotations == nil {
 		dgsColToUpdate.Annotations = make(map[string]string)
 	}
-	dgsColToUpdate.Annotations["LastScaleInDateTime"] = time.Now().In(time.UTC).String()
+	dgsColToUpdate.Annotations["LastScaleInDateTime"] = c.clock.Now().In(time.UTC).String()
 	//update the DGS CRD
 	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
 	if err != nil {

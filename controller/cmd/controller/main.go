@@ -36,7 +36,7 @@ func main() {
 	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
-		shared.NewRealRandomNameGenerator())
+		shared.NewRealRandomNameGenerator(), clockwork.NewRealClock())
 
 	dgsController := controller.NewDedicatedGameServerController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),

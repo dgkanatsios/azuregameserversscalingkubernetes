@@ -335,6 +335,9 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 
 	// add/update an annotation with the latest scale info
 	dgsColToUpdate := dgsColTemp.DeepCopy()
+	if dgsColToUpdate.Annotations == nil {
+		dgsColToUpdate.Annotations = make(map[string]string)
+	}
 	dgsColToUpdate.Annotations["LastScaleOutDateTime"] = time.Now().In(time.UTC).String()
 	//update the DGS CRD
 	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
@@ -384,6 +387,9 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 
 	// add/update an annotation with the latest scale info
 	dgsColToUpdate := dgsColTemp.DeepCopy()
+	if dgsColToUpdate.Annotations == nil {
+		dgsColToUpdate.Annotations = make(map[string]string)
+	}
 	dgsColToUpdate.Annotations["LastScaleInDateTime"] = time.Now().In(time.UTC).String()
 	//update the DGS CRD
 	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)

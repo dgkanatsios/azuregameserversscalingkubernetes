@@ -74,7 +74,7 @@ func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServ
 		oldDGS.Spec.PublicIP == newDGS.Spec.PublicIP &&
 		oldDGS.Spec.NodeName == newDGS.Spec.NodeName &&
 		oldDGS.Spec.ActivePlayers == newDGS.Spec.ActivePlayers &&
-		areMapsSame(oldDGS.Labels, newDGS.Labels) &&
+		AreMapsSame(oldDGS.Labels, newDGS.Labels) &&
 		oldDGS.Spec.Template.Containers[0].Image == newDGS.Spec.Template.Containers[0].Image {
 
 		//we should also check for ports as well
@@ -86,7 +86,8 @@ func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServ
 	return true
 }
 
-func areMapsSame(map1, map2 map[string]string) bool {
+// AreMapsSame compares two map[string]string objects
+func AreMapsSame(map1, map2 map[string]string) bool {
 	if len(map1) != len(map2) {
 		return false
 	}

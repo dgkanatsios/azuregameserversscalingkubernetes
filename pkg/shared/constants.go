@@ -29,6 +29,11 @@ const (
 )
 
 const (
+	AnnoLastScaleOutDateTime = "LastScaleOutDateTime"
+	AnnoLastScaleInDateTime  = "LastScaleInDateTime"
+)
+
+const (
 	// SuccessSynced is used as part of the Event 'reason' when a CRD is synced
 	SuccessSynced = "Synced"
 	// ErrResourceExists is used as part of the Event 'reason' when a CRD fails

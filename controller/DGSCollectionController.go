@@ -306,6 +306,11 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 	//create them
 	increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
 
+	log.WithFields(log.Fields{
+		"DGSColName":    dgsColTemp.Name,
+		"IncreaseCount": increaseCount,
+	}).Printf("Scaling out")
+
 	for i := 0; i < increaseCount; i++ {
 		dgsName := c.namegenerator.GenerateName(dgsColTemp.Name)
 		// first, get random ports
@@ -328,6 +333,15 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 		}
 	}
 
+	// add/update an annotation with the latest scale info
+	dgsColToUpdate := dgsColTemp.DeepCopy()
+	dgsColToUpdate.Annotations["LastScaleOutDateTime"] = time.Now().In(time.UTC).String()
+	//update the DGS CRD
+	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -339,7 +353,10 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 	// we'll remove random instances of DGS from our DGSCol
 	indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
-	log.Printf("lala %d %d", decreaseCount, len(indexesToDecrease))
+	log.WithFields(log.Fields{
+		"DGSColName":    dgsColTemp.Name,
+		"DecreaseCount": decreaseCount,
+	}).Printf("Scaling in")
 
 	for i := 0; i < len(indexesToDecrease); i++ {
 		dgsToMarkForDeletionTemp, err := c.dgsLister.DedicatedGameServers(dgsColTemp.Namespace).Get(dgsExisting[indexesToDecrease[i]].Name)
@@ -363,6 +380,15 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 			return err
 		}
 
+	}
+
+	// add/update an annotation with the latest scale info
+	dgsColToUpdate := dgsColTemp.DeepCopy()
+	dgsColToUpdate.Annotations["LastScaleInDateTime"] = time.Now().In(time.UTC).String()
+	//update the DGS CRD
+	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
+	if err != nil {
+		return err
 	}
 
 	return nil //exiting, DGS updates will propagate here as well via another item in the workqueue
@@ -484,10 +510,7 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 	}
 
 	// when we get a DGS, we will enqueue the DGSCol only if
-	// i) DGS has a parent DGSCol, so that DGSCol get updated with new status etc.
-	// ii) DGS *had* a parent DGSCol. This means that DGS is now MarkedForDeletion, so we need to issue updates on the DGSCol
-	// in order to assign a proper value to the AvailableReplicas value
-	// this comes as a fix to https://github.com/dgkanatsios/AzureGameServersScalingKubernetes/issues/31
+	// DGS has a parent DGSCol, so that DGSCol get updated with new status etc.
 
 	//if this DGS has a parent DGSCol
 	if len(object.GetOwnerReferences()) > 0 {
@@ -500,16 +523,6 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 		c.enqueueDedicatedGameServerCollection(dgsCol)
 	}
 
-	//if this DGS -had- a parent DGSCol
-	if parent, ok := object.GetLabels()[shared.LabelOriginalDedicatedGameServerCollectionName]; ok {
-		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(parent)
-		if err != nil {
-			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s", object.GetName()))
-			return
-		}
-
-		c.enqueueDedicatedGameServerCollection(dgsCol)
-	}
 }
 
 // enqueueDedicatedGameServerCollection takes a DedicatedGameServerCollection resource and converts it into a namespace/name
@@ -567,5 +580,5 @@ func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int,
 }
 
 func (c *DedicatedGameServerCollectionController) hasDedicatedGameServerCollectionChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
-	return oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas
+	return oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas || !shared.AreMapsSame(oldDGSCol.Annotations, newDGSCol.Annotations)
 }

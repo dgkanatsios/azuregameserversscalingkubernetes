@@ -7,14 +7,15 @@ import (
 )
 
 func CreateDedicatedGameServerCRD(dgsName string, podSpec corev1.PodSpec) (finalDDGSName string, err error) {
-
+	namegenerator := shared.NewRealRandomNameGenerator()
 	if dgsName == "" {
-		dgsName = shared.GenerateRandomName("gameserver")
+
+		dgsName = namegenerator.GenerateName("gameserver")
 	}
 
 	log.Printf("Creating DedicatedGameServer %s", dgsName)
 
-	dgs := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, dgsName, podSpec)
+	dgs := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, dgsName, podSpec, namegenerator)
 
 	_, dgsClient, err := shared.GetClientSet()
 	if err != nil {
@@ -31,9 +32,9 @@ func CreateDedicatedGameServerCRD(dgsName string, podSpec corev1.PodSpec) (final
 }
 
 func CreateDedicatedGameServerCollectionCRD(dgsColName string, replicas int32, podSpec corev1.PodSpec) (finalDGSColName string, err error) {
-
+	namegenerator := shared.NewRealRandomNameGenerator()
 	if dgsColName == "" {
-		dgsColName = shared.GenerateRandomName("dedicatedgameservercollection")
+		dgsColName = namegenerator.GenerateName("dedicatedgameservercollection")
 	}
 
 	log.Printf("Creating DedicatedGameServerCollection %s", dgsColName)

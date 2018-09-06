@@ -1,5 +1,5 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/dgkanatsios/AzureGameServersScalingKubernetes)](https://goreportcard.com/report/github.com/dgkanatsios/AzureGameServersScalingKubernetes)
-[![Build Status](https://travis-ci.org/dgkanatsios/AzureGameServersScalingKubernetes.svg?branch=master)](https://travis-ci.org/dgkanatsios/AzureGameServersScalingKubernetes)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dgkanatsios/azuregameserversscalingkubernetes)](https://goreportcard.com/report/github.com/dgkanatsios/azuregameserversscalingkubernetes)
+[![Build Status](https://travis-ci.org/dgkanatsios/azuregameserversscalingkubernetes.svg?branch=master)](https://travis-ci.org/dgkanatsios/azuregameserversscalingkubernetes)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 [![unofficial Google Analytics for GitHub](https://gaforgithub.azurewebsites.net/api?repo=AzureGameServersScalingKubernetes)](https://github.com/dgkanatsios/gaforgithub)

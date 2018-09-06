@@ -33,27 +33,27 @@ func TestAreMapsSame(t *testing.T) {
 		"bb": "bv",
 	}
 
-	check1 := areMapsSame(map1, map2)
+	check1 := AreMapsSame(map1, map2)
 	if check1 == false {
 		t.Error("Should be true")
 	}
 
-	check2 := areMapsSame(map1, map3)
+	check2 := AreMapsSame(map1, map3)
 	if check2 == true {
 		t.Error("Should be false")
 	}
 
-	check3 := areMapsSame(map1, map4)
+	check3 := AreMapsSame(map1, map4)
 	if check3 == true {
 		t.Error("Should be false")
 	}
 
-	check4 := areMapsSame(map1, map5)
+	check4 := AreMapsSame(map1, map5)
 	if check4 == true {
 		t.Error("Should be false")
 	}
 
-	check5 := areMapsSame(map1, map6)
+	check5 := AreMapsSame(map1, map6)
 	if check5 == true {
 		t.Error("Should be false")
 	}

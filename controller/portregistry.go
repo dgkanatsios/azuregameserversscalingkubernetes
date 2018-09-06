@@ -108,6 +108,7 @@ func (id *IndexedDictionary) portProducer() {
 	}
 }
 
+// StopPortRegistry stops port registry mechanism by closing requests and responses channels
 func StopPortRegistry() {
 	close(portRequests)
 	close(portResponses)

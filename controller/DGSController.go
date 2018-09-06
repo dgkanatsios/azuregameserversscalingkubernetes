@@ -29,6 +29,7 @@ import (
 
 const dgsControllerAgentName = "dedigated-game-server-controller"
 
+// DedicatedGameServerController is the struct that contains necessary fields for the DGS controller
 type DedicatedGameServerController struct {
 	dgsClient  dgsclientset.Interface
 	podClient  kubernetes.Interface
@@ -55,6 +56,7 @@ type DedicatedGameServerController struct {
 	recorder record.EventRecorder
 }
 
+// NewDedicatedGameServerController creates a new DedicatedGameServerController
 func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
 	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer,

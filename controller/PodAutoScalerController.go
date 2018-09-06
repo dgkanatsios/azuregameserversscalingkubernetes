@@ -51,14 +51,15 @@ type PodAutoScalerController struct {
 	recorder record.EventRecorder
 }
 
-func NewPodAutoScalerControllerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
+// NewPodAutoScalerController creates a new PodAutoScalerController
+func NewPodAutoScalerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer,
 	dgsInformer informerdgs.DedicatedGameServerInformer, clockImpl clockwork.Clock) *PodAutoScalerController {
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
-	log.Info("Creating event broadcaster for AutoScaler controller")
+	log.Info("Creating event broadcaster for PodAutoScaler controller")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.Printf)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
@@ -72,20 +73,20 @@ func NewPodAutoScalerControllerController(client kubernetes.Interface, dgsclient
 		dgsLister:          dgsInformer.Lister(),
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
 		clock:              clockImpl,
-		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "AutoScalerSync"),
+		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodAutoScalerSync"),
 		recorder:           recorder,
 	}
 
-	log.Info("Setting up event handlers for AutoScaler controller")
+	log.Info("Setting up event handlers for AutPodAutoScaleroScaler controller")
 
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("AutoScaler controller - add DedicatedGameServerCollection")
+				log.Print("PodAutoScaler controller - add DedicatedGameServerCollection")
 				c.handleDedicatedGameServerCol(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("AutoScaler controller - update DedicatedGameServerCollection")
+				log.Print("PodAutoScaler controller - update DedicatedGameServerCollection")
 
 				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
@@ -104,10 +105,10 @@ func NewPodAutoScalerControllerController(client kubernetes.Interface, dgsclient
 			AddFunc: func(obj interface{}) {
 				// we're doing nothing on add
 				// the logic will run either on DGSCol add/update or DGS update
-				log.Print("AutoScaler controller - add DedicatedGameServer")
+				log.Print("PodAutoScaler controller - add DedicatedGameServer")
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("AutoScaler controller - update DedicatedGameServer")
+				log.Print("PodAutoScaler controller - update DedicatedGameServer")
 
 				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
 				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
@@ -352,15 +353,15 @@ func (c *PodAutoScalerController) Run(controllerThreadiness int, stopCh <-chan s
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	log.Info("Starting AutoScaler controller")
+	log.Info("Starting PodAutoScaler controller")
 
 	// Wait for the caches for all controllers to be synced before starting workers
-	log.Info("Waiting for informer caches to sync for AutoScaler controller")
+	log.Info("Waiting for informer caches to sync for PodAutoScaler controller")
 	if ok := cache.WaitForCacheSync(stopCh, c.dgsColListerSynced, c.dgsListerSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	log.Info("Starting workers for AutoScaler controller")
+	log.Info("Starting workers for PodAutoScaler controller")
 
 	// Launch a number of workers to process resources
 	for i := 0; i < controllerThreadiness; i++ {
@@ -369,9 +370,9 @@ func (c *PodAutoScalerController) Run(controllerThreadiness int, stopCh <-chan s
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	log.Info("Started workers for AutoScaler controller")
+	log.Info("Started workers for PodAutoScaler controller")
 	<-stopCh
-	log.Info("Shutting down workers for AutoScaler controller")
+	log.Info("Shutting down workers for PodAutoScaler controller")
 
 	return nil
 }

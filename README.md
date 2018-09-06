@@ -1,4 +1,5 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/dgkanatsios/AzureGameServersScalingKubernetes)](https://goreportcard.com/report/github.com/dgkanatsios/AzureGameServersScalingKubernetes)
+[![Build Status](https://travis-ci.org/dgkanatsios/AzureGameServersScalingKubernetes.svg?branch=master)](https://travis-ci.org/dgkanatsios/AzureGameServersScalingKubernetes)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 [![unofficial Google Analytics for GitHub](https://gaforgithub.azurewebsites.net/api?repo=AzureGameServersScalingKubernetes)](https://github.com/dgkanatsios/gaforgithub)
@@ -17,6 +18,7 @@ This repository aims to provide a solution for managing containerized dedicated 
 - [Installation](docs/installation.md)
 - [FAQ](docs/FAQ.md)
 - [Kubernetes resources](docs/resources.md)
+- [Controllers](docs/controllers.md)
 
 ## Architecture
 

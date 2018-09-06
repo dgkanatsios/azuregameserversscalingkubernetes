@@ -346,7 +346,8 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 	if dgsColToUpdate.Annotations == nil {
 		dgsColToUpdate.Annotations = make(map[string]string)
 	}
-	dgsColToUpdate.Annotations["LastScaleOutDateTime"] = c.clock.Now().In(time.UTC).String()
+
+	dgsColToUpdate.Annotations[shared.AnnoLastScaleOutDateTime] = c.clock.Now().In(time.UTC).String()
 	//update the DGS CRD
 	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
 	if err != nil {
@@ -398,7 +399,7 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 	if dgsColToUpdate.Annotations == nil {
 		dgsColToUpdate.Annotations = make(map[string]string)
 	}
-	dgsColToUpdate.Annotations["LastScaleInDateTime"] = c.clock.Now().In(time.UTC).String()
+	dgsColToUpdate.Annotations[shared.AnnoLastScaleInDateTime] = c.clock.Now().In(time.UTC).String()
 	//update the DGS CRD
 	_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsColToUpdate.Namespace).Update(dgsColToUpdate)
 	if err != nil {
@@ -564,6 +565,7 @@ func (c *DedicatedGameServerCollectionController) runWorker() {
 	}
 }
 
+// Run starts the DedicatedGameServerCollectionController
 func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()

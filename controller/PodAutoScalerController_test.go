@@ -63,7 +63,7 @@ func (f *podAutoScalerFixture) newPodAutoScalerController() (*PodAutoScalerContr
 
 	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
-	testController := NewPodAutoScalerControllerController(f.k8sClient, f.dgsClient,
+	testController := NewPodAutoScalerController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.clock)
 

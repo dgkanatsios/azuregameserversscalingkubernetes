@@ -68,9 +68,13 @@ func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*Dedicated
 
 	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
-	testController := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
+	testController, err := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.namegenerator, f.clock)
+
+	if err != nil {
+		f.t.Fatalf("Error in initializing DGSCol: %s", err.Error())
+	}
 
 	testController.dgsColListerSynced = alwaysReady
 	testController.dgsListerSynced = alwaysReady

@@ -4,6 +4,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	_ "github.com/joho/godotenv/autoload" // load env variables
 )
@@ -104,4 +106,9 @@ func AreMapsSame(map1, map2 map[string]string) bool {
 	}
 
 	return true
+}
+
+// Logger returns a default Logger
+func Logger() *logrus.Logger {
+	return logrus.New()
 }

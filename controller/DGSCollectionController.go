@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/jonboulle/clockwork"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
@@ -25,7 +27,6 @@ import (
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
-	log "github.com/sirupsen/logrus"
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -50,6 +51,8 @@ type DedicatedGameServerCollectionController struct {
 
 	clock         clockwork.Clock
 	namegenerator shared.RandomNameGenerator
+	logger        *logrus.Logger
+	portRegistry  *PortRegistry
 
 	workqueue workqueue.RateLimitingInterface
 	recorder  record.EventRecorder
@@ -58,13 +61,8 @@ type DedicatedGameServerCollectionController struct {
 // NewDedicatedGameServerCollectionController initializes and returns a new DedicatedGameServerCollectionController instance
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer,
-	randomNameGenerator shared.RandomNameGenerator, clockImpl clockwork.Clock) *DedicatedGameServerCollectionController {
+	randomNameGenerator shared.RandomNameGenerator, clockImpl clockwork.Clock) (*DedicatedGameServerCollectionController, error) {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
-	log.Info("Creating Event broadcaster for DedicatedGameServerCollection controller")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Printf)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsColControllerAgentName})
 
 	c := &DedicatedGameServerCollectionController{
 		dgsColClient:       dgsclient,
@@ -76,19 +74,32 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 		namegenerator:      randomNameGenerator,
 		clock:              clockImpl,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
-		recorder:           recorder,
 	}
 
-	log.Info("Setting up event handlers for DedicatedGameServerCollection controller")
+	c.logger = shared.Logger()
+
+	c.logger.Info("Initializing Port Registry")
+	portRegistry, err := NewPortRegistry(dgsclient, shared.MinPort, shared.MaxPort)
+	if err != nil {
+		return nil, err
+	}
+	c.portRegistry = portRegistry
+
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(c.logger.Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
+	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsColControllerAgentName})
+
+	c.logger.Info("Setting up event handlers for DedicatedGameServerCollection controller")
 
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - add DGSCol")
+				c.logger.Print("DedicatedGameServerCollection controller - add DGSCol")
 				c.handleDedicatedGameServerCollection(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - update DGSCol")
+				c.logger.Print("DedicatedGameServerCollection controller - update DGSCol")
 				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 
@@ -109,11 +120,11 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 	dgsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - add DGS")
+				c.logger.Print("DedicatedGameServerCollection controller - add DGS")
 				c.handleDedicatedGameServer(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - update DGS")
+				c.logger.Print("DedicatedGameServerCollection controller - update DGS")
 				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
 				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
 
@@ -126,13 +137,13 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				log.Print("DedicatedGameServerCollection controller - delete DGS")
+				c.logger.Print("DedicatedGameServerCollection controller - delete DGS")
 				c.handleDedicatedGameServer(obj)
 			},
 		},
 	)
 
-	return c
+	return c, nil
 }
 
 // processNextWorkItem deals with one key off the queue.  It returns false
@@ -176,7 +187,7 @@ func (c *DedicatedGameServerCollectionController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		log.Infof("Successfully synced '%s'", key)
+		c.logger.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -228,7 +239,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	dgsExisting, err := c.getDGSForDGSCol(dgsColTemp)
 
 	if err != nil {
-		log.WithFields(log.Fields{
+		c.logger.WithFields(logrus.Fields{
 			"DGSColName": dgsColTemp.Name,
 			"Error":      err.Error(),
 		}).Error("Cannot get DedicatedGameServers for DedicatedGameServerCollection via Label selector")
@@ -243,7 +254,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 		if err != nil {
 			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot increase dedicated game servers", err.Error())
-			log.WithFields(log.Fields{
+			c.logger.WithFields(logrus.Fields{
 				"DGSColName": dgsColTemp.Name,
 				"Error":      err.Error(),
 			}).Error("Cannot increase dedicated game servers")
@@ -259,7 +270,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 
 		if err != nil {
 			c.recorder.Event(dgsColTemp, corev1.EventTypeWarning, "Cannot decrease dedicated game servers", err.Error())
-			log.WithFields(log.Fields{
+			c.logger.WithFields(logrus.Fields{
 				"DGSColName": dgsColTemp.Name,
 				"Error":      err.Error(),
 			}).Error("Cannot decrease dedicated game servers")
@@ -298,7 +309,7 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 	_, err = c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 	if err != nil {
-		log.WithFields(log.Fields{
+		c.logger.WithFields(logrus.Fields{
 			"Name":  dgsColTemp.Name,
 			"Error": err.Error(),
 		}).Error("Error in updating DedicatedGameServerCollection")
@@ -314,7 +325,7 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 	//create them
 	increaseCount := int(dgsColTemp.Spec.Replicas) - dgsExistingCount
 
-	log.WithFields(log.Fields{
+	c.logger.WithFields(logrus.Fields{
 		"DGSColName":    dgsColTemp.Name,
 		"IncreaseCount": increaseCount,
 	}).Printf("Scaling out")
@@ -324,7 +335,7 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 		// first, get random ports
 		for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
 			//get a random port
-			hostport, errPort := portRegistry.GetNewPort(dgsName)
+			hostport, errPort := c.portRegistry.GetNewPort(dgsName)
 			if errPort != nil {
 				return errPort
 			}
@@ -365,7 +376,7 @@ func (c *DedicatedGameServerCollectionController) decreaseDGSReplicas(dgsColTemp
 	// we'll remove random instances of DGS from our DGSCol
 	indexesToDecrease := shared.GetRandomIndexes(dgsExistingCount, decreaseCount)
 
-	log.WithFields(log.Fields{
+	c.logger.WithFields(logrus.Fields{
 		"DGSColName":    dgsColTemp.Name,
 		"DecreaseCount": decreaseCount,
 	}).Printf("Scaling in")
@@ -501,7 +512,7 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServerColle
 			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object tombstone, invalid type"))
 			return
 		}
-		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+		c.logger.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
 	c.enqueueDedicatedGameServerCollection(object)
@@ -521,7 +532,7 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object tombstone, invalid type"))
 			return
 		}
-		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+		c.logger.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
 	// when we get a DGS, we will enqueue the DGSCol only if
@@ -560,7 +571,7 @@ func (c *DedicatedGameServerCollectionController) runWorker() {
 	// hot loop until we're told to stop.  processNextWorkItem will
 	// automatically wait until there's work available, so we don't worry
 	// about secondary waits
-	log.Info("Starting loop for DedicatedGameServerCollection controller")
+	c.logger.Info("Starting loop for DedicatedGameServerCollection controller")
 	for c.processNextWorkItem() {
 	}
 }
@@ -571,15 +582,15 @@ func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int,
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	log.Info("Starting DedicatedGameServerCollection controller")
+	c.logger.Info("Starting DedicatedGameServerCollection controller")
 
 	// Wait for the caches for all controllers to be synced before starting workers
-	log.Info("Waiting for informer caches to sync for DedicatedGameServerCollection controller")
+	c.logger.Info("Waiting for informer caches to sync for DedicatedGameServerCollection controller")
 	if ok := cache.WaitForCacheSync(stopCh, c.dgsColListerSynced, c.dgsListerSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	log.Info("Starting workers for DedicatedGameServerCollection controller")
+	c.logger.Info("Starting workers for DedicatedGameServerCollection controller")
 
 	// Launch a number of workers to process resources
 	for i := 0; i < controllerThreadiness; i++ {
@@ -588,9 +599,12 @@ func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int,
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	log.Info("Started workers for DedicatedGameServerCollection controller")
+	c.logger.Info("Started workers for DedicatedGameServerCollection controller")
 	<-stopCh
-	log.Info("Shutting down workers for DedicatedGameServerCollection controller")
+	c.logger.Info("Shutting down workers for DedicatedGameServerCollection controller")
+
+	c.logger.Info("Stopping Port Registry")
+	c.portRegistry.StopPortRegistry()
 
 	return nil
 }

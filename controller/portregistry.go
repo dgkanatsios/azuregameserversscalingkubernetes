@@ -14,21 +14,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var portRegistry *IndexedDictionary
-var clientset *dgsclientset.Clientset
+// PortRegistry implements a custom map for the port registry
+type PortRegistry struct {
+	Ports             map[int32]bool
+	GameServerPorts   map[string]string
+	Indexes           []int32
+	NextFreePortIndex int32
+	Min               int32
+	Max               int32
+	portRequests      chan string
+	portResponses     chan int32
+}
 
-// InitializePortRegistry initializes the IndexedDictionary that holds the port registry.
-// Intended to be called only once. Locks a mutex
-func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
+// NewPortRegistry initializes the IndexedDictionary that holds the port registry.
+func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32) (*PortRegistry, error) {
 
-	clientset = dgsclientset
+	pr := &PortRegistry{
+		Ports:           make(map[int32]bool, max-min+1),
+		GameServerPorts: make(map[string]string, max-min+1),
+		Indexes:         make([]int32, max-min+1),
+		Min:             min,
+		Max:             max,
+		portRequests:    make(chan string, 100),
+		portResponses:   make(chan int32, 100),
+	}
 
-	portRegistry = newIndexedDictionary(shared.MinPort, shared.MaxPort)
-
-	dgsList, err := clientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	dgsList, err := dgsclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		log.Errorf("Error getting Dedicated Game Servers List: %v", err)
-		return err
+		return nil, err
 	}
 
 	if len(dgsList.Items) > 0 {
@@ -41,34 +55,42 @@ func InitializePortRegistry(dgsclientset *dgsclientset.Clientset) error {
 
 			ports := make([]int32, len(dgs.Spec.Template.Containers[0].Ports))
 			for i, portInfo := range dgs.Spec.Template.Containers[0].Ports {
+				if portInfo.HostPort == 0 {
+					log.Errorf("HostPort for DGS %s and ContainerPort %d is zero, ignoring", dgs.Name, portInfo.ContainerPort)
+					continue
+				}
 				ports[i] = portInfo.HostPort
 			}
-			portRegistry.assignRegisteredPorts(ports, dgs.Name)
+			pr.assignRegisteredPorts(ports, dgs.Name)
 		}
 	}
 
-	portRegistry.assignUnregisteredPorts()
+	pr.assignUnregisteredPorts()
 
-	go portRegistry.portProducer()
+	go pr.portProducer()
 
-	return nil
+	return pr, nil
 
 }
 
-func (id *IndexedDictionary) displayRegistry() {
+func (pr *PortRegistry) initializePortRegistry() {
+
+}
+
+func (pr *PortRegistry) displayRegistry() {
 	fmt.Printf("-------------------------------------\n")
-	fmt.Printf("Ports: %v\n", id.Ports)
-	fmt.Printf("GameServerPorts: %s\n", id.GameServerPorts)
-	fmt.Printf("Indexes: %v\n", id.Indexes)
-	fmt.Printf("NextIndex: %d\n", id.NextFreePortIndex)
+	fmt.Printf("Ports: %v\n", pr.Ports)
+	fmt.Printf("GameServerPorts: %s\n", pr.GameServerPorts)
+	fmt.Printf("Indexes: %v\n", pr.Indexes)
+	fmt.Printf("NextIndex: %d\n", pr.NextFreePortIndex)
 	fmt.Printf("-------------------------------------\n")
 }
 
 // GetNewPort returns and registers a new port for the designated game server. Locks a mutex
-func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
-	portRequests <- serverName
+func (pr *PortRegistry) GetNewPort(serverName string) (int32, error) {
+	pr.portRequests <- serverName
 
-	port := <-portResponses
+	port := <-pr.portResponses
 
 	if port == -1 {
 		return -1, errors.New("Cannot register a new port. No more slots")
@@ -77,31 +99,28 @@ func (id *IndexedDictionary) GetNewPort(serverName string) (int32, error) {
 	return port, nil
 }
 
-var portRequests = make(chan string, 100)
-var portResponses = make(chan int32, 100)
+func (pr *PortRegistry) portProducer() {
+	for serverName := range pr.portRequests { //wait till a new request comes
 
-func (id *IndexedDictionary) portProducer() {
-	for serverName := range portRequests { //wait till a new request comes
-
-		initialIndex := id.NextFreePortIndex
+		initialIndex := pr.NextFreePortIndex
 		for {
-			if id.Ports[id.Indexes[id.NextFreePortIndex]] == false {
+			if pr.Ports[pr.Indexes[pr.NextFreePortIndex]] == false {
 				//we found a port
-				port := id.Indexes[id.NextFreePortIndex]
-				id.Ports[port] = true
-				id.GameServerPorts[serverName] = fmt.Sprintf("%d,%s", port, id.GameServerPorts[serverName])
-				id.increaseNextFreePortIndex()
+				port := pr.Indexes[pr.NextFreePortIndex]
+				pr.Ports[port] = true
+				pr.GameServerPorts[serverName] = fmt.Sprintf("%d,%s", port, pr.GameServerPorts[serverName])
+				pr.increaseNextFreePortIndex()
 
 				//port is set
-				portResponses <- port
+				pr.portResponses <- port
 				break
 			}
 
-			id.increaseNextFreePortIndex()
+			pr.increaseNextFreePortIndex()
 
-			if initialIndex == id.NextFreePortIndex {
+			if initialIndex == pr.NextFreePortIndex {
 				//we did a full loop - no empty ports
-				portResponses <- -1
+				pr.portResponses <- -1
 				break
 			}
 		}
@@ -109,15 +128,15 @@ func (id *IndexedDictionary) portProducer() {
 }
 
 // StopPortRegistry stops port registry mechanism by closing requests and responses channels
-func StopPortRegistry() {
-	close(portRequests)
-	close(portResponses)
+func (pr *PortRegistry) StopPortRegistry() {
+	close(pr.portRequests)
+	close(pr.portResponses)
 }
 
 // DeregisterServerPorts deregisters all ports for the designated server. Locks a mutex
-func (id *IndexedDictionary) DeregisterServerPorts(serverName string) {
+func (pr *PortRegistry) DeregisterServerPorts(serverName string) {
 
-	ports := strings.Split(id.GameServerPorts[serverName], ",")
+	ports := strings.Split(pr.GameServerPorts[serverName], ",")
 
 	var deleteErrors string
 
@@ -128,79 +147,56 @@ func (id *IndexedDictionary) DeregisterServerPorts(serverName string) {
 				deleteErrors = fmt.Sprintf("%s,%s", deleteErrors, errconvert.Error())
 			}
 
-			id.Ports[int32(portInt)] = false
+			pr.Ports[int32(portInt)] = false
 		}
 	}
 
-	delete(id.GameServerPorts, serverName)
+	delete(pr.GameServerPorts, serverName)
 
 }
 
-// IndexedDictionary implements a custom map for the port registry
-type IndexedDictionary struct {
-	Ports             map[int32]bool
-	GameServerPorts   map[string]string
-	Indexes           []int32
-	NextFreePortIndex int32
-	Min               int32
-	Max               int32
-}
-
-// newIndexedDictionary initializes a new IndexedDictionary that will hold the port registry
-// user needs to provide min and max port
-func newIndexedDictionary(min, max int32) *IndexedDictionary {
-	id := &IndexedDictionary{
-		Ports:           make(map[int32]bool, max-min+1),
-		GameServerPorts: make(map[string]string, max-min+1),
-		Indexes:         make([]int32, max-min+1),
-		Min:             min,
-		Max:             max,
-	}
-	return id
-}
-
-func (id *IndexedDictionary) assignRegisteredPorts(ports []int32, serverName string) {
+func (pr *PortRegistry) assignRegisteredPorts(ports []int32, serverName string) {
 
 	var portsString string
 	for i := 0; i < len(ports); i++ {
-		id.Ports[ports[i]] = true
-		id.Indexes[i] = ports[i]
-		id.increaseNextFreePortIndex()
+		pr.Ports[ports[i]] = true
+		pr.Indexes[i] = ports[i]
+		pr.increaseNextFreePortIndex()
 
 		portsString = fmt.Sprintf("%d,%s", ports[i], portsString)
 
 	}
-	id.GameServerPorts[serverName] = portsString
+	pr.GameServerPorts[serverName] = portsString
 
 }
 
-func (id *IndexedDictionary) assignUnregisteredPorts() {
-
-	i := id.NextFreePortIndex
-	for _, port := range id.getPermutatedPorts() {
-		if _, ok := id.Ports[port]; !ok {
-			id.Ports[port] = false
-			id.Indexes[i] = port
+func (pr *PortRegistry) assignUnregisteredPorts() {
+	i := pr.NextFreePortIndex
+	for _, port := range pr.getPermutatedPorts() {
+		log.Printf("lala %d", port)
+		if _, ok := pr.Ports[port]; !ok {
+			pr.Ports[port] = false
+			pr.Indexes[i] = port
 			i++
 		}
 	}
 }
 
-func (id *IndexedDictionary) increaseNextFreePortIndex() {
-	id.NextFreePortIndex++
+func (pr *PortRegistry) increaseNextFreePortIndex() {
+	pr.NextFreePortIndex++
 	//reset the index if needed
-	if id.NextFreePortIndex == id.Max-id.Min+1 {
-		id.NextFreePortIndex = 0
+	if pr.NextFreePortIndex == pr.Max-pr.Min+1 {
+		pr.NextFreePortIndex = 0
 	}
 
 }
 
-func (id *IndexedDictionary) getPermutatedPorts() []int32 {
-	ports := make([]int32, id.Max-id.Min+1)
+func (pr *PortRegistry) getPermutatedPorts() []int32 {
+	ports := make([]int32, pr.Max-pr.Min+1)
 	for i := 0; i < len(ports); i++ {
-		ports[i] = int32(id.Min)
+		ports[i] = int32(pr.Min)
 	}
-	perm := rand.Perm(int((id.Max - id.Min + 1)))
+	perm := rand.Perm(int((pr.Max - pr.Min + 1)))
 
 	for i := 0; i < len(ports); i++ {
 		ports[i] += int32(perm[i])

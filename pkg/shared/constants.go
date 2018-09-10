@@ -13,9 +13,9 @@ const (
 	GameNamespace           = "default"
 
 	// MinPort is minimum Port Number
-	MinPort = 20000
+	MinPort int32 = 20000
 	// MaxPort is maximum Port Number
-	MaxPort = 30000
+	MaxPort int32 = 30000
 )
 
 const (

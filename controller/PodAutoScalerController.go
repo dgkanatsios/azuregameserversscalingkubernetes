@@ -201,8 +201,14 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 			runtime.HandleError(fmt.Errorf("DedicatedGameServerCollection '%s' in work queue no longer exists", key))
 			return nil
 		}
-		c.logger.Print(err.Error())
+		c.logger.WithField("DGSColName", dgsColTemp.Name).Errorf("Error listing DGSCol: %s", err.Error())
 		return err
+	}
+
+	// DGSCol is being terminated
+	if !dgsColTemp.DeletionTimestamp.IsZero() {
+		c.logger.WithField("DGSColName", dgsColTemp.Name).Info("DGSCol is being terminated")
+		return nil
 	}
 
 	// check if it has autoscaling enabled

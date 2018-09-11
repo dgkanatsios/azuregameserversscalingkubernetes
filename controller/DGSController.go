@@ -264,6 +264,12 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 		return err
 	}
 
+	// DGS is being terminated
+	if !dgsTemp.DeletionTimestamp.IsZero() {
+		c.logger.WithField("DGSName", dgsTemp.Name).Info("DGS is being terminated")
+		return nil
+	}
+
 	//check if DGS is markedForDeletion and has zero players connected to it
 	//if this is the case, then it's time to delete the DGS
 	if c.isDGSMarkedForDeletionWithZeroPlayers(dgsTemp) {

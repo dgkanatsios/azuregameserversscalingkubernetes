@@ -236,6 +236,12 @@ func (c *DedicatedGameServerCollectionController) syncHandler(key string) error 
 		return err
 	}
 
+	// DGSCol is being terminated
+	if !dgsColTemp.DeletionTimestamp.IsZero() {
+		c.logger.WithField("DGSColName", dgsColTemp.Name).Info("DGSCol is being terminated")
+		return nil
+	}
+
 	dgsExisting, err := c.getDGSForDGSCol(dgsColTemp)
 
 	if err != nil {

@@ -32,13 +32,13 @@ type DedicatedGameServerCollectionSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Replicas          int32                                 `json:"replicas"`
-	Template          corev1.PodSpec                        `json:"template"`
-	AutoScalerDetails *DedicatedGameServerAutoScalerDetails `json:"autoScalerDetails,omitempty"`
+	Replicas             int32                                    `json:"replicas"`
+	Template             corev1.PodSpec                           `json:"template"`
+	PodAutoScalerDetails *DedicatedGameServerPodAutoScalerDetails `json:"podAutoScalerDetails,omitempty"`
 }
 
-// DedicatedGameServerAutoScalerDetails contains details about the autoscaling of the dedicated game server collection
-type DedicatedGameServerAutoScalerDetails struct {
+// DedicatedGameServerPodAutoScalerDetails contains details about the autoscaling of the dedicated game server collection
+type DedicatedGameServerPodAutoScalerDetails struct {
 	MinimumReplicas            int    `json:"minimumReplicas"`
 	MaximumReplicas            int    `json:"maximumReplicas"`
 	ScaleInThreshold           int    `json:"scaleInThreshold"`

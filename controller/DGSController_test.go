@@ -185,7 +185,7 @@ func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
-	dgs.Spec.ActivePlayers = 0
+	dgs.Status.ActivePlayers = 0
 	dgs.Labels[shared.LabelActivePlayers] = "0"
 	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
 	dgs.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
@@ -210,7 +210,7 @@ func TestDGSStatusIsUpdated(t *testing.T) {
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
 
-	dgs.Spec.ActivePlayers = 0
+	dgs.Status.ActivePlayers = 0
 	dgs.Labels[shared.LabelActivePlayers] = "0"
 	dgs.Labels[shared.LabelPodState] = ""
 

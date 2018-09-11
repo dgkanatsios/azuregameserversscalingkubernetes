@@ -73,9 +73,9 @@ func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServ
 
 	if oldDGS.Status.DedicatedGameServerState == newDGS.Status.DedicatedGameServerState &&
 		oldDGS.Status.PodState == newDGS.Status.PodState &&
-		oldDGS.Spec.PublicIP == newDGS.Spec.PublicIP &&
-		oldDGS.Spec.NodeName == newDGS.Spec.NodeName &&
-		oldDGS.Spec.ActivePlayers == newDGS.Spec.ActivePlayers &&
+		oldDGS.Status.PublicIP == newDGS.Status.PublicIP &&
+		oldDGS.Status.NodeName == newDGS.Status.NodeName &&
+		oldDGS.Status.ActivePlayers == newDGS.Status.ActivePlayers &&
 		AreMapsSame(oldDGS.Labels, newDGS.Labels) &&
 		oldDGS.Spec.Template.Containers[0].Image == newDGS.Spec.Template.Containers[0].Image {
 

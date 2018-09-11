@@ -19,7 +19,7 @@ spec:
   - name: ActivePlayers
     type: string
     description: number of active players on the server
-    JSONPath: .spec.activePlayers
+    JSONPath: .status.activePlayers
   - name: GameServerState
     type: string
     description: state of the game server
@@ -35,34 +35,4 @@ spec:
   - name: PublicIP
     type: string
     description: node's public IP for this DedicatedGameServer
-    JSONPath: .spec.publicIP
-  validation:
-   # openAPIV3Schema is the schema for validating custom objects.
-    openAPIV3Schema:
-      properties:
-        spec:
-          properties:
-            Image:
-              type: string
-              pattern: '^(?!\s*$).+' # non-empty string
-            StartMap:
-              type: string
-              pattern: '^(?!\s*$).+'
-            Ports:
-              type: array
-              items:
-                type: object
-                properties:
-                  ContainerPort:
-                    type: integer
-                  Protocol:
-                    type: string
-                    pattern: /^(TCP|UDP)$/
-                  Name:
-                    type: string
-                    pattern: '^(?!\s*$).+' # non-empty string
-                  HostPort:
-                    type: integer
-                    minimum: 20000
-                    maximum: 30000
-  
+    JSONPath: .status.publicIP

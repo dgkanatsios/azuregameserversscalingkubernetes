@@ -101,10 +101,20 @@ Various images used for this project are hosted on Docker Hub
 - [API Server](https://hub.docker.com/r/dgkanatsios/aks_gaming_apiserver/)
 - [Custom Kubernetes Controller](https://hub.docker.com/r/dgkanatsios/aks_gaming_controller/)
 
-### Autoscaler
+### PodAutoscaler
 
-Project contains an **experimental** Pod autoscaler, you can find it in the AutoScalerController file and you can configure it when deploying your DedicatedGameServerCollection resource. This autoscaler (if enabled) will scale in/out the DedicatedGameServers in the collection based on the `ActivePlayers` metric. Each game server can hold a specific amount of players, if more of them are lining up in our matchmaking server, then we are clearly in need of more DedicatedGameServer instances (and their corresponding Pods).
+Project contains an **experimental** Pod autoscaler controller. This autoscaler can scale individual DedicatedGameServerCollections and you optionally can configure it when deploying your DedicatedGameServerCollection resource. This autoscaler (if enabled) will scale in/out the DedicatedGameServers in the collection it belongs to. The scaling is determined according to the `ActivePlayers` metric. We take into account that each DedicatedGameServer can hold a specific amount of players. If the specified threshold is surpassed, then we are clearly in need of more DedicatedGameServer instances. Here you can see a configuration example:
 
+```yaml
+autoScalerDetails:
+  minimumReplicas: 5
+  maximumReplicas: 10
+  scaleInThreshold: 60
+  scaleOutThreshold: 80
+  enabled: true
+  coolDownInMinutes: 5
+  maxPlayersPerServer: 10
+```
 
 ---
 This is not an official Microsoft product.

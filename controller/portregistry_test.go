@@ -59,7 +59,7 @@ func TestPortRegistry(t *testing.T) {
 	dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(server1)
 	dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(server2)
 
-	portRegistry, err := NewPortRegistry(dgsClient, 20000, 20010)
+	portRegistry, err := NewPortRegistry(dgsClient, 20000, 20010, shared.GameNamespace)
 
 	if err != nil {
 		t.Fatalf("Cannot initialize PortRegistry due to: %s", err.Error())

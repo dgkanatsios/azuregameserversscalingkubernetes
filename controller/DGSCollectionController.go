@@ -79,7 +79,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 	c.logger = shared.Logger()
 
 	c.logger.Info("Initializing Port Registry")
-	portRegistry, err := NewPortRegistry(dgsclient, shared.MinPort, shared.MaxPort)
+	portRegistry, err := NewPortRegistry(dgsclient, shared.MinPort, shared.MaxPort, shared.GameNamespace)
 	if err != nil {
 		return nil, err
 	}

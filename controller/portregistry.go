@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
-
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +25,7 @@ type PortRegistry struct {
 }
 
 // NewPortRegistry initializes the IndexedDictionary that holds the port registry.
-func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32) (*PortRegistry, error) {
+func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32, namespace string) (*PortRegistry, error) {
 
 	pr := &PortRegistry{
 		Ports:           make(map[int32]bool, max-min+1),
@@ -39,7 +37,7 @@ func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32) (*Port
 		portResponses:   make(chan int32, 100),
 	}
 
-	dgsList, err := dgsclientset.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	dgsList, err := dgsclientset.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		log.Errorf("Error getting Dedicated Game Servers List: %v", err)
 		return nil, err
@@ -173,7 +171,6 @@ func (pr *PortRegistry) assignRegisteredPorts(ports []int32, serverName string) 
 func (pr *PortRegistry) assignUnregisteredPorts() {
 	i := pr.NextFreePortIndex
 	for _, port := range pr.getPermutatedPorts() {
-		log.Printf("lala %d", port)
 		if _, ok := pr.Ports[port]; !ok {
 			pr.Ports[port] = false
 			pr.Indexes[i] = port

@@ -80,7 +80,7 @@ func NewPodAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
 	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
-	c.logger.Info("Setting up event handlers for AutPodAutoScaleroScaler controller")
+	c.logger.Info("Setting up event handlers for PodAutoScaler controller")
 
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

@@ -250,11 +250,12 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 func filterInformerActionsDGSCol(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
-		if len(action.GetNamespace()) == 0 &&
-			(action.Matches("list", "dedicatedgameservercollections") ||
-				action.Matches("watch", "dedicatedgameservercollections") ||
-				action.Matches("list", "dedicatedgameservers") ||
-				action.Matches("watch", "dedicatedgameservers")) {
+		// we removed the len(action.GetNamespace()) == 0 because the PortRegistry is initialized in the shared.GameNamespace
+		if action.Matches("list", "dedicatedgameservercollections") ||
+			action.Matches("watch", "dedicatedgameservercollections") ||
+			action.Matches("list", "dedicatedgameservers") ||
+			action.Matches("watch", "dedicatedgameservers") {
+
 			continue
 		}
 		ret = append(ret, action)

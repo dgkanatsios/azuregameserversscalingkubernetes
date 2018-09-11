@@ -548,7 +548,8 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 	if len(object.GetOwnerReferences()) > 0 {
 		dgsCol, err := c.dgsColLister.DedicatedGameServerCollections(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
 		if err != nil {
-			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s", object.GetName()))
+			c.logger.Info("LALALALALALA")
+			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServer Collection from the Dedicated Game Server with Name %s, err: %s", object.GetName(), err.Error()))
 			return
 		}
 

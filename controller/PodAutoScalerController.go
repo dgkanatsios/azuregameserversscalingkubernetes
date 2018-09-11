@@ -393,7 +393,7 @@ func (c *PodAutoScalerController) runWorker() {
 	// hot loop until we're told to stop.  processNextWorkItem will
 	// automatically wait until there's work available, so we don't worry
 	// about secondary waits
-	c.logger.Info("Starting loop for AutoScaler controller")
+	c.logger.Info("Starting loop for PodAutoScaler controller")
 	for c.processNextWorkItem() {
 	}
 }

@@ -14,7 +14,7 @@ import (
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +39,8 @@ type PodAutoScalerController struct {
 	dgsColListerSynced cache.InformerSynced
 	dgsListerSynced    cache.InformerSynced
 
-	clock clockwork.Clock
+	logger *logrus.Logger
+	clock  clockwork.Clock
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
 	// means we can ensure we only process a fixed amount of resources at a
@@ -55,15 +56,6 @@ type PodAutoScalerController struct {
 func NewPodAutoScalerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer,
 	dgsInformer informerdgs.DedicatedGameServerInformer, clockImpl clockwork.Clock) *PodAutoScalerController {
-	// Create event broadcaster
-	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
-	// logged for DedicatedGameServerController types.
-	dgsscheme.AddToScheme(dgsscheme.Scheme)
-	log.Info("Creating event broadcaster for PodAutoScaler controller")
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Printf)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
 
 	c := &PodAutoScalerController{
 		dgsColClient:       dgsclient,
@@ -74,19 +66,30 @@ func NewPodAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 		dgsListerSynced:    dgsInformer.Informer().HasSynced,
 		clock:              clockImpl,
 		workqueue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PodAutoScalerSync"),
-		recorder:           recorder,
 	}
 
-	log.Info("Setting up event handlers for AutPodAutoScaleroScaler controller")
+	c.logger = shared.Logger()
+
+	// Create event broadcaster
+	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
+	// logged for DedicatedGameServerController types.
+	dgsscheme.AddToScheme(dgsscheme.Scheme)
+	c.logger.Info("Creating event broadcaster for PodAutoScaler controller")
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(c.logger.Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
+	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
+
+	c.logger.Info("Setting up event handlers for PodAutoScaler controller")
 
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				log.Print("PodAutoScaler controller - add DedicatedGameServerCollection")
+				c.logger.Print("PodAutoScaler controller - add DedicatedGameServerCollection")
 				c.handleDedicatedGameServerCol(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("PodAutoScaler controller - update DedicatedGameServerCollection")
+				c.logger.Print("PodAutoScaler controller - update DedicatedGameServerCollection")
 
 				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
@@ -105,10 +108,10 @@ func NewPodAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 			AddFunc: func(obj interface{}) {
 				// we're doing nothing on add
 				// the logic will run either on DGSCol add/update or DGS update
-				log.Print("PodAutoScaler controller - add DedicatedGameServer")
+				c.logger.Print("PodAutoScaler controller - add DedicatedGameServer")
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				log.Print("PodAutoScaler controller - update DedicatedGameServer")
+				c.logger.Print("PodAutoScaler controller - update DedicatedGameServer")
 
 				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
 				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
@@ -166,7 +169,7 @@ func (c *PodAutoScalerController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		log.Infof("Successfully synced '%s'", key)
+		c.logger.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -198,8 +201,14 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 			runtime.HandleError(fmt.Errorf("DedicatedGameServerCollection '%s' in work queue no longer exists", key))
 			return nil
 		}
-		log.Print(err.Error())
+		c.logger.WithField("DGSColName", dgsColTemp.Name).Errorf("Error listing DGSCol: %s", err.Error())
 		return err
+	}
+
+	// DGSCol is being terminated
+	if !dgsColTemp.DeletionTimestamp.IsZero() {
+		c.logger.WithField("DGSColName", dgsColTemp.Name).Info("DGSCol is being terminated")
+		return nil
 	}
 
 	// check if it has autoscaling enabled
@@ -210,13 +219,13 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 	// check if both DGS and Pod status != Running
 	if dgsColTemp.Status.DedicatedGameServerCollectionState != dgsv1alpha1.DedicatedGameServerCollectionStateRunning ||
 		dgsColTemp.Status.PodCollectionState != corev1.PodRunning {
-		log.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because DedicatedGameServer and/or Pod states are not Running")
+		c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because DedicatedGameServer and/or Pod states are not Running")
 		return nil
 	}
 
 	loc, err := time.LoadLocation("UTC")
 	if err != nil {
-		log.Error("Cannot load UTC time")
+		c.logger.Error("Cannot load UTC time")
 		return err
 	}
 
@@ -227,7 +236,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		lastScaleOperation, err := time.ParseInLocation(timeformat, dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime, loc)
 
 		if err != nil {
-			log.WithFields(log.Fields{
+			c.logger.WithFields(logrus.Fields{
 				"DGSColName":                 dgsColTemp.Name,
 				"LastScaleOperationDateTime": dgsColTemp.Spec.AutoScalerDetails.LastScaleOperationDateTime,
 				"Error":                      err.Error(),
@@ -240,7 +249,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 
 			// cooldown period has not passed
 			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.AutoScalerDetails.CoolDownInMinutes) {
-				log.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because coolDownPeriod has not passed")
+				c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because coolDownPeriod has not passed")
 				return nil
 			}
 		}
@@ -270,7 +279,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 	scaleOutThresholdPercent := float32(scalerDetails.ScaleOutThreshold) / float32(100)
 	scaleInThresholdPercent := float32(scalerDetails.ScaleInThreshold) / float32(100)
 
-	// log.WithFields(log.Fields{
+	// c.logger.WithFields(c.logger.Fields{
 	// 	"DGSCol":                   dgsColTemp.Name,
 	// 	"currentLoad":              currentLoad,
 	// 	"scaleOutThresholdPercent": scaleOutThresholdPercent,
@@ -292,7 +301,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 		if err != nil {
-			log.WithFields(log.Fields{
+			c.logger.WithFields(logrus.Fields{
 				"DGSColName":          dgsColTemp.Name,
 				"totalActivePlayers":  totalActivePlayers,
 				"totalPlayerCapacity": totalPlayerCapacity,
@@ -301,7 +310,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 			return err
 		}
 
-		log.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale out occurred")
+		c.logger.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale out occurred")
 
 		return nil
 	}
@@ -317,7 +326,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 
 		if err != nil {
-			log.WithFields(log.Fields{
+			c.logger.WithFields(logrus.Fields{
 				"DGSColName":          dgsColTemp.Name,
 				"totalActivePlayers":  totalActivePlayers,
 				"totalPlayerCapacity": totalPlayerCapacity,
@@ -326,7 +335,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 			return err
 		}
 
-		log.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale in occurred")
+		c.logger.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale in occurred")
 
 		return nil
 	}
@@ -353,15 +362,15 @@ func (c *PodAutoScalerController) Run(controllerThreadiness int, stopCh <-chan s
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	log.Info("Starting PodAutoScaler controller")
+	c.logger.Info("Starting PodAutoScaler controller")
 
 	// Wait for the caches for all controllers to be synced before starting workers
-	log.Info("Waiting for informer caches to sync for PodAutoScaler controller")
+	c.logger.Info("Waiting for informer caches to sync for PodAutoScaler controller")
 	if ok := cache.WaitForCacheSync(stopCh, c.dgsColListerSynced, c.dgsListerSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	log.Info("Starting workers for PodAutoScaler controller")
+	c.logger.Info("Starting workers for PodAutoScaler controller")
 
 	// Launch a number of workers to process resources
 	for i := 0; i < controllerThreadiness; i++ {
@@ -370,9 +379,9 @@ func (c *PodAutoScalerController) Run(controllerThreadiness int, stopCh <-chan s
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	log.Info("Started workers for PodAutoScaler controller")
+	c.logger.Info("Started workers for PodAutoScaler controller")
 	<-stopCh
-	log.Info("Shutting down workers for PodAutoScaler controller")
+	c.logger.Info("Shutting down workers for PodAutoScaler controller")
 
 	return nil
 }
@@ -384,7 +393,7 @@ func (c *PodAutoScalerController) runWorker() {
 	// hot loop until we're told to stop.  processNextWorkItem will
 	// automatically wait until there's work available, so we don't worry
 	// about secondary waits
-	log.Info("Starting loop for AutoScaler controller")
+	c.logger.Info("Starting loop for AutoScaler controller")
 	for c.processNextWorkItem() {
 	}
 }
@@ -403,7 +412,7 @@ func (c *PodAutoScalerController) handleDedicatedGameServerCol(obj interface{}) 
 			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServerCollection object tombstone, invalid type"))
 			return
 		}
-		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+		c.logger.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
 	c.enqueueDedicatedGameServerCollection(object)
@@ -423,7 +432,7 @@ func (c *PodAutoScalerController) handleDedicatedGameServer(obj interface{}) {
 			runtime.HandleError(fmt.Errorf("error decoding DedicatedGameServer object tombstone, invalid type"))
 			return
 		}
-		log.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
+		c.logger.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
 	//if this DGS has a parent DGSCol

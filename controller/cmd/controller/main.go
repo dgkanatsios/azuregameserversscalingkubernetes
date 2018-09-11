@@ -33,21 +33,20 @@ func main() {
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 30*time.Minute)
 	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
 
-	dgsColController := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
+	dgsColController, err := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
 		shared.NewRealRandomNameGenerator(), clockwork.NewRealClock())
+
+	if err != nil {
+		log.Errorf("Cannot initialize DGSCollection controller due to %s", err.Error())
+		return
+	}
 
 	dgsController := controller.NewDedicatedGameServerController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes(),
 		shared.NewRealRandomNameGenerator())
-
-	err = controller.InitializePortRegistry(dgsclient)
-	if err != nil {
-		log.Panicf("Cannot initialize PortRegistry:%v", err)
-	}
-	log.Info("Initialized Port Registry")
 
 	controllers := []controllerHelper{dgsColController, dgsController}
 
@@ -86,8 +85,7 @@ func runAllControllers(controllers []controllerHelper, controllerThreadiness int
 
 	<-stopCh
 	log.Info("Controllers stopped")
-	controller.StopPortRegistry()
-	log.Info("PortRegistry stopped")
+
 }
 
 type controllerHelper interface {

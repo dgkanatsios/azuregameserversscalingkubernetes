@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const displayVariablesDuringTesting = true
+const displayVariablesDuringTesting = false
 
 func TestPortRegistry(t *testing.T) {
 

@@ -4,7 +4,7 @@ metadata:
   name: openarena-collection-example
 spec:
   replicas: 5
-  autoScalerDetails:
+  podAutoScalerDetails:
     minimumReplicas: 5
     maximumReplicas: 10
     scaleInThreshold: 60

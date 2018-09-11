@@ -50,11 +50,11 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t
 			},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Template:      template,
-			ActivePlayers: 0,
+			Template: template,
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
+			ActivePlayers:            0,
 		},
 	}
 
@@ -73,11 +73,11 @@ func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, tem
 				LabelDedicatedGameServerState: string(initialState)},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Template:      template,
-			ActivePlayers: 0,
+			Template: template,
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
+			ActivePlayers:            0,
 		},
 	}
 
@@ -134,7 +134,7 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 
 	activePlayersString := strconv.Itoa(activePlayers)
 
-	dgs.Spec.ActivePlayers = activePlayers
+	dgs.Status.ActivePlayers = activePlayers
 	dgs.Labels[LabelActivePlayers] = activePlayersString
 
 	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)

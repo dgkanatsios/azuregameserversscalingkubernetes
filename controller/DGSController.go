@@ -325,8 +325,8 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	c.logger.WithFields(logrus.Fields{
 		"serverName":      dgsTemp.Name,
 		"currentPodState": dgsTemp.Status.PodState,
-		"currentPublicIP": dgsTemp.Spec.PublicIP,
-		"currentNodeName": dgsTemp.Spec.NodeName,
+		"currentPublicIP": dgsTemp.Status.PublicIP,
+		"currentNodeName": dgsTemp.Status.NodeName,
 		"updatedPodState": pod.Status.Phase,
 		"updatedPublicIP": ip,
 		"updatedNodeName": pod.Spec.NodeName,
@@ -335,8 +335,8 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	dgsToUpdate.Status.PodState = pod.Status.Phase
 	dgsToUpdate.Labels[shared.LabelPodState] = string(pod.Status.Phase)
 
-	dgsToUpdate.Spec.PublicIP = ip
-	dgsToUpdate.Spec.NodeName = pod.Spec.NodeName
+	dgsToUpdate.Status.PublicIP = ip
+	dgsToUpdate.Status.NodeName = pod.Spec.NodeName
 
 	_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsToUpdate)
 
@@ -380,7 +380,7 @@ func (c *DedicatedGameServerController) getPodForDGS(dgs *dgsv1alpha1.DedicatedG
 
 func (c *DedicatedGameServerController) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {
 	//check its state and active players
-	return dgs.Spec.ActivePlayers == 0 && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
+	return dgs.Status.ActivePlayers == 0 && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
 }
 
 func (c *DedicatedGameServerController) getPublicIPForNode(nodeName string) (string, error) {

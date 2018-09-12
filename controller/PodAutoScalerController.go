@@ -338,7 +338,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		c.logger.WithField("DGSColName", dgsColToUpdate.Name).Info("Scale in occurred")
 
 		return nil
-	}
+	} 
 
 	return nil
 }

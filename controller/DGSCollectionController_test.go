@@ -249,7 +249,7 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 // noise level in our tests.
 func filterInformerActionsDGSCol(actions []core.Action) []core.Action {
 	ret := []core.Action{}
-	for _, action := range actions {
+	for _, action := range actions { 
 		// we removed the len(action.GetNamespace()) == 0 because the PortRegistry is initialized in the shared.GameNamespace
 		if action.Matches("list", "dedicatedgameservercollections") ||
 			action.Matches("watch", "dedicatedgameservercollections") ||

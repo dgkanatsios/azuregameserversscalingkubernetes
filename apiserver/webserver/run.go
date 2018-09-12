@@ -30,7 +30,6 @@ func Run(port int, listrunningauth bool) error {
 		route.Queries("code", "{code}")
 	}
 
-
 	// Dedicated Game Server API methods
 	router.HandleFunc("/setactiveplayers", setActivePlayersHandler).Methods("POST")
 	router.HandleFunc("/setserverstatus", setServerStatusHandler).Methods("POST")
@@ -38,7 +37,7 @@ func Run(port int, listrunningauth bool) error {
 	//this should be the last handler
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./html/"))).Methods("GET")
 
-	log.Printf("Waiting for requests at port %d\n", port)
+	log.Printf("Waiting for requests at port %d", port)
 
 	return http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(port)), router)
 }
@@ -242,6 +241,7 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte("Error setting ServerStatus: " + err.Error()))
+		log.Errorf("Error setting server status:%s", err.Error())
 		return
 	}
 
@@ -258,6 +258,7 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte("Error setting ServerStatus: " + err.Error()))
+		log.Errorf("Error setting server status:%s", err.Error())
 		return
 	}
 

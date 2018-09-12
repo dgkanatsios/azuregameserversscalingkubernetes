@@ -207,7 +207,7 @@ func TestPortRegistry(t *testing.T) {
 		portRegistry.displayRegistry()
 	}
 
-	portRegistry.StopPortRegistry()
+	portRegistry.Stop()
 
 }
 

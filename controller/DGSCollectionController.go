@@ -541,6 +541,12 @@ func (c *DedicatedGameServerCollectionController) handleDedicatedGameServer(obj 
 		c.logger.Infof("Recovered deleted DedicatedGameServerCollection object '%s' from tombstone", object.GetName())
 	}
 
+	// DGS is being terminated
+	if !object.GetDeletionTimestamp().IsZero() {
+		c.logger.WithField("DedicatedGameServerName", object.GetName()).Info("DedicatedGameServer is being terminated")
+		return
+	}
+
 	// when we get a DGS, we will enqueue the DGSCol only if
 	// DGS has a parent DGSCol, so that DGSCol get updated with new status etc.
 
@@ -610,11 +616,12 @@ func (c *DedicatedGameServerCollectionController) Run(controllerThreadiness int,
 	c.logger.Info("Shutting down workers for DedicatedGameServerCollection controller")
 
 	c.logger.Info("Stopping Port Registry")
-	c.portRegistry.StopPortRegistry()
+	c.portRegistry.Stop()
 
 	return nil
 }
 
 func (c *DedicatedGameServerCollectionController) hasDedicatedGameServerCollectionChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
+	// Annotations may contain last scale in/out datetime
 	return oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas || !shared.AreMapsSame(oldDGSCol.Annotations, newDGSCol.Annotations)
 }

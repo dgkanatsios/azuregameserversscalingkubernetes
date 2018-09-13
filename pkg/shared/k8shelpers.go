@@ -11,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+// NewDedicatedGameServerCollection creates a new DedicatedGameServerCollection with the specified parameters
+// Initial state is DGSState: creating and PodState: pending
 func NewDedicatedGameServerCollection(name string, namespace string, replicas int32, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServerCollection {
 	dedicatedgameservercollection := &dgsv1alpha1.DedicatedGameServerCollection{
 		ObjectMeta: metav1.ObjectMeta{
@@ -23,6 +25,7 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 		},
 		Status: dgsv1alpha1.DedicatedGameServerCollectionStatus{
 			DedicatedGameServerCollectionState: dgsv1alpha1.DedicatedGameServerCollectionStateCreating,
+			PodCollectionState:                 corev1.PodPending,
 		},
 	}
 	return dedicatedgameservercollection
@@ -61,6 +64,7 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t
 	return dedicatedgameserver
 }
 
+// NewDedicatedGameServerWithNoParent creates a new DedicatedGameServer that is not part of a DedicatedGameServerCollection
 func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, template corev1.PodSpec, namegenerator RandomNameGenerator) *dgsv1alpha1.DedicatedGameServer {
 	dgsName := namegenerator.GenerateName(namePrefix)
 	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating

@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: aks-gaming-apiserver
-        image: docker.io/dgkanatsios/aks_gaming_apiserver:0.0.31
+        image: docker.io/dgkanatsios/aks_gaming_apiserver:0.0.32
         imagePullPolicy: Always
         args: ["./apiserver","--port","8000"]
         ports:
@@ -46,7 +46,7 @@ spec:
       containers:
       - name: aks-gaming-controller
         args: ["./controller","--podautoscaler","true"]
-        image: docker.io/dgkanatsios/aks_gaming_controller:0.0.31
+        image: docker.io/dgkanatsios/aks_gaming_controller:0.0.32
         imagePullPolicy: Always
 ---
 apiVersion: v1

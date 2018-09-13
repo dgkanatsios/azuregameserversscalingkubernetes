@@ -51,7 +51,7 @@
         <table class="table table-striped" id="myTable">
             <thead>
                 <tr>
-                    <th>ServerName</th>
+                    <th>DGSName</th>
                     <th>NodeName</th>
                     <th>PublicIP</th>
                     <th>Players</th>
@@ -86,9 +86,9 @@
                     $('#myTable > tbody:last-child').append(
                         `<tr>
                         <td>${el.metadata.name}</td>
-                        <td>${el.spec.nodeName}</td>
-                        <td>${el.spec.publicIP}</td>
-                        <td>${el.spec.activePlayers}</td>
+                        <td>${el.status.nodeName}</td>
+                        <td>${el.status.publicIP}</td>
+                        <td>${el.status.activePlayers}</td>
                         <td>${JSON.stringify(el.spec.template.containers[0].ports)}</td>
                         <td>${el.metadata.labels.DedicatedGameServerCollectionName}</td>
                         <td>${el.metadata.labels.DedicatedGameServerState}</td>

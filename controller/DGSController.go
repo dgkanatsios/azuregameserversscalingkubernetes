@@ -154,6 +154,12 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 		c.logger.Infof("Recovered deleted Pod object '%s' from tombstone", object.GetName())
 	}
 
+	// pod is being terminated
+	if !object.GetDeletionTimestamp().IsZero() {
+		c.logger.WithField("Pod", object.GetName()).Info("Pod is being terminated")
+		return
+	}
+
 	//if this Pod has a parent DGS
 	if len(object.GetOwnerReferences()) > 0 && object.GetOwnerReferences()[0].Kind == shared.DedicatedGameServerKind {
 		//find it

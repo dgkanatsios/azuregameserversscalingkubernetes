@@ -125,8 +125,8 @@ func (pr *PortRegistry) portProducer() {
 	}
 }
 
-// StopPortRegistry stops port registry mechanism by closing requests and responses channels
-func (pr *PortRegistry) StopPortRegistry() {
+// Stop stops port registry mechanism by closing requests and responses channels
+func (pr *PortRegistry) Stop() {
 	close(pr.portRequests)
 	close(pr.portResponses)
 }

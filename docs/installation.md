@@ -153,6 +153,16 @@ simplenodejsudp-collection-example-tjvym-zfcqt   1/1       Running   0          
 
 First two pods correspond to APIServer and Controller executable whereas the third is responsible for assigning Public IPs to Kubernetes Worker Nodes. The last 5 correspond to our DedicatedGameServers.
 
+Now it's a good time to check our web frontend. Type `kubectl get svc` to see the available Kubernetes services.
+
+```
+NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)        AGE
+aks-gaming-apiserver   LoadBalancer   10.0.125.248   104.214.226.21   80:30419/TCP   15d
+kubernetes             ClusterIP      10.0.0.1       <none>           443/TCP        50d
+```
+
+Grap the External IP of the *aks-gaming-apiserver* Service and paste it in your web browser of choice. You should see a list with all the "Running" DedicatedGameServers.
+
 ### Scaling
 
 Let's scale out our DedicatedGameServerCollection to 8 replicas.

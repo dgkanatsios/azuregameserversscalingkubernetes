@@ -98,7 +98,16 @@ NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCO
 simplenodejsudp-collection-example   5          5                   Running                     Running
 ```
 
-Now, try `kubectl get dgs` to see the statuses of each individual DedicatedGameServer
+If you don't see "Running" in both states in the beginning, please try again. Remember that the flow of events is
+
+- DedicatedGameServerCollection will create 5 DedicatedGameServers
+- Each DedicatedGameServer will create a single Pod
+- Kubernetes will pull the Docker image for the Pod and begin it
+- As soon as Pod is running, "Running" state will be reported in its parent DedicatedGameServer
+- When the game server begins executing, it should report "Running" state to the API Server
+- The DedicatedGameServerController will have GameServerCollectionState equal to "Running" state only if all DedicatedGameServers are in the "Running" state. Same applies to PodCollectionState.
+
+Now, try `kubectl get dgs` to see the statuses of each individual DedicatedGameServer. As mentioned, all should be "Running"
 
 ```
 NAME                                       ACTIVEPLAYERS   GAMESERVERSTATE   PODSTATE   PORTS                                                    PUBLICIP
@@ -109,7 +118,7 @@ simplenodejsudp-collection-example-pgqud   0               Running           Run
 simplenodejsudp-collection-example-tjvym   0               Running           Running    [map[containerPort:22222 hostPort:24984 protocol:UDP]]   40.115.6.130
 ```
 
-You can also see ActivePlayers and assigned ports. Let's try to connect to one of them, we'll use the netcat command. We'll try to connect to the first DedicatedGameServer. The Node's IP is 40.115.5.154 whereas the assigned port is 22388. We're using a UDP connection.
+Here you can also see ActivePlayers and assigned ports. Let's try to connect to one of them to test our installation. To do that, we'll use the netcat command. Let's try connect to the first DedicatedGameServer. The Node's IP is 40.115.5.154 (change it accordingly) whereas the assigned port is 22388. We're using a UDP connection, thus the *-u* parameter.
 
 ```bash
 nc -u 40.115.5.154 22388
@@ -163,7 +172,7 @@ NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCO
 simplenodejsudp-collection-example   8          8                   Running                     Running
 ```
 
-Great! Let's mock our system so that all DedicatedGameServers have 5 active players.
+Great! Let's trick our system so that all DedicatedGameServers have 5 active players. Normally, each DedicatedGameServer would have to call the respective APIServer REST method to set the number of active players.
 
 ```bash
 # get DGS names
@@ -180,14 +189,10 @@ Let's scale our DedicatedGameServerCollection to 6 replicas
 kubectl scale dgsc simplenodejsudp-collection-example --replicas=6
 ```
 
-DedicatedGameServerCollection has 6 available replicas
+Use the following command to see that DedicatedGameServerCollection has 6 available replicas
 
 ```bash
 kubectl get dgsc
-```
-
-```bash
-kubectl scale dgsc simplenodejsudp-collection-example --replicas=2
 ```
 
 ```
@@ -195,7 +200,7 @@ NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCO
 simplenodejsudp-collection-example   6          6                   Running                     Running
 ```
 
-However, there are still 8 DedicatedGameServers on our cluster. Check them out, including labels
+However, there are still 8 DedicatedGameServers on our cluster. Check them out, including their labels
 
 ```bash
 kubectl get dgs --show-labels
@@ -213,7 +218,7 @@ simplenodejsudp-collection-example-tjvym   5               MarkedForDeletion   R
 simplenodejsudp-collection-example-xgugp   5               Running             Running    [map[containerPort:22222 hostPort:24710 protocol:UDP]]   40.115.7.145   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-xgugp
 ```
 
-As you can see, 2 of them are MarkedForDeletion and do not belong to the DedicatedGameServerCollection anymore. Still, they are not deleted, since there are players still enjoying the game! Let's update these two game servers so that the system thinks that the game has finished and the players have left the server.
+As you can see, 2 of them have the state MarkedForDeletion and do not belong to the DedicatedGameServerCollection anymore. Still, they are not deleted, since there are players enjoying the game! Let's update (well, trick) these two game servers so that the system thinks that the game has finished and the players have left the server.
 
 *Make sure to change the value of dgs2 variable with the names of your DedicatedGameServers that are MarkedForDeletion*
 
@@ -225,7 +230,7 @@ kubectl patch dgs $dgs2 -p '[{ "op": "replace", "path": "/status/activePlayers",
 kubectl label dgs $dgs2 ActivePlayers=0 --overwrite
 ```
 
-Now, if you run `kubectl get dgs` you will see that the two MarkedForDeletion servers have disappeared, since the players that were connected to them left the game.
+Now, if you run `kubectl get dgs` you will see that the two MarkedForDeletion servers have disappeared, since the players that were connected to them have left the game and disconnected from the server.
 
 ```bash
 NAME                                       ACTIVEPLAYERS   GAMESERVERSTATE   PODSTATE   PORTS                                                    PUBLICIP

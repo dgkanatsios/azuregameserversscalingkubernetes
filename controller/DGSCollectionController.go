@@ -495,6 +495,10 @@ func (c *DedicatedGameServerCollectionController) assignPodCollectionState(dgsCo
 		if dgs.Status.PodState != corev1.PodRunning {
 			// so set the collection's Pod State to this one Pod's value
 			dgsCol.Status.PodCollectionState = dgs.Status.PodState
+			// if it happens to be empty string, set it as Pending
+			if dgsCol.Status.PodCollectionState == "" {
+				dgsCol.Status.PodCollectionState = corev1.PodPending
+			}
 			return nil
 		}
 	}

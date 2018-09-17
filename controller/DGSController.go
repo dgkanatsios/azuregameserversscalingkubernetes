@@ -401,7 +401,16 @@ func (c *DedicatedGameServerController) getPublicIPForNode(nodeName string) (str
 		}
 	}
 
-	return "", fmt.Errorf("node with name %s does not have a Public IP", nodeName)
+	c.logger.Infof("Node with name %s does not have a Public IP, will try to return the InternalIP", nodeName)
+
+	// externalIP not found, try InternalIP
+	for _, x := range node.Status.Addresses {
+		if x.Type == corev1.NodeInternalIP {
+			return x.Address, nil
+		}
+	}
+
+	return "", fmt.Errorf("Node with name %s does not have a Public or Internal IP", nodeName)
 }
 
 // enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name

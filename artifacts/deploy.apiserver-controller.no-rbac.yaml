@@ -41,7 +41,7 @@ spec:
   template:
     metadata:
       labels:
-        name:aks-gaming-controller
+        name: aks-gaming-controller
     spec:
       containers:
       - name: aks-gaming-controller

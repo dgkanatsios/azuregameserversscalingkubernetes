@@ -19,6 +19,7 @@ const (
 )
 
 const (
+	LabelIsDedicatedGameServer                     = "IsDedicatedGameServer"
 	LabelDedicatedGameServerName                   = "DedicatedGameServerName"
 	LabelServerName                                = "ServerName"
 	LabelDedicatedGameServerCollectionName         = "DedicatedGameServerCollectionName"

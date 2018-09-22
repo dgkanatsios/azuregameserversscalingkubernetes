@@ -154,12 +154,6 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 		c.logger.Infof("Recovered deleted Pod object '%s' from tombstone", object.GetName())
 	}
 
-	// pod is being terminated
-	if !object.GetDeletionTimestamp().IsZero() {
-		c.logger.WithField("Pod", object.GetName()).Info("Pod is being terminated")
-		return
-	}
-
 	//if this Pod has a parent DGS
 	if len(object.GetOwnerReferences()) > 0 && object.GetOwnerReferences()[0].Kind == shared.DedicatedGameServerKind {
 		//find it
@@ -379,8 +373,23 @@ func (c *DedicatedGameServerController) getPodForDGS(dgs *dgsv1alpha1.DedicatedG
 		return nil, nil
 	}
 
-	//TODO: check if len(pods) > 1 ???
-	//maybe there's a case that one pod is Terminating and another one is being created?
+	// if there's only one, then return it
+	if len(pods) == 1 {
+		return pods[0], nil
+	}
+
+	// if there's more than one, then probably there's one being terminated
+	if len(pods) > 1 {
+		// return the first one that is running
+		for _, pod := range pods {
+			if pod.Status.Phase == corev1.PodRunning {
+				return pod, nil
+			}
+
+		}
+	}
+
+	//if we reached here, just return the first one
 	return pods[0], nil
 }
 

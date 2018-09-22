@@ -24,7 +24,7 @@ In our case, each Dedicated Game Server is a single entity. There is no need for
 
 First effort was to use `hostNetwork` functionality for each Pod [link](http://alesnosek.com/blog/2017/02/14/accessing-kubernetes-pods-from-outside-of-the-cluster/), so we would hook up the container to each Node's network layer (=> no software NAT for our containers). This would require us to have the Dedicated Game Server listen to a specific port, so each game server we would use would have to be activated in a different port for every running Pod. As you can understand, this could easily become an issue in the future since it might not be possible to customize listening port for a game server. So, we ended up using Kubernetes `hostPort` for each Pod. We set a manual port (or more) for each Pod that is mapped to the game server's original listening port. Mapping itself is made possible via software NAT. The tricky part is that we manage the Port mapping for each Pod on each Node ourselves.
 
-## How can I view the Kubernetes Master control plane logs?
+## How can I view the Kubernetes Master control plane logs on AKS?
 
 Check [here](https://docs.microsoft.com/en-us/azure/aks/view-master-logs).
 
@@ -35,3 +35,34 @@ Check [here](https://docs.microsoft.com/en-us/azure/aks/kubelet-logs).
 ## How did you mock time in your code? [or, what is this 'clock' field in some objects]
 
 We needed to mock `time` object for our tests, check [this](https://medium.com/agrea-technogies/mocking-time-with-go-a89e66553e79) blog post for instructions.
+
+## How can I visualize my cluster objects/state?
+
+Apart from the [Kubernetes dashboard](https://docs.microsoft.com/en-us/azure/aks/kubernetes-dashboard), you can also use [Weave Scope](https://www.weave.works/docs/scope/latest/installing/#k8s).
+
+```bash
+# install Weave Scope
+kubectl apply -f "https://cloud.weave.works/k8s/scope.yaml?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+# port-forward the dashboard
+kubectl port-forward -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040
+# open localhost:4040 on your browser
+
+## I see that you have a self-signed key for authentication with WebhookServer. How can I generate my own?
+
+Easy enough, use openssl ([source](https://stackoverflow.com/questions/10175812/how-to-create-a-self-signed-certificate-with-openssl))
+
+```bash
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -nodes -subj '/CN=aks-gaming-webhookserver.default.svc' -days 365 
+```
+
+## How can I get my Kubernetes API Server CABundle value used for Validating and Mutating webhooks?
+
+Run this command ([source](https://medium.com/ibm-cloud/diving-into-kubernetes-mutatingadmissionwebhook-6ef3c5695f74)):
+
+```bash
+kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'
+```
+
+## Any tool to "smoke test" my AKS installation?
+
+Check [this](https://github.com/dsalamancaMS/K8sSmokeTest/blob/master/smoke.sh) bash script. [These](https://github.com/malachma/supp-tools/tree/master/k8s) script might help in troubleshooting as well.

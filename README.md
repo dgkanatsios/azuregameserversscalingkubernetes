@@ -16,9 +16,9 @@ This repository aims to provide a solution/guidance for managing containerized d
 ## Documentation
 
 - [Installation](docs/installation.md)
-- [FAQ](docs/FAQ.md)
 - [Kubernetes resources](docs/resources.md)
 - [Controllers](docs/controllers.md)
+- [FAQ](docs/FAQ.md)
 
 ## Architecture
 
@@ -79,6 +79,10 @@ Moreover, on root URL (**/**) the API Server will return an HTML page that displ
 ### Access code
 
 All API methods are protected via a code, represented as string and kept in a Kubernetes Secred called `apiaccesscode` (created during project's installation). This code should be appended in the URL's query string via `code` GET variable in each and every call. The only method that does not require authentication by default is the `/running` one (although this behavior can be changed in the API Server command line arguments).
+
+## Local development and building this project
+
+We have tested the project locally with Docker for [Windows](https://docs.docker.com/docker-for-windows/)/[Mac](https://docs.docker.com/docker-for-mac/install/) and its Kubernetes support. You can use the `Makefile` we have to test and deploy the application.
 
 ## Other
 

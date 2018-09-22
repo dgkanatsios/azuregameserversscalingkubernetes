@@ -51,15 +51,18 @@ func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32, namesp
 				continue
 			}
 
-			ports := make([]int32, len(dgs.Spec.Template.Containers[0].Ports))
-			for i, portInfo := range dgs.Spec.Template.Containers[0].Ports {
-				if portInfo.HostPort == 0 {
-					log.Errorf("HostPort for DGS %s and ContainerPort %d is zero, ignoring", dgs.Name, portInfo.ContainerPort)
-					continue
+			for j := 0; j < len(dgs.Spec.Template.Containers); j++ {
+				ports := make([]int32, len(dgs.Spec.Template.Containers[j].Ports))
+				for i, portInfo := range dgs.Spec.Template.Containers[j].Ports {
+					if portInfo.HostPort == 0 {
+						log.Errorf("HostPort for DGS %s and ContainerPort %d is zero, ignoring", dgs.Name, portInfo.ContainerPort)
+						continue
+					}
+					ports[i] = portInfo.HostPort
 				}
-				ports[i] = portInfo.HostPort
+				pr.assignRegisteredPorts(ports, dgs.Name)
 			}
-			pr.assignRegisteredPorts(ports, dgs.Name)
+
 		}
 	}
 

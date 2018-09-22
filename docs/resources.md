@@ -21,3 +21,16 @@ Interesting blog posts from Cloudark
 - https://itnext.io/analyzing-value-of-operator-framework-for-kubernetes-community-5a65abc259ec
 - https://itnext.io/under-the-hood-of-kubebuilder-framework-ff6b38c10796
 - https://medium.com/@cloudark/under-the-hood-of-the-operator-sdk-eebc8fdeebbf
+
+MutatingAdmissionWebhooks
+- https://kubernetes.io/docs/admin/extensible-admission-controllers/#admission-webhooks
+- https://medium.com/ibm-cloud/diving-into-kubernetes-mutatingadmissionwebhook-6ef3c5695f74
+- https://github.com/rmars/admission-webhook-example
+- https://github.com/dkoshkin/admission-webhook
+- https://github.com/morvencao/kube-mutating-webhook-tutorial
+
+Pod scheduling
+- https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+
+Other tools
+- https://kubeyaml.com/

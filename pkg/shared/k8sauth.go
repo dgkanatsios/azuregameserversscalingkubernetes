@@ -71,14 +71,14 @@ func buildOutOfClusterConfig() (*rest.Config, error) {
 func getClientOutOfCluster() (*kubernetes.Clientset, *dgsclientsetversioned.Clientset, error) {
 	config, err := buildOutOfClusterConfig()
 	if err != nil {
-		log.Fatalf("Can not get kubernetes config: %v", err)
+		log.Fatalf("Cannot get kubernetes config: %v", err)
 		return nil, nil, err
 	}
 
 	clientSet, err = kubernetes.NewForConfig(config)
 
 	if err != nil {
-		log.Fatalf("Can not create clientset for config: %v", err)
+		log.Fatalf("Cannot create clientset for config: %v", err)
 		return nil, nil, err
 	}
 

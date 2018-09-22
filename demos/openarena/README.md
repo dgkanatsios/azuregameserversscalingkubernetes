@@ -8,10 +8,6 @@ A fork of https://github.com/sago007/docker_openarena that works with [AzureGame
 - ability to set server name via env variable ($SERVER_NAME)
 - stores connected users count to /tmp/connected
 
-TODO:
-
-- posts updates about connected users count to Azure Function (url is $SET_SESSIONS_URL, set during container creation from the AzureContainerInstancesManagement project).
-
 To run locally, type:
 
 ```bash

@@ -338,19 +338,24 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 
 	for i := 0; i < increaseCount; i++ {
 		dgsName := c.namegenerator.GenerateName(dgsColTemp.Name)
-		// first, get random ports
-		for j := 0; j < len(dgsColTemp.Spec.Template.Containers[0].Ports); j++ {
-			//get a random port
-			hostport, errPort := c.portRegistry.GetNewPort(dgsName)
-			if errPort != nil {
-				return errPort
-			}
-			dgsColTemp.Spec.Template.Containers[0].Ports[j].HostPort = hostport
-		}
 
 		// each dedicated game server will have a name of
 		// DedicatedGameServerCollectioName + "-" + random name
 		dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template, c.namegenerator)
+
+		// for each container on the pod
+		for k := 0; k < len(dgs.Spec.Template.Containers); k++ {
+			// assign random port for each port "request"
+			for j := 0; j < len(dgs.Spec.Template.Containers[k].Ports); j++ {
+				//get a random port
+				hostport, errPort := c.portRegistry.GetNewPort(dgsName)
+				if errPort != nil {
+					return errPort
+				}
+				dgs.Spec.Template.Containers[k].Ports[j].HostPort = hostport
+			}
+		}
+
 		_, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(dgsColTemp.Namespace).Create(dgs)
 
 		if err != nil {

@@ -53,7 +53,7 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t
 			},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Template: template,
+			Template: *template.DeepCopy(),
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
@@ -77,7 +77,7 @@ func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, tem
 				LabelDedicatedGameServerState: string(initialState)},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Template: template,
+			Template: *template.DeepCopy(),
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
@@ -102,7 +102,7 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails, namegen
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
 			Namespace: dgs.Namespace,
-			Labels:    map[string]string{LabelDedicatedGameServerName: dgs.Name},
+			Labels:    map[string]string{LabelDedicatedGameServerName: dgs.Name, LabelIsDedicatedGameServer: "true"},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgs, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -114,10 +114,12 @@ func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails, namegen
 		Spec: dgs.Spec.Template,
 	}
 
-	// assign special ENV
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SERVER_NAME", Value: dgs.Name})
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SET_ACTIVE_PLAYERS_URL", Value: apiDetails.SetActivePlayersURL})
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, corev1.EnvVar{Name: "SET_SERVER_STATUS_URL", Value: apiDetails.SetServerStatusURL})
+	for i := 0; i < len(pod.Spec.Containers); i++ {
+		// assign special ENV
+		pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{Name: "SERVER_NAME", Value: dgs.Name})
+		pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{Name: "SET_ACTIVE_PLAYERS_URL", Value: apiDetails.SetActivePlayersURL})
+		pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{Name: "SET_SERVER_STATUS_URL", Value: apiDetails.SetServerStatusURL})
+	}
 
 	pod.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet //https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever

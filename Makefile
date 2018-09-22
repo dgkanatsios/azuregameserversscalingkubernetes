@@ -28,3 +28,4 @@ clean:
 		$(GOCLEAN)
 		rm -f ./apiserver/cmd/apiserver/apiserver
 		rm -f ./controller/cmd/controller/controller
+travis: clean install test

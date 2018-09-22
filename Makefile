@@ -8,6 +8,8 @@ TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
 export TAG
 
 all: test build
+install:
+		$(GOCMD) get -t -v ./...
 build:
 		$(GOBUILD)  -o ./apiserver/cmd/apiserver/apiserver ./apiserver/cmd/apiserver
 		$(GOBUILD)  -o ./controller/cmd/controller/controller ./controller/cmd/controller

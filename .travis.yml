@@ -7,6 +7,4 @@ go:
 git:
   depth: 1
 
-install: false
-
 script: go test ./...

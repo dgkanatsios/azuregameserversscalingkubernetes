@@ -20,21 +20,48 @@ We just bind our custom functions to those events so we can do whatever we want.
 
 // Listening event. This event will tell the server to listen on the given address.
 server.on('listening', function () {
-    var address = server.address();
-    console.log('UDP Server listening on ' + address.address + ":" + address.port);
+  var address = server.address();
+  console.log('UDP Server listening on ' + address.address + ":" + address.port);
 });
 
 // Message event. This event is automatically executed when this server receives a new message
 // That means, when we use FUDPPing::UDPEcho in Unreal Engine 4 this event will trigger.
 server.on('message', function (message, remote) {
-    console.log('Message received from ' + remote.address + ':' + remote.port +' - ' + message.toString());
+  console.log('Message received from ' + remote.address + ':' + remote.port + ' - ' + message.toString());
 
-    const returnMessage = Buffer.from(`${os.hostname()} says: ${message.toString()}`);
-
-    server.send(returnMessage, 0, returnMessage.length, remote.port, remote.address, function(err, bytes) {
-	  if (err) throw err;
-	  console.log('UDP message sent to ' + remote.address +':'+ remote.port + '\n');
-	});
+  if (message.toString().toUpperCase().startsWith("PLAYERS")) {
+    const number = parseInt(message.toString().split("|")[1]);
+    const postData = { "serverName": process.env.SERVER_NAME, "playerCount": number };
+    sendData(process.env.SET_ACTIVE_PLAYERS_URL, postData, function (err, response, body) {
+      let serverResponse = message.toString();
+      if (err) {
+        console.log(err);
+        serverResponse = `${serverResponse}, error in setting Active Players: ${err}`;
+      } else if (response) {
+        console.log("Set Active Players to running OK");
+        serverResponse = `${serverResponse}, set Active Players to ${number} OK`;
+      }
+      sendResponse(serverResponse, remote);
+    });
+  }
+  else if (message.toString().toUpperCase().startsWith("STATUS")) {
+    const status = message.toString().split("|")[1];
+    const postData = { "serverName": process.env.SERVER_NAME, "status": status };
+    sendData(process.env.SET_SERVER_STATUS_URL, postData, function (err, response, body) {
+      let serverResponse = message.toString();
+      if (err) {
+        console.log(err);
+        serverResponse = `${serverResponse}, error in setting Server Status: ${err}`;
+      } else if (response) {
+        console.log("Set Server Status OK");
+        serverResponse = `${serverResponse}, set Server Status to ${status} OK`;
+      }
+      sendResponse(serverResponse, remote);
+    });
+  }
+  else {
+    sendResponse(message.toString(), remote);
+  }
 });
 
 // Error event. Something bad happened. Prints out error stack and closes the server.
@@ -43,37 +70,55 @@ server.on('error', (err) => {
   server.close();
 });
 
-if (!process.env.SERVER_NAME){
+if (!process.env.SERVER_NAME) {
   console.log("$SERVER_NAME is not defined");
   process.exit(-1);
 }
 
-if (!process.env.SET_SERVER_STATUS_URL){
+if (!process.env.SET_SERVER_STATUS_URL) {
   console.log("$SET_SERVER_STATUS_URL is not defined");
   process.exit(-1);
 }
 
+if (!process.env.SET_ACTIVE_PLAYERS_URL) {
+  console.log("$SET_ACTIVE_PLAYERS_URL is not defined");
+  process.exit(-1);
+}
+
 const postData = {
-  serverName: process.env.SERVER_NAME, 
+  serverName: process.env.SERVER_NAME,
   status: "Running"
 };
 
-// // send "Running" to the APIServer
-request({
-  url: process.env.SET_SERVER_STATUS_URL,
-  json: postData,
-  method: 'POST',
-  maxAttempts: 5, // (default) try 5 times
-  retryDelay: 5000, // (default) wait for 5s before trying again
-  retryStrategy: request.RetryStrategies.HTTPOrNetworkError // (default) retry on 5xx or network errors
-}, function (err, response, body) {
+// send "Running" to the APIServer
+sendData(process.env.SET_SERVER_STATUS_URL, postData, function (err, response, body) {
   // this callback will only be called when the request succeeded or after maxAttempts or on error
   if (err) {
-      console.log(err);
+    console.log(err);
   } else if (response) {
-      console.log("Set status running OK");
+    console.log("Set status running OK");
   }
 });
 
 // Finally bind our server to the given port and host so that listening event starts happening.
 server.bind(PORT, HOST);
+
+function sendData(url, postData, callback) {
+  request({
+    url: url,
+    json: postData,
+    method: 'POST',
+    maxAttempts: 5, // (default) try 5 times
+    retryDelay: 5000, // (default) wait for 5s before trying again
+    retryStrategy: request.RetryStrategies.HTTPOrNetworkError // (default) retry on 5xx or network errors
+  }, callback);
+}
+
+function sendResponse(response, remote) {
+  const returnMessage = Buffer.from(`${os.hostname()} says: ${response}`);
+
+  server.send(returnMessage, 0, returnMessage.length, remote.port, remote.address, function (err, bytes) {
+    if (err) throw err;
+    console.log('UDP message sent to ' + remote.address + ':' + remote.port + '\n');
+  });
+}

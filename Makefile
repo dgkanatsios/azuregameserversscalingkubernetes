@@ -42,6 +42,6 @@ clean:
 		rm -f ./apiserver/cmd/apiserver/apiserver
 		rm -f ./controller/cmd/controller/controller
 travis: clean deps
-		go test -race -coverprofile=coverage.txt -covermode=atomic
+		$(GOTEST) -v ./... -race -coverprofile=coverage.txt -covermode=atomic
 authorsfile: ## Update the AUTHORS file from the git logs
-	git log --all --format='%aN <%cE>' | sort -u > AUTHORS
+		git log --all --format='%aN <%cE>' | sort -u > AUTHORS

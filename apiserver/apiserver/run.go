@@ -261,6 +261,7 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	if status != dgsv1alpha1.DedicatedGameServerStateCreating && status != dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion && status != dgsv1alpha1.DedicatedGameServerStateRunning && status != dgsv1alpha1.DedicatedGameServerStateFailed {
 		w.WriteHeader(400)
 		w.Write([]byte("Wrong value for serverStatus"))
+		log.Errorf("Error in server status, wrong value:%s", status)
 		return
 	}
 

@@ -30,31 +30,31 @@ server.on('message', function (message, remote) {
   console.log('Message received from ' + remote.address + ':' + remote.port + ' - ' + message.toString());
 
   if (message.toString().toUpperCase().startsWith("PLAYERS")) {
-    const number = parseInt(message.toString().split("|")[1]);
+    const number = parseInt(message.toString().split("|")[1].replace("\n",""));
     const postData = { "serverName": process.env.SERVER_NAME, "playerCount": number };
     sendData(process.env.SET_ACTIVE_PLAYERS_URL, postData, function (err, response, body) {
-      let serverResponse = message.toString();
+      let serverResponse = message.toString().replace("\n","");
       if (err) {
         console.log(err);
-        serverResponse = `${serverResponse}, error in setting Active Players: ${err}`;
+        serverResponse = `${serverResponse}, error in setting Active Players: ${err}\n`;
       } else if (response) {
         console.log("Set Active Players to running OK");
-        serverResponse = `${serverResponse}, set Active Players to ${number} OK`;
+        serverResponse = `${serverResponse}, set Active Players to ${number} OK\n`;
       }
       sendResponse(serverResponse, remote);
     });
   }
   else if (message.toString().toUpperCase().startsWith("STATUS")) {
-    const status = message.toString().split("|")[1];
+    const status = message.toString().split("|")[1].replace("\n","");
     const postData = { "serverName": process.env.SERVER_NAME, "status": status };
     sendData(process.env.SET_SERVER_STATUS_URL, postData, function (err, response, body) {
-      let serverResponse = message.toString();
+      let serverResponse = message.toString().replace("\n","");
       if (err) {
         console.log(err);
-        serverResponse = `${serverResponse}, error in setting Server Status: ${err}`;
+        serverResponse = `${serverResponse}, error in setting Server Status: ${err}\n`;
       } else if (response) {
         console.log("Set Server Status OK");
-        serverResponse = `${serverResponse}, set Server Status to ${status} OK`;
+        serverResponse = `${serverResponse}, set Server Status to ${status} OK\n`;
       }
       sendResponse(serverResponse, remote);
     });

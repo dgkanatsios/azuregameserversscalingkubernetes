@@ -5,7 +5,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 VERSION=0.0.34
-REGISTRY ?= dgkanatsios
+REGISTRY ?= docker.io/dgkanatsios
 TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
 export TAG
 

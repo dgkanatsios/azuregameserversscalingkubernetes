@@ -13,4 +13,3 @@ sed -i "s#docker.io/dgkanatsios/aks_gaming_controller:$1#docker.io/dgkanatsios/a
 sed -i "s#docker.io/dgkanatsios/aks_gaming_apiserver:$1#docker.io/dgkanatsios/aks_gaming_apiserver:$2#g" ../artifacts/deploy.apiserver-controller.no-rbac.yaml
 
 echo "Changed from $1 to $2"
-exit 0

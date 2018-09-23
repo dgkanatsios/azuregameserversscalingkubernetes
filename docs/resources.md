@@ -14,6 +14,8 @@ Some useful resources regarding Kubernetes Operators, CRDs, etc.
 - Heptio blog post: https://blog.heptio.com/an-introduction-to-extending-kubernetes-with-customresourcedefinitions-76deb675b27a
 - Openshift CRD Deep Dive: https://blog.openshift.com/kubernetes-deep-dive-code-generation-customresources/
 - Guidelines: https://github.com/kubernetes/community/blob/master/contributors/devel/controllers.md
+- https://metacontroller.app/
+- https://github.com/xmudrii/etcdproxy-controller
 
 Interesting blog posts from Cloudark
 - https://medium.com/@cloudark/kubernetes-custom-controllers-b6c7d0668fdf

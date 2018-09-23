@@ -4,6 +4,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 [![unofficial Google Analytics for GitHub](https://gaforgithub.azurewebsites.net/api?repo=AzureGameServersScalingKubernetes)](https://github.com/dgkanatsios/gaforgithub)
 ![](https://img.shields.io/badge/status-alpha-red.svg)
+[![codecov](https://codecov.io/gh/dgkanatsios/azuregameserversscalingkubernetes/branch/master/graph/badge.svg)](https://codecov.io/gh/dgkanatsios/azuregameserversscalingkubernetes)
 
 # AzureGameServersScalingKubernetes
 

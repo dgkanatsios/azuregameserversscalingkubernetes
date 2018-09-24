@@ -15,7 +15,7 @@ type realRandomNameGenerator struct{}
 
 // GenerateName generates a random name that starts with the prefix and ends with 5 random characters
 func (*realRandomNameGenerator) GenerateName(prefix string) string {
-	return prefix + "-" + randString(5)
+	return prefix + "-" + randString(RandStringSize)
 }
 
 // NewRealRandomNameGenerator returns a real (production) RandomNameGenerator

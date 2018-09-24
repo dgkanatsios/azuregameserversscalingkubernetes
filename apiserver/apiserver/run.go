@@ -27,6 +27,7 @@ func Run(port int, listrunningauth bool) *http.Server {
 	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
 	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
 	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
+	router.HandleFunc("/healthz", healthHandler).Methods("GET")
 	route := router.HandleFunc("/running", getPodStateRunningDGSHandler).Methods("GET")
 	if listrunningauth {
 		listPodStateRunningRequiresAuth = true
@@ -275,4 +276,8 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(fmt.Sprintf("Set server status OK for server: %s\n", serverStatus.ServerName)))
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
 }

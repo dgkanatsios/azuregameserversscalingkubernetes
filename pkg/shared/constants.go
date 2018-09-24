@@ -16,6 +16,8 @@ const (
 	MinPort int32 = 20000
 	// MaxPort is maximum Port Number
 	MaxPort int32 = 30000
+
+	RandStringSize = 5
 )
 
 const (

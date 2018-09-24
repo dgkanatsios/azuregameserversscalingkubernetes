@@ -34,5 +34,6 @@ MutatingAdmissionWebhooks
 Pod scheduling
 - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 
-Other tools
+Other
 - https://kubeyaml.com/
+- [Dep quick overview](https://gist.github.com/subfuzion/12342599e26f5094e4e2d08e9d4ad50d)

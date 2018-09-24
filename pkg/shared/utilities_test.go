@@ -1,6 +1,9 @@
 package shared
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestAreMapsSame(t *testing.T) {
 	map1 := map[string]string{
@@ -56,5 +59,42 @@ func TestAreMapsSame(t *testing.T) {
 	check5 := AreMapsSame(map1, map6)
 	if check5 == true {
 		t.Error("Should be false")
+	}
+}
+
+func TestRandString(t *testing.T) {
+	s := randString(5)
+	if len(s) != 5 {
+		t.Error("Error in random string creation")
+	}
+}
+
+func TestGetRandomInt(t *testing.T) {
+	a := GetRandomInt(1, 1)
+	if a != 0 {
+		t.Error("Error in a")
+	}
+	b := GetRandomInt(5, 1)
+	if b != 0 {
+		t.Error("Error in b")
+	}
+	c := GetRandomInt(1, 2)
+	if c != 1 && c != 2 {
+		fmt.Print(c)
+		t.Error("Error in c")
+	}
+}
+
+func TestGetRandomIndexes(t *testing.T) {
+	a := GetRandomIndexes(10, 5)
+	if len(a) != 5 {
+		t.Error("Length should be 5")
+	}
+}
+
+func TestLogger(t *testing.T) {
+	l := Logger()
+	if l == nil {
+		t.Error("Should not be nil")
 	}
 }

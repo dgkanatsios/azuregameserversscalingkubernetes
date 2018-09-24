@@ -10,6 +10,13 @@ spec:
     containers:
     - name: openarena
       image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.5
+      resources:
+        limits:
+          cpu: 100m
+          memory: 64Mi
+        requests:
+          cpu: 100m
+          memory: 32Mi
       env:
       - name: OA_STARTMAP
         value: "dm4ish"

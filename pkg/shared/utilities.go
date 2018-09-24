@@ -26,14 +26,14 @@ func randString(n int) string {
 
 // GetRandomInt returns a random number
 func GetRandomInt(min int, max int) int {
-	if max-min == 0 { //Intn panics if argument is <=0
+	if max-min <= 0 { //Intn panics if argument is <=0
 		return 0
 	}
 	return rand.Intn(max-min) + min
 }
 
 // GetRandomIndexes will return *count* random integers from a hypothetical slice of *length*
-// For example, we'll take two random indexes from a length-five slice
+// For example, think that we want to take two random indexes from a length-five slice
 func GetRandomIndexes(length int, count int) []int {
 
 	if count > length {

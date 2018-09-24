@@ -33,9 +33,10 @@ var (
 		shared.LabelIsDedicatedGameServer: "true",
 	}
 )
-
+var verboseLogging = false
 var server WebhookServer
 
+// WebhookServer represents the webhook server object
 type WebhookServer struct {
 	http.Server
 }
@@ -71,12 +72,14 @@ func (whsvr *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	isDGSCol := false
 	isDGS := false
 	hasExistingAffinity := false
+	var podSpec *corev1.PodSpec
 
 	var dgsCol dgsv1alpha1.DedicatedGameServerCollection
 	err := json.Unmarshal(req.Object.Raw, &dgsCol)
 	if err == nil {
 		isDGSCol = true
 		hasExistingAffinity = dgsCol.Spec.Template.Affinity != nil
+		podSpec = &dgsCol.Spec.Template
 	}
 
 	var dgs dgsv1alpha1.DedicatedGameServer
@@ -84,6 +87,7 @@ func (whsvr *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	if err == nil {
 		isDGS = true
 		hasExistingAffinity = dgsCol.Spec.Template.Affinity != nil
+		podSpec = &dgsCol.Spec.Template
 	}
 
 	if !isDGSCol && !isDGS {
@@ -95,8 +99,39 @@ func (whsvr *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		}
 	}
 
-	log.Infof("AdmissionReview for Kind=%v, Namespace=%v Name=%v (%v) UID=%v k8sOperation=%v UserInfo=%v",
-		req.Kind, req.Namespace, req.Name, dgsCol.Name, req.UID, req.Operation, req.UserInfo)
+	//check if all the containers in the PodSpec have requests and limits (CPU and RAM) set
+	for _, container := range podSpec.Containers {
+		//check for requests
+		if container.Resources.Requests.Cpu() == nil ||
+			container.Resources.Requests.Cpu().IsZero() ||
+			container.Resources.Requests.Memory() == nil ||
+			container.Resources.Requests.Memory().IsZero() {
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: fmt.Sprintf("Container called %s does not have Cpu and/or Memory requests defined", container.Name),
+				},
+			}
+		}
+
+		//check for requests
+		if container.Resources.Limits.Cpu() == nil ||
+			container.Resources.Limits.Cpu().IsZero() ||
+			container.Resources.Limits.Memory() == nil ||
+			container.Resources.Limits.Memory().IsZero() {
+			return &v1beta1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: fmt.Sprintf("Container called %s does not have Cpu and/or Memory limits defined", container.Name),
+				},
+			}
+		}
+	}
+
+	if verboseLogging {
+		log.Infof("AdmissionReview for Kind=%v, Namespace=%v Name=%v (%v) UID=%v k8sOperation=%v UserInfo=%v",
+			req.Kind, req.Namespace, req.Name, dgsCol.Name, req.UID, req.Operation, req.UserInfo)
+	}
 
 	var patch []patchOperation
 	patch = append(patch, addAffinity(hasExistingAffinity))
@@ -113,7 +148,10 @@ func (whsvr *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 
 	jsonPatchType := v1beta1.PatchTypeJSONPatch
 
-	log.Infof("AdmissionResponse: patch=%v", string(patchBytes))
+	if verboseLogging {
+		log.Infof("AdmissionResponse: patch=%v", string(patchBytes))
+	}
+
 	return &v1beta1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,

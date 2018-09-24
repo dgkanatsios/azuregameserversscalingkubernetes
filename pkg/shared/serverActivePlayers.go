@@ -18,6 +18,7 @@ func initializeSetActivePlayersURL() error {
 	return nil
 }
 
+// GetActivePlayersSetURL returns the url on the API Server about setting Active Players metric
 func GetActivePlayersSetURL() string {
 	if setActivePlayersURL == "" {
 		initializeSetActivePlayersURL()

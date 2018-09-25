@@ -98,3 +98,17 @@ func TestLogger(t *testing.T) {
 		t.Error("Should not be nil")
 	}
 }
+
+func TestSliceContains(t *testing.T) {
+	s := []int32{1, 2, 3}
+
+	v1 := SliceContains(s, 4)
+	if v1 {
+		t.Error("Should be false")
+	}
+
+	v2 := SliceContains(s, 1)
+	if !v2 {
+		t.Error("Should be true")
+	}
+}

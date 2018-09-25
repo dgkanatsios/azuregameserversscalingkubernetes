@@ -4,7 +4,7 @@ GOBUILD=CGO_ENABLED=0 GOOS=linux $(GOCMD) build -a -installsuffix cgo
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-VERSION=0.0.36
+VERSION=0.0.37
 REGISTRY ?= docker.io/dgkanatsios
 TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
 export TAG
@@ -42,6 +42,8 @@ builddockerlocal: buildlocal
 		docker build -f various/Dockerfile.apiserver.local -t dgkanatsios/aks_gaming_apiserver:$(TAG) .	
 		docker build -f various/Dockerfile.controller.local -t dgkanatsios/aks_gaming_controller:$(TAG) .	
 deployk8slocal: buildlocal builddockerlocal
+		kubectl apply -f ./artifacts/crds
 		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl apply -f -
 cleank8slocal:
+		kubectl delete -f ./artifacts/crds
 		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl delete -f -

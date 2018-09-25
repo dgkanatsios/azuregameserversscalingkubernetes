@@ -4,6 +4,8 @@ metadata:
   name: simplenodejsudp-collection-example
 spec:
   replicas: 5
+  portsToExpose:
+  - 22222
   template: 
     restartPolicy: Never
     dnsPolicy: ClusterFirstWithHostNet

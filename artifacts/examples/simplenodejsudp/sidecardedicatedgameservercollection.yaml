@@ -1,8 +1,11 @@
 apiVersion: azuregaming.com/v1alpha1
-kind: DedicatedGameServer
+kind: DedicatedGameServerCollection
 metadata:
-  name: simplenodejsudp-example
+  name: simplenodejsudp-collection-example
 spec:
+  replicas: 5
+  portsToExpose:
+  - 22222
   template: 
     restartPolicy: Never
     dnsPolicy: ClusterFirstWithHostNet
@@ -19,3 +22,15 @@ spec:
       ports:
       - containerPort: 22222
         protocol: UDP
+    - name: nginxsidecar
+      image: nginx:latest
+      resources:
+        limits:
+          cpu: 10m
+          memory: 30Mi
+        requests:
+          cpu: 10m
+          memory: 20Mi
+      ports:
+      - containerPort: 80
+        protocol: TCP

@@ -114,7 +114,7 @@ func (whsvr *WebhookServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 			}
 		}
 
-		//check for requests
+		//check for limits
 		if container.Resources.Limits.Cpu() == nil ||
 			container.Resources.Limits.Cpu().IsZero() ||
 			container.Resources.Limits.Memory() == nil ||

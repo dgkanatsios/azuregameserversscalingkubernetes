@@ -343,16 +343,22 @@ func (c *DedicatedGameServerCollectionController) increaseDGSReplicas(dgsColTemp
 		// DedicatedGameServerCollectioName + "-" + random name
 		dgs := shared.NewDedicatedGameServer(dgsColTemp, dgsColTemp.Spec.Template, c.namegenerator)
 
-		// for each container on the pod
-		for k := 0; k < len(dgs.Spec.Template.Containers); k++ {
-			// assign random port for each port "request"
-			for j := 0; j < len(dgs.Spec.Template.Containers[k].Ports); j++ {
-				//get a random port
-				hostport, errPort := c.portRegistry.GetNewPort(dgsName)
-				if errPort != nil {
-					return errPort
+		// if we want to expose ports for this DGS
+		if dgsColTemp.Spec.PortsToExpose != nil {
+			// for each container on the pod
+			for k := 0; k < len(dgs.Spec.Template.Containers); k++ {
+				// assign random port for each port "request"
+				for j := 0; j < len(dgs.Spec.Template.Containers[k].Ports); j++ {
+					// if we want to expose this specific ContainerPort
+					if shared.SliceContains(dgsColTemp.Spec.PortsToExpose, dgs.Spec.Template.Containers[k].Ports[j].ContainerPort) {
+						//get a random port
+						hostport, errPort := c.portRegistry.GetNewPort(dgsName)
+						if errPort != nil {
+							return errPort
+						}
+						dgs.Spec.Template.Containers[k].Ports[j].HostPort = hostport
+					}
 				}
-				dgs.Spec.Template.Containers[k].Ports[j].HostPort = hostport
 			}
 		}
 

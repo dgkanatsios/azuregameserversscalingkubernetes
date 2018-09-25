@@ -24,9 +24,8 @@ func Run(port int, listrunningauth bool) *http.Server {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/create", createDGSHandler).Queries("code", "{code}").Methods("GET")
-	router.HandleFunc("/createcollection", createDGSColHandler).Queries("code", "{code}").Methods("POST")
-	router.HandleFunc("/delete", deleteDGSHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
+	router.HandleFunc("/create", createDGSColHandler).Queries("code", "{code}").Methods("POST")
+	router.HandleFunc("/delete", deleteDGSColHandler).Queries("name", "{name}", "code", "{code}").Methods("GET")
 	router.HandleFunc("/healthz", healthHandler).Methods("GET")
 	route := router.HandleFunc("/running", getPodStateRunningDGSHandler).Methods("GET")
 	if listrunningauth {
@@ -52,42 +51,6 @@ func Run(port int, listrunningauth bool) *http.Server {
 	}()
 
 	return server
-}
-
-func createDGSHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("create was called")
-
-	result, err := helpers.IsAPICallAuthenticated(w, r)
-	if err != nil {
-		log.Errorf("Error in authentication: %v", err)
-		w.WriteHeader(500)
-		w.Write([]byte("Error"))
-		return
-	}
-
-	if !result {
-		w.WriteHeader(401)
-		w.Write([]byte("Unathorized"))
-		return
-	}
-
-	var dgs dgsv1alpha1.DedicatedGameServer
-	err = json.NewDecoder(r.Body).Decode(&dgs)
-
-	if err != nil {
-		w.WriteHeader(400)
-		w.Write([]byte("Incorrect arguments: " + err.Error()))
-		return
-	}
-
-	podname, err := helpers.CreateDedicatedGameServerCRD(dgs.Name, dgs.Spec.Template)
-
-	if err != nil {
-		log.Printf("error encountered: %s", err.Error())
-		w.Write([]byte(fmt.Sprintf("Error %s encountered", err.Error())))
-	} else {
-		w.Write([]byte("DedicatedGameServer " + podname + " was created"))
-	}
 }
 
 func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +89,7 @@ func createDGSColHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
+func deleteDGSColHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := helpers.IsAPICallAuthenticated(w, r)
 	if err != nil {
@@ -153,9 +116,9 @@ func deleteDGSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).Delete(name, nil)
+	err = dgsClient.AzuregamingV1alpha1().DedicatedGameServerCollections(shared.GameNamespace).Delete(name, nil)
 	if err != nil {
-		msg := fmt.Sprintf("Cannot delete DedicatedGameServer due to %s", err.Error())
+		msg := fmt.Sprintf("Cannot delete DedicatedGameServerCollection due to %s", err.Error())
 		log.Print(msg)
 		w.Write([]byte(msg))
 		return

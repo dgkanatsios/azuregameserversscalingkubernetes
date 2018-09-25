@@ -123,3 +123,13 @@ func AreMapsSame(map1, map2 map[string]string) bool {
 func Logger() *logrus.Logger {
 	return logrus.New()
 }
+
+// SliceContains returns true if the specific int32 value is contained in the slice
+func SliceContains(slice []int32, value int32) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}

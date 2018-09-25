@@ -131,7 +131,12 @@ hello
 simplenodejsudp-collection-example-docji-vhxhr says: hello
 ```
 
-You can use Ctrl-C (or Cmd-C) to disconnect.
+The demo app supports two extra commands for setting active players and server status. 
+
+- Setting Active Players: If you write `players|3`, then the demo app will send a message to the project's API Server that there are 5 connected players.
+- Setting DedicatedGameServer status: If you write `status|Running`, then the demo app will send a message to the project's API Server that its status is *Running*.
+
+You can now use Ctrl-C (or Cmd-C) to disconnect from the demo app.
 
 Before we proceed, feel free to check the running pods as well
 

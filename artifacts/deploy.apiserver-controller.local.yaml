@@ -23,10 +23,10 @@ spec:
         args: ["./apiserver","--port","8000"]
         resources:
           limits:
-            cpu: 100m
+            cpu: 50m
             memory: 30Mi
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 20Mi
         livenessProbe:
           httpGet:
@@ -79,10 +79,10 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           limits:
-            cpu: 100m
+            cpu: 50m
             memory: 30Mi
           requests:
-            cpu: 100m
+            cpu: 50m
             memory: 20Mi
 ---
 apiVersion: v1

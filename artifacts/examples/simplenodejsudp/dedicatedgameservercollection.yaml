@@ -14,10 +14,10 @@ spec:
       image: docker.io/dgkanatsios/simplenodejsudp:0.0.6
       resources:
         limits:
-          cpu: 100m
+          cpu: 50m
           memory: 30Mi
         requests:
-          cpu: 100m
+          cpu: 50m
           memory: 20Mi
       ports:
       - containerPort: 22222

@@ -5,7 +5,9 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 VERSION=0.0.37
-REGISTRY ?= docker.io/dgkanatsios
+REGISTRY ?= docker.io
+APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
+CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
 TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
 export TAG
 
@@ -14,15 +16,15 @@ all: test build
 deps:
 		$(GOCMD) get -t -v ./...
 builddockerhub: clean
-		docker build -f ./apiserver/Dockerfile -t $(REGISTRY)/aks_gaming_apiserver:$(VERSION) .
-		docker build -f ./controller/Dockerfile -t $(REGISTRY)/aks_gaming_controller:$(VERSION) .
-		docker tag $(REGISTRY)/aks_gaming_apiserver:$(VERSION) $(REGISTRY)/aks_gaming_apiserver:latest
-		docker tag $(REGISTRY)/aks_gaming_controller:$(VERSION) $(REGISTRY)/aks_gaming_controller:latest
+		docker build -f ./apiserver/Dockerfile -t $(REGISTRY)/$(APISERVER_NAME):$(VERSION) .
+		docker build -f ./controller/Dockerfile -t $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION) .
+		docker tag $(REGISTRY)/$(APISERVER_NAME):$(VERSION) $(REGISTRY)/$(APISERVER_NAME):latest
+		docker tag $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION) $(REGISTRY)/$(CONTROLLER_NAME):latest
 pushdockerhub:
-		docker push docker.io/dgkanatsios/aks_gaming_apiserver:$(VERSION)
-		docker push docker.io/dgkanatsios/aks_gaming_controller:$(VERSION)
-		docker push docker.io/dgkanatsios/aks_gaming_apiserver:latest
-		docker push docker.io/dgkanatsios/aks_gaming_controller:latest
+		docker push $(REGISTRY)/$(APISERVER_NAME):$(VERSION)
+		docker push $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION)
+		docker push $(REGISTRY)/$(APISERVER_NAME):latest
+		docker push $(REGISTRY)/$(CONTROLLER_NAME):latest
 test: 
 		$(GOTEST) -v ./...
 clean: 
@@ -39,8 +41,8 @@ buildlocal:
 		$(GOBUILD)  -o ./bin/apiserver ./apiserver/cmd/apiserver
 		$(GOBUILD)  -o ./bin/controller ./controller/cmd/controller
 builddockerlocal: buildlocal
-		docker build -f various/Dockerfile.apiserver.local -t dgkanatsios/aks_gaming_apiserver:$(TAG) .	
-		docker build -f various/Dockerfile.controller.local -t dgkanatsios/aks_gaming_controller:$(TAG) .	
+		docker build -f various/Dockerfile.apiserver.local -t $(APISERVER_NAME):$(TAG) .	
+		docker build -f various/Dockerfile.controller.local -t $(CONTROLLER_NAME):$(TAG) .	
 deployk8slocal: buildlocal builddockerlocal
 		kubectl apply -f ./artifacts/crds
 		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl apply -f -

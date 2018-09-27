@@ -46,6 +46,7 @@ kubectl apply -f "https://cloud.weave.works/k8s/scope.yaml?k8s-version=$(kubectl
 # port-forward the dashboard
 kubectl port-forward -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040
 # open localhost:4040 on your browser
+```
 
 ## I see that you have a self-signed key for authentication with WebhookServer. How can I generate my own?
 

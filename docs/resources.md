@@ -31,8 +31,14 @@ MutatingAdmissionWebhooks
 - https://github.com/dkoshkin/admission-webhook
 - https://github.com/morvencao/kube-mutating-webhook-tutorial
 
-Pod scheduling
+Scheduling
 - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+- https://github.com/Huang-Wei/understanding-kube-scheduler
+- https://github.com/Huang-Wei/sample-scheduler-extender
+- https://jvns.ca/blog/2017/07/27/how-does-the-kubernetes-scheduler-work/
+- http://alexandrutopliceanu.ro/post/scheduling-in-kubernetes/
+- https://thenewstack.io/implementing-advanced-scheduling-techniques-with-kubernetes/
+
 
 Other
 - https://kubeyaml.com/

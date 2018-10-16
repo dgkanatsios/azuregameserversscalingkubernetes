@@ -4,6 +4,8 @@ metadata:
   name: openarena-collection-example
 spec:
   replicas: 5
+  portsToExpose:
+  - 27960
   podAutoScalerDetails:
     minimumReplicas: 5
     maximumReplicas: 10

@@ -10,8 +10,11 @@ CUSTOM_RESOURCE_NAME="azuregaming"
 CUSTOM_RESOURCE_VERSION="v1alpha1"
 
 # retrieve the code-generator scripts and bins
-go get -u k8s.io/code-generator/...
-cd $GOPATH/src/k8s.io/code-generator
+# go get -u k8s.io/code-generator/...
+# cd $GOPATH/src/k8s.io/code-generator
+cd ..
+dep ensure
+cd vendor/k8s.io/code-generator
 
 # run the code-generator entrypoint script
 ./generate-groups.sh all "$ROOT_PACKAGE/pkg/client" "$ROOT_PACKAGE/pkg/apis" "$CUSTOM_RESOURCE_NAME:$CUSTOM_RESOURCE_VERSION"

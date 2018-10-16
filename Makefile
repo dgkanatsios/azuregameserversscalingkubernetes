@@ -4,7 +4,7 @@ GOBUILD=CGO_ENABLED=0 GOOS=linux $(GOCMD) build -a -installsuffix cgo
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-VERSION=0.0.38
+VERSION=0.0.39
 REGISTRY ?= docker.io
 APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
 CONTROLLER_NAME=dgkanatsios/aks_gaming_controller

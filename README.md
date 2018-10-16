@@ -118,8 +118,8 @@ make cleank8slocal
 
 To build the project and upload it to your Docker Container registry:
 
-- change the `REGISTRY` and `VERSION` variables on the Makefile
-- run `./various/changeversion.sh OLDVERSION NEWVERSION` (after replacing *OLDVERSION* and *NEWVERSION* with your values, of course - *OLDVERSION* refers to the one you overwrote to in the Makefile, *NEWVERSION* refers to the new value). This changes the docker tag on the project's installation YAML files
+- change the `REGISTRY` variable on the Makefile
+- run `./various/changeversion.sh OLDVERSION NEWVERSION` (after replacing *OLDVERSION* and *NEWVERSION* with your values, of course - *OLDVERSION* refers to the one you overwrote to in the Makefile, *NEWVERSION* refers to the new value). This changes the docker tag on the project's installation YAML files as well as in the Makefile
 - run `make builddockerhub` and `make pushdockerhub` to build and push your Docker images
 - check [installation document](docs/installation.md) for the next steps
 

@@ -372,7 +372,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:13f16734c26d843bc2accbc21dd49be71de99ad5fa0176726cdada80cc6859cb"
+  digest = "1:728c0c37966b7a6c8980fab69a3d690cc0996e206804a55052318858d00f1e17"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -407,11 +407,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "4e7be11eab3ffcfc1876898b8272df53785a9504"
-  version = "kubernetes-1.11.3"
+  revision = "2d6f90ab1293a1fb871cf149423ebb72aa7423aa"
+  version = "kubernetes-1.11.2"
 
 [[projects]]
-  digest = "1:33730fb514340e487c72597b579737e896b51a79117aedd6a4e24b59f3e949dc"
+  digest = "1:b7a7277a24d4ca275a5c8d45dcfd90847fbbfdcd6b0bf43f23777a628cd9515c"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -457,11 +457,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "def12e63c512da17043b4f0293f52d1006603d9f"
-  version = "kubernetes-1.11.3"
+  revision = "103fd098999dc9c0c88536f5c9ad2e5da39373ae"
+  version = "kubernetes-1.11.2"
 
 [[projects]]
-  digest = "1:000ba45ecd95744b8a3236b6e5f3d8ab35c3c658d7165c8ac0aa18b658db881b"
+  digest = "1:da3d045c3330144f9cd6a6be8202f9dd1332c253485876da68de5ef7b728afcd"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -622,11 +622,11 @@
     "util/workqueue",
   ]
   pruneopts = "UT"
-  revision = "2cefa64ff137e128daeddbd1775cd775708a05bf"
-  version = "kubernetes-1.11.3"
+  revision = "1f13a808da65775f22cbf47862c4e5898d8f4ca1"
+  version = "kubernetes-1.11.2"
 
 [[projects]]
-  digest = "1:3b981f69134219063c9fe062302d777a99c784d8ef3ee0f40fe191717d2f4541"
+  digest = "1:43ef9a37919f7a8948b7de4c05d20692f763adc40f15c9d330c544ae05d93947"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -655,8 +655,8 @@
     "pkg/util",
   ]
   pruneopts = ""
-  revision = "8c97d6ab64da020f8b151e9d3ed8af3172f5c390"
-  version = "kubernetes-1.11.3"
+  revision = "6702109cc68eb6fe6350b83e14407c8d7309fd1a"
+  version = "kubernetes-1.11.2"
 
 [[projects]]
   branch = "master"

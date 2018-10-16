@@ -119,7 +119,7 @@ func (c *FakeDedicatedGameServers) DeleteCollection(options *v1.DeleteOptions, l
 // Patch applies the patch and returns the patched dedicatedGameServer.
 func (c *FakeDedicatedGameServers) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.DedicatedGameServer, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(dedicatedgameserversResource, c.ns, name, pt, data, subresources...), &v1alpha1.DedicatedGameServer{})
+		Invokes(testing.NewPatchSubresourceAction(dedicatedgameserversResource, c.ns, name, data, subresources...), &v1alpha1.DedicatedGameServer{})
 
 	if obj == nil {
 		return nil, err

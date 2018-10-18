@@ -3,7 +3,7 @@ FROM golang:1.10.4-alpine3.8 AS builder
 RUN apk add --no-cache git
 WORKDIR /go/src/github.com/dgkanatsios/azuregameserversscalingkubernetes
 COPY . .
-RUN cd ./controller/cmd/controller && go get -d -v 
+RUN cd ./controller/cmd/controller 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /build/controller ./controller/cmd/controller
 
 #final stage

@@ -4,7 +4,7 @@ RUN apk add --no-cache git
 WORKDIR /go/src/github.com/dgkanatsios/azuregameserversscalingkubernetes
 COPY . .
 #extra step to copy the HTML stuff
-RUN cd ./apiserver/cmd/apiserver && go get -d -v && mkdir -p /build && cp -r html /build/html
+RUN cd ./apiserver/cmd/apiserver && mkdir -p /build && cp -r html /build/html
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /build/apiserver ./apiserver/cmd/apiserver
 
 #final stage

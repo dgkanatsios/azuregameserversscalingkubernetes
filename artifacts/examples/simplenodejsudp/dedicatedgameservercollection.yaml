@@ -1,7 +1,7 @@
 apiVersion: azuregaming.com/v1alpha1
 kind: DedicatedGameServerCollection
 metadata:
-  name: simplenodejsudp-collection-example
+  name: simplenodejsudp
 spec:
   replicas: 5
   portsToExpose:

@@ -1,7 +1,7 @@
 apiVersion: azuregaming.com/v1alpha1
 kind: DedicatedGameServerCollection
 metadata:
-  name: openarena-collection-example
+  name: openarena
 spec:
   replicas: 5
   portsToExpose:

@@ -3,4 +3,3 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY /bin/controller ./
 CMD ["./controller"]
-LABEL Name=aks_gaming_controller

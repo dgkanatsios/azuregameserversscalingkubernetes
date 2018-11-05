@@ -1,5 +1,6 @@
+#!/bin/bash
 # source: https://medium.com/@trstringer/create-kubernetes-controllers-for-core-and-custom-resources-62fc35ad64a3
-
+set -e
 # ROOT_PACKAGE :: the package (relative to $GOPATH/src) that is the target for code generation
 ROOT_PACKAGE="github.com/dgkanatsios/azuregameserversscalingkubernetes"
 

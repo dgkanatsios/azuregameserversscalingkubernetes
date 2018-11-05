@@ -1,14 +1,11 @@
 package shared
 
 import (
-	"strconv"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // NewDedicatedGameServerCollection creates a new DedicatedGameServerCollection with the specified parameters
@@ -24,7 +21,7 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 			Template: template,
 		},
 		Status: dgsv1alpha1.DedicatedGameServerCollectionStatus{
-			DedicatedGameServerCollectionState: dgsv1alpha1.DedicatedGameServerCollectionStateCreating,
+			DedicatedGameServerCollectionState: dgsv1alpha1.DGSColCreating,
 			PodCollectionState:                 corev1.PodPending,
 		},
 	}
@@ -33,17 +30,14 @@ func NewDedicatedGameServerCollection(name string, namespace string, replicas in
 
 // NewDedicatedGameServer returns a new DedicatedGameServer object that belongs to the specified
 // DedicatedGameServerCollection and has the designated PodSpec
-func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec, namegenerator RandomNameGenerator) *dgsv1alpha1.DedicatedGameServer {
-	dgsName := namegenerator.GenerateName(dgsCol.Name)
-	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
+func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, template corev1.PodSpec) *dgsv1alpha1.DedicatedGameServer {
+	initialState := dgsv1alpha1.DGSCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dgsName,
+			Name: generateName(dgsCol.Name),
+			//GenerateName: dgsCol.Name + "-",
 			Namespace: dgsCol.Namespace,
-			Labels: map[string]string{LabelServerName: dgsName,
-				LabelDedicatedGameServerCollectionName: dgsCol.Name,
-				LabelActivePlayers:                     "0",
-				LabelDedicatedGameServerState:          string(initialState)},
+			Labels:    map[string]string{LabelDedicatedGameServerCollectionName: dgsCol.Name},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(dgsCol, schema.GroupVersionKind{
 					Group:   dgsv1alpha1.SchemeGroupVersion.Group,
@@ -53,7 +47,8 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t
 			},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Template: *template.DeepCopy(),
+			Template:      *template.DeepCopy(),
+			PortsToExpose: dgsCol.Spec.PortsToExpose,
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
@@ -65,19 +60,16 @@ func NewDedicatedGameServer(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t
 }
 
 // NewDedicatedGameServerWithNoParent creates a new DedicatedGameServer that is not part of a DedicatedGameServerCollection
-func NewDedicatedGameServerWithNoParent(namespace string, namePrefix string, template corev1.PodSpec, namegenerator RandomNameGenerator) *dgsv1alpha1.DedicatedGameServer {
-	dgsName := namegenerator.GenerateName(namePrefix)
-	initialState := dgsv1alpha1.DedicatedGameServerStateCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
+func NewDedicatedGameServerWithNoParent(namespace string, name string, template corev1.PodSpec, portsToExpose []int32) *dgsv1alpha1.DedicatedGameServer {
+	initialState := dgsv1alpha1.DGSCreating // dgsv1alpha1.DedicatedGameServerStateRunning //TODO: change to Creating
 	dedicatedgameserver := &dgsv1alpha1.DedicatedGameServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dgsName,
+			Name:      name,
 			Namespace: namespace,
-			Labels: map[string]string{LabelServerName: dgsName,
-				LabelActivePlayers:            "0",
-				LabelDedicatedGameServerState: string(initialState)},
 		},
 		Spec: dgsv1alpha1.DedicatedGameServerSpec{
-			Template: *template.DeepCopy(),
+			Template:      *template.DeepCopy(),
+			PortsToExpose: portsToExpose,
 		},
 		Status: dgsv1alpha1.DedicatedGameServerStatus{
 			DedicatedGameServerState: initialState,
@@ -96,11 +88,11 @@ type APIDetails struct {
 
 // NewPod returns a Kubernetes Pod struct
 // It also sets a label called "DedicatedGameServer" with the value of the corresponding DedicatedGameServer resource
-func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails, namegenerator RandomNameGenerator) *corev1.Pod {
-	podName := namegenerator.GenerateName(dgs.Name)
+func NewPod(dgs *dgsv1alpha1.DedicatedGameServer, apiDetails APIDetails) *corev1.Pod {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
+			//GenerateName: dgs.Name + "-",
+			Name:      generateName(dgs.Name),
 			Namespace: dgs.Namespace,
 			Labels:    map[string]string{LabelDedicatedGameServerName: dgs.Name, LabelIsDedicatedGameServer: "true"},
 			OwnerReferences: []metav1.OwnerReference{
@@ -138,10 +130,7 @@ func UpdateActivePlayers(serverName string, activePlayers int) error {
 		return err
 	}
 
-	activePlayersString := strconv.Itoa(activePlayers)
-
 	dgs.Status.ActivePlayers = activePlayers
-	dgs.Labels[LabelActivePlayers] = activePlayersString
 
 	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)
 	if err != nil {
@@ -162,7 +151,6 @@ func UpdateGameServerStatus(serverName string, serverStatus dgsv1alpha1.Dedicate
 	}
 
 	dgs.Status.DedicatedGameServerState = serverStatus
-	dgs.Labels[LabelDedicatedGameServerState] = string(serverStatus)
 
 	_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).Update(dgs)
 	if err != nil {
@@ -177,18 +165,19 @@ func GetDedicatedGameServersPodStateRunning() ([]dgsv1alpha1.DedicatedGameServer
 		return nil, err
 	}
 
-	set := labels.Set{
-		LabelDedicatedGameServerState: string(dgsv1alpha1.DedicatedGameServerStateRunning),
-		LabelPodState:                 string(corev1.PodRunning),
-	}
-	// we search via Labels, each DGS will have the DGSCol name as a Label
-	selector := labels.SelectorFromSet(set)
-	dgsPodStateRunning, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{
-		LabelSelector: selector.String(),
-	})
+	dgss, err := dgsClient.AzuregamingV1alpha1().DedicatedGameServers(GameNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	return dgsPodStateRunning.Items, nil
+	dgsToReturn := make([]dgsv1alpha1.DedicatedGameServer, 0)
+
+	for _, dgs := range dgss.Items {
+		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning &&
+			dgs.Status.PodState == corev1.PodRunning {
+			dgsToReturn = append(dgsToReturn, dgs)
+		}
+	}
+
+	return dgsToReturn, nil
 }

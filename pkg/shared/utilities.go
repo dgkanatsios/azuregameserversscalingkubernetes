@@ -6,7 +6,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	_ "github.com/joho/godotenv/autoload" // load env variables
 )
 
@@ -65,40 +64,6 @@ func GetRandomIndexes(length int, count int) []int {
 	return sliceToReturn
 }
 
-// HasDedicatedGameServerChanged returns true if *all* of the following DGS properties have changed
-// dgsState, podState, publicIP, nodeName, activePlayers
-// As expected, it returns false if at least one has changed
-func HasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
-
-	//check if any new containers have been added
-	if len(oldDGS.Spec.Template.Containers) != len(newDGS.Spec.Template.Containers) {
-		return true
-	}
-
-	//check if any of the images has changed
-	for i := 0; i < len(oldDGS.Spec.Template.Containers); i++ {
-		if oldDGS.Spec.Template.Containers[i].Image != newDGS.Spec.Template.Containers[i].Image {
-			return true
-		}
-	}
-
-	// we check if all of the following fields are the same
-	if oldDGS.Status.DedicatedGameServerState != newDGS.Status.DedicatedGameServerState ||
-		oldDGS.Status.PodState != newDGS.Status.PodState ||
-		oldDGS.Status.PublicIP != newDGS.Status.PublicIP ||
-		oldDGS.Status.NodeName != newDGS.Status.NodeName ||
-		oldDGS.Status.ActivePlayers != newDGS.Status.ActivePlayers ||
-		!AreMapsSame(oldDGS.Labels, newDGS.Labels) {
-
-		//we should also check for ports as well
-		//or not :)
-
-		return true
-	}
-
-	return false
-}
-
 // AreMapsSame compares two map[string]string objects
 func AreMapsSame(map1, map2 map[string]string) bool {
 	if len(map1) != len(map2) {
@@ -132,4 +97,8 @@ func SliceContains(slice []int32, value int32) bool {
 		}
 	}
 	return false
+}
+
+func generateName(prefix string) string {
+	return prefix + "-" + randString(RandStringSize)
 }

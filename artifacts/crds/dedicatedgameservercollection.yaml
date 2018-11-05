@@ -14,10 +14,8 @@ spec:
     - dgsc
   # https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions/#subresources  
   subresources:
-    # status enables the status subresource.
-    #status: {}
-    # scale enables the scale subresource.
-    scale:
+    #status: {} # status enables the status subresource.
+    scale: # scale enables the scale subresource.
       # specReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Spec.Replicas.
       specReplicasPath: .spec.replicas
       # statusReplicasPath defines the JSONPath inside of a custom resource that corresponds to Scale.Status.Replicas.

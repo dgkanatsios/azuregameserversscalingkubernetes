@@ -30,7 +30,8 @@ type DedicatedGameServer struct {
 // DedicatedGameServerSpec is the spec for a DedicatedGameServer resource
 type DedicatedGameServerSpec struct {
 	// this is where you would put your custom resource data
-	Template corev1.PodSpec `json:"template"`
+	PortsToExpose []int32        `json:"portsToExpose"`
+	Template      corev1.PodSpec `json:"template"`
 }
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource

@@ -6,6 +6,8 @@ spec:
   replicas: 5
   portsToExpose:
   - 27960
+  #  dgsFailBehavior: Delete
+  dgsFailBehavior: Remove
   template: 
     restartPolicy: Never
     dnsPolicy: ClusterFirstWithHostNet

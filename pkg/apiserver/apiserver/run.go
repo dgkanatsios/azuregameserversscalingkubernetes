@@ -7,8 +7,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/helpers"
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
+	helpers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apiserver/helpers"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	"github.com/gorilla/mux"
 )
@@ -222,7 +222,7 @@ func setServerStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	status := dgsv1alpha1.DedicatedGameServerState(serverStatus.Status)
 	//a very simple validation
-	if status != dgsv1alpha1.DedicatedGameServerStateCreating && status != dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion && status != dgsv1alpha1.DedicatedGameServerStateRunning && status != dgsv1alpha1.DedicatedGameServerStateFailed {
+	if status != dgsv1alpha1.DGSCreating && status != dgsv1alpha1.DGSMarkedForDeletion && status != dgsv1alpha1.DGSRunning && status != dgsv1alpha1.DGSFailed {
 		w.WriteHeader(400)
 		w.Write([]byte("Wrong value for serverStatus"))
 		log.Errorf("Error in server status, wrong value:%s", status)

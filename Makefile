@@ -9,15 +9,18 @@ REGISTRY ?= docker.io
 APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
 CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
 TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
-export TAG
+#export TAG
+
+KIND_CLUSTER_NAME=1
+KUBECONFIG_LOCAL=~/.kube/kind-config-${KIND_CLUSTER_NAME}
 
 
 all: test build
 deps:
 		$(GOCMD) get -t -v ./...
 builddockerhub: clean
-		docker build -f ./apiserver/Dockerfile -t $(REGISTRY)/$(APISERVER_NAME):$(VERSION) .
-		docker build -f ./controller/Dockerfile -t $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION) .
+		docker build -f ./cmd/apiserver/Dockerfile -t $(REGISTRY)/$(APISERVER_NAME):$(VERSION) .
+		docker build -f ./cmd/controller/Dockerfile -t $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION) .
 		docker tag $(REGISTRY)/$(APISERVER_NAME):$(VERSION) $(REGISTRY)/$(APISERVER_NAME):latest
 		docker tag $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION) $(REGISTRY)/$(CONTROLLER_NAME):latest
 pushdockerhub:
@@ -36,16 +39,21 @@ travis: clean deps
 authorsfile: ## Update the AUTHORS file from the git logs
 		git log --all --format='%aN <%cE>' | sort -u > AUTHORS
 
-#local development
+# local development and testing
 buildlocal:
-		$(GOBUILD)  -o ./bin/apiserver ./apiserver/cmd/apiserver
-		$(GOBUILD)  -o ./bin/controller ./controller/cmd/controller
+		$(GOBUILD)  -o ./bin/apiserver ./cmd/apiserver
+		$(GOBUILD)  -o ./bin/controller ./cmd/controller 
 builddockerlocal: buildlocal
-		docker build -f various/Dockerfile.apiserver.local -t $(APISERVER_NAME):$(TAG) .	
+		docker build -f various/Dockerfile.apiserver.local -t $(APISERVER_NAME):$(TAG) . 
 		docker build -f various/Dockerfile.controller.local -t $(CONTROLLER_NAME):$(TAG) .	
-deployk8slocal: buildlocal builddockerlocal
-		kubectl apply -f ./artifacts/crds
-		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl apply -f -
+# you should run 'make builddockerlocal' before running 'deployk8slocal'
+deployk8slocal: 
+		KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl apply -f ./artifacts/crds
+		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl apply -f -
 cleank8slocal:
-		kubectl delete -f ./artifacts/crds
-		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl delete -f -
+		KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl delete -f ./artifacts/crds
+		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl delete -f -
+.PHONY: e2e
+e2e:
+		KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} CONTROLLER_NAME=$(CONTROLLER_NAME) \
+		 APISERVER_NAME=$(APISERVER_NAME) TAG=$(TAG) KUBECONFIG=$(KUBECONFIG_LOCAL) ./e2e/run.sh

@@ -3,11 +3,10 @@ package controller
 import (
 	"testing"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
-
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -28,13 +27,11 @@ type dgsFixture struct {
 	dgsLister []*dgsv1alpha1.DedicatedGameServer
 	podLister []*corev1.Pod
 	// Actions expected to happen on the client.
-	k8sActions []core.Action
-	dgsActions []core.Action
+	k8sActions []extendedAction
+	dgsActions []extendedAction
 	// Objects from here preloaded into NewSimpleFake.
 	k8sObjects []runtime.Object
 	dgsObjects []runtime.Object
-
-	namegenerator shared.FakeRandomNameGenerator
 }
 
 func newDGSFixture(t *testing.T) *dgsFixture {
@@ -45,12 +42,10 @@ func newDGSFixture(t *testing.T) *dgsFixture {
 	f.dgsObjects = []runtime.Object{}
 	f.k8sObjects = []runtime.Object{}
 
-	f.namegenerator = shared.NewFakeRandomNameGenerator()
-
 	return f
 }
 
-func (f *dgsFixture) newDedicatedGameServerController() (*DedicatedGameServerController,
+func (f *dgsFixture) newDedicatedGameServerController() (*DGSController,
 	dgsinformers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
@@ -59,9 +54,11 @@ func (f *dgsFixture) newDedicatedGameServerController() (*DedicatedGameServerCon
 	k8sInformers := kubeinformers.NewSharedInformerFactory(f.k8sClient, noResyncPeriodFunc())
 	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
-	testController := NewDedicatedGameServerController(f.k8sClient, f.dgsClient,
-		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), k8sInformers.Core().V1().Pods(),
-		k8sInformers.Core().V1().Nodes(), f.namegenerator)
+	testController := NewDedicatedGameServerController(f.k8sClient,
+		f.dgsClient,
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(),
+		k8sInformers.Core().V1().Pods(),
+		k8sInformers.Core().V1().Nodes(), nil)
 
 	testController.dgsListerSynced = alwaysReady
 	testController.podListerSynced = alwaysReady
@@ -136,19 +133,22 @@ func (f *dgsFixture) runController(dgsName string, startInformers bool, expectEr
 	}
 }
 
-func (f *dgsFixture) expectCreatePodAction(p *corev1.Pod) {
+func (f *dgsFixture) expectCreatePodAction(p *corev1.Pod, assertions func(runtime.Object)) {
 	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "pods"}, p.Namespace, p)
-	f.k8sActions = append(f.k8sActions, action)
+	extAction := extendedAction{action, assertions}
+	f.k8sActions = append(f.k8sActions, extAction)
 }
 
-func (f *dgsFixture) expectDeleteDGSAction(dgs *dgsv1alpha1.DedicatedGameServer) {
-	action := core.NewDeleteAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs.Name)
-	f.dgsActions = append(f.dgsActions, action)
+func (f *dgsFixture) expectDeleteDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
+	action := core.NewDeleteAction(schema.GroupVersionResource{Group: "azuregaming.com", Resource: "dedicatedgameservers", Version: "v1alpha1"}, dgs.Namespace, dgs.Name)
+	extAction := extendedAction{action, assertions}
+	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *dgsFixture) expectUpdateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs)
-	f.dgsActions = append(f.dgsActions, action)
+func (f *dgsFixture) expectUpdateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
+	action := core.NewUpdateAction(schema.GroupVersionResource{Group: "azuregaming.com", Resource: "dedicatedgameservers", Version: "v1alpha1"}, dgs.Namespace, dgs)
+	extAction := extendedAction{action, assertions}
+	f.dgsActions = append(f.dgsActions, extAction)
 }
 
 func getKeyDGS(dgs *dgsv1alpha1.DedicatedGameServer, t *testing.T) string {
@@ -164,16 +164,15 @@ func getKeyDGS(dgs *dgsv1alpha1.DedicatedGameServer, t *testing.T) string {
 func TestCreatesPod(t *testing.T) {
 	f := newDGSFixture(t)
 
-	f.namegenerator.SetName("test0")
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-	expPod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""}, f.namegenerator)
+	expPod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""})
 
-	f.expectCreatePodAction(expPod)
+	f.expectCreatePodAction(expPod, nil)
 
 	f.run(getKeyDGS(dgs, t))
 }
@@ -181,16 +180,13 @@ func TestCreatesPod(t *testing.T) {
 func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 	f := newDGSFixture(t)
 
-	f.namegenerator.SetName("test0")
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	dgs.Status.ActivePlayers = 0
-	dgs.Labels[shared.LabelActivePlayers] = "0"
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
-	dgs.Labels[shared.LabelDedicatedGameServerState] = string(dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion)
+	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSMarkedForDeletion
 
-	delPod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""}, f.namegenerator)
+	delPod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""})
 
 	f.podLister = append(f.podLister, delPod)
 	f.k8sObjects = append(f.k8sObjects, delPod)
@@ -198,7 +194,7 @@ func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-	f.expectDeleteDGSAction(dgs)
+	f.expectDeleteDGSAction(dgs, nil)
 
 	f.run(getKeyDGS(dgs, t))
 }
@@ -206,15 +202,12 @@ func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 func TestDGSStatusIsUpdated(t *testing.T) {
 	f := newDGSFixture(t)
 
-	f.namegenerator.SetName("test0")
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
+	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-	dgs.Status.ActivePlayers = 0
-	dgs.Labels[shared.LabelActivePlayers] = "0"
-	dgs.Labels[shared.LabelPodState] = ""
+	//dgs.Status.ActivePlayers = 0
 
-	pod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""}, f.namegenerator)
+	pod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""})
 
 	f.podLister = append(f.podLister, pod)
 	f.k8sObjects = append(f.k8sObjects, pod)
@@ -222,7 +215,7 @@ func TestDGSStatusIsUpdated(t *testing.T) {
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-	f.expectUpdateDGSAction(dgs)
+	f.expectUpdateDGSAction(dgs, nil)
 
 	f.run(getKeyDGS(dgs, t))
 }

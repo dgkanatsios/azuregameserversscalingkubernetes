@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$1" == "" ] || [ "$2" == "" ]; then
    echo "Usage: ./changeversion.sh OLD_VERSION NEW_VERSION"
    exit 1

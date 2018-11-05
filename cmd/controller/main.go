@@ -5,13 +5,13 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jonboulle/clockwork"
-
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/controller"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
+	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informers "k8s.io/client-go/informers"
 )
 
@@ -33,10 +33,16 @@ func main() {
 	sharedInformerFactory := informers.NewSharedInformerFactory(client, 30*time.Minute)
 	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
 
+	log.Info("Initializing Port Registry")
+	portRegistry, err := controller.NewPortRegistry(dgsclient, shared.MinPort, shared.MaxPort, metav1.NamespaceAll)
+	if err != nil {
+		log.Panicf("Cannot initialize Port Registry because of %s", err.Error())
+	}
+
 	dgsColController, err := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
-		shared.NewRealRandomNameGenerator(), clockwork.NewRealClock())
+		portRegistry)
 
 	if err != nil {
 		log.Errorf("Cannot initialize DGSCollection controller due to %s", err.Error())
@@ -45,8 +51,7 @@ func main() {
 
 	dgsController := controller.NewDedicatedGameServerController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
-		sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes(),
-		shared.NewRealRandomNameGenerator())
+		sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes(), portRegistry)
 
 	controllers := []controllerHelper{dgsColController, dgsController}
 

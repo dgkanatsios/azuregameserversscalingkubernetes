@@ -6,16 +6,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func CreateDedicatedGameServerCRD(dgsName string, podSpec corev1.PodSpec) (finalDDGSName string, err error) {
-	namegenerator := shared.NewRealRandomNameGenerator()
-	if dgsName == "" {
-
-		dgsName = namegenerator.GenerateName("gameserver")
-	}
-
+func CreateDedicatedGameServerCRD(dgsName string, podSpec corev1.PodSpec, portsToExpose []int32) (finalDDGSName string, err error) {
 	log.Printf("Creating DedicatedGameServer %s", dgsName)
 
-	dgs := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, dgsName, podSpec, namegenerator)
+	dgs := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, dgsName, podSpec, portsToExpose)
 
 	_, dgsClient, err := shared.GetClientSet()
 	if err != nil {
@@ -32,11 +26,6 @@ func CreateDedicatedGameServerCRD(dgsName string, podSpec corev1.PodSpec) (final
 }
 
 func CreateDedicatedGameServerCollectionCRD(dgsColName string, replicas int32, podSpec corev1.PodSpec) (finalDGSColName string, err error) {
-	namegenerator := shared.NewRealRandomNameGenerator()
-	if dgsColName == "" {
-		dgsColName = namegenerator.GenerateName("dedicatedgameservercollection")
-	}
-
 	log.Printf("Creating DedicatedGameServerCollection %s", dgsColName)
 
 	dgsCol := shared.NewDedicatedGameServerCollection(dgsColName, shared.GameNamespace, replicas, podSpec)

@@ -1,9 +1,10 @@
 package controller
 
 import (
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	"github.com/jonboulle/clockwork"
@@ -12,9 +13,9 @@ import (
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/diff"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -43,13 +44,12 @@ type dgsColFixture struct {
 	dgsColLister []*dgsv1alpha1.DedicatedGameServerCollection
 	dgsLister    []*dgsv1alpha1.DedicatedGameServer
 	// Actions expected to happen on the client.
-	dgsActions []core.Action
+	dgsActions []extendedAction
 	// Objects from here preloaded into NewSimpleFake.
 	k8sObjects []runtime.Object
 	dgsObjects []runtime.Object
 
-	clock         clockwork.FakeClock
-	namegenerator shared.FakeRandomNameGenerator
+	clock clockwork.FakeClock
 }
 
 func newDGSColFixture(t *testing.T) *dgsColFixture {
@@ -58,11 +58,10 @@ func newDGSColFixture(t *testing.T) *dgsColFixture {
 	f.t = t
 	f.dgsObjects = []runtime.Object{}
 	f.clock = clockwork.NewFakeClockAt(fixedTime)
-	f.namegenerator = shared.NewFakeRandomNameGenerator()
 	return f
 }
 
-func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DedicatedGameServerCollectionController, dgsinformers.SharedInformerFactory) {
+func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DGSCollectionController, dgsinformers.SharedInformerFactory) {
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
@@ -70,7 +69,7 @@ func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*Dedicated
 
 	testController, err := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
-		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.namegenerator, f.clock)
+		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), nil)
 
 	if err != nil {
 		f.t.Fatalf("Error in initializing DGSCol: %s", err.Error())
@@ -124,6 +123,7 @@ func (f *dgsColFixture) runController(dgsColName string, startInformers bool, ex
 		}
 
 		expectedAction := f.dgsActions[i]
+
 		checkAction(expectedAction, action, f.t)
 	}
 
@@ -132,19 +132,22 @@ func (f *dgsColFixture) runController(dgsColName string, startInformers bool, ex
 	}
 }
 
-func (f *dgsColFixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
+func (f *dgsColFixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
-	f.dgsActions = append(f.dgsActions, action)
+	extAction := extendedAction{action, assertions}
+	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *dgsColFixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer) {
+func (f *dgsColFixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
-	f.dgsActions = append(f.dgsActions, action)
+	extAction := extendedAction{action, assertions}
+	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *dgsColFixture) expectUpdateDedicatedGameServerCollectionAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) {
+func (f *dgsColFixture) expectUpdateDedicatedGameServerCollectionAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
-	f.dgsActions = append(f.dgsActions, action)
+	extAction := extendedAction{action, assertions}
+	f.dgsActions = append(f.dgsActions, extAction)
 }
 
 func getKeyDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.T) string {
@@ -159,89 +162,105 @@ func getKeyDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.
 func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
-	f.namegenerator.SetName("test0")
-	expDGS := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
+	expDGS := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-	if dgsCol.Annotations == nil {
-		dgsCol.Annotations = make(map[string]string)
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
+	for i := 0; i < 5; i++ {
+		f.expectCreateDedicatedGameServerAction(expDGS, nil)
 	}
-	dgsCol.Annotations[shared.AnnoLastScaleOutDateTime] = f.clock.Now().In(time.UTC).String()
-
-	f.expectCreateDedicatedGameServerAction(expDGS)
-	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
-
 	f.run(getKeyDGSCol(dgsCol, t))
-}
 
-func TestUpdateDedicatedGameServerCollectionStatus(t *testing.T) {
-	f := newDGSColFixture(t)
+	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	assert.NoError(t, err)
+	assertDGSList(t, dgss.Items, 5)
 
-	f.namegenerator.SetName("test0")
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
-
-	f.dgsColLister = append(f.dgsColLister, dgsCol)
-	f.dgsLister = append(f.dgsLister, dgs)
-	f.dgsObjects = append(f.dgsObjects, dgsCol)
-	f.dgsObjects = append(f.dgsObjects, dgs)
-
-	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
-	f.run(getKeyDGSCol(dgsCol, t))
 }
 
 func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	f.namegenerator.SetName("test0")
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
-	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
-	f.dgsObjects = append(f.dgsObjects, dgs)
+
+	for i := 0; i < 5; i++ {
+		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		f.dgsLister = append(f.dgsLister, dgs)
+		f.dgsObjects = append(f.dgsObjects, dgs)
+	}
 
 	//Update replicas
-	dgsCol.Spec.Replicas = 2
-	f.namegenerator.SetName("test1")
-	dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec, f.namegenerator)
+	dgsCol.Spec.Replicas = 10
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 
-	if dgsCol.Annotations == nil {
-		dgsCol.Annotations = make(map[string]string)
+	for i := 0; i < 5; i++ {
+		dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		f.expectCreateDedicatedGameServerAction(dgsExpected, nil)
 	}
-	dgsCol.Annotations[shared.AnnoLastScaleOutDateTime] = f.clock.Now().In(time.UTC).String()
 
-	f.expectCreateDedicatedGameServerAction(dgsExpected)
-	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
 	f.run(getKeyDGSCol(dgsCol, t))
+
+	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	assert.NoError(t, err)
+	assertDGSList(t, dgss.Items, 10)
 }
 
 func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	f.namegenerator.SetName("test0")
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionStateRunning
-	dgsCol.Status.PodCollectionState = corev1.PodRunning
-
-	dgs := shared.NewDedicatedGameServerWithNoParent(dgsCol.Namespace, "test15", podSpec, f.namegenerator)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
-	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
-	f.dgsObjects = append(f.dgsObjects, dgs)
+
+	for i := 0; i < 5; i++ {
+		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		f.dgsLister = append(f.dgsLister, dgs)
+		f.dgsObjects = append(f.dgsObjects, dgs)
+	}
 
 	//Update replicas
-	dgsCol.Spec.Replicas = 0
+	dgsCol.Spec.Replicas = 3
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 
-	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol)
+	for i := 0; i < 2; i++ {
+		dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		f.expectUpdateDedicatedGameServerAction(dgsExpected, func(actual runtime.Object) {
+			dgs := actual.(*dgsv1alpha1.DedicatedGameServer)
+			assert.Equal(t, dgsv1alpha1.DGSMarkedForDeletion, dgs.Status.DedicatedGameServerState)
+		})
+	}
+
 	f.run(getKeyDGSCol(dgsCol, t))
+
+	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	assert.NoError(t, err)
+	assertDGSList(t, dgss.Items, 5)
+
+	countInCollection := 0
+	countNotInCollection := 0
+
+	for _, dgs := range dgss.Items {
+		if _, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && len(dgs.OwnerReferences) > 0 {
+			countInCollection++
+		} else if _, ok := dgs.Labels[shared.LabelOriginalDedicatedGameServerCollectionName]; ok &&
+			dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion {
+			countNotInCollection++
+		}
+	}
+	assert.Equal(t, 3, countInCollection)
+	assert.Equal(t, 2, countNotInCollection)
+}
+
+func assertDGSList(t *testing.T, dgss []dgsv1alpha1.DedicatedGameServer, count int) {
+	assert.NotNil(t, dgss)
+	assert.Equal(t, count, len(dgss))
 }
 
 // filterInformerActionsDGSCol filters list and watch actions for testing resources.
@@ -251,7 +270,9 @@ func filterInformerActionsDGSCol(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
 		// we removed the len(action.GetNamespace()) == 0 because the PortRegistry is initialized in the shared.GameNamespace
-		if action.Matches("list", "dedicatedgameservercollections") ||
+		if action.Matches("get", "dedicatedgameservercollections") ||
+			action.Matches("get", "dedicatedgameservers") ||
+			action.Matches("list", "dedicatedgameservercollections") ||
 			action.Matches("watch", "dedicatedgameservercollections") ||
 			action.Matches("list", "dedicatedgameservers") ||
 			action.Matches("watch", "dedicatedgameservers") {
@@ -262,48 +283,4 @@ func filterInformerActionsDGSCol(actions []core.Action) []core.Action {
 	}
 
 	return ret
-}
-
-// checkAction verifies that expected and actual actions are equal and both have
-// same attached resources
-func checkAction(expected, actual core.Action, t *testing.T) {
-	if !(expected.Matches(actual.GetVerb(), actual.GetResource().Resource) && actual.GetSubresource() == expected.GetSubresource()) {
-		t.Errorf("Expected\n\t%#v\ngot\n\t%#v", expected, actual)
-		return
-	}
-
-	if reflect.TypeOf(actual) != reflect.TypeOf(expected) {
-		t.Errorf("Action has wrong type. Expected: %t. Got: %t", expected, actual)
-		return
-	}
-
-	switch a := actual.(type) {
-	case core.CreateAction:
-		e, _ := expected.(core.CreateAction)
-		expObject := e.GetObject()
-		object := a.GetObject()
-
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
-		}
-	case core.UpdateAction:
-		e, _ := expected.(core.UpdateAction)
-		expObject := e.GetObject()
-		object := a.GetObject()
-
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
-		}
-	case core.PatchAction:
-		e, _ := expected.(core.PatchAction)
-		expPatch := e.GetPatch()
-		patch := a.GetPatch()
-
-		if !reflect.DeepEqual(expPatch, expPatch) {
-			t.Errorf("Action %s %s has wrong patch\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expPatch, patch))
-		}
-	}
 }

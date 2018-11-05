@@ -19,6 +19,7 @@ This repository aims to provide a solution/guidance/building blocks for managing
 - [Installation](docs/installation.md)
 - [Kubernetes resources](docs/resources.md)
 - [Controllers](docs/controllers.md)
+- [Development and e2e testing](docs/development.md)
 - [FAQ](docs/FAQ.md)
 
 ## Architecture

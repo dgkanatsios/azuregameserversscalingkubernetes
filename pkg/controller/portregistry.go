@@ -4,10 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strconv"
-	"strings"
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -15,26 +14,24 @@ import (
 // PortRegistry implements a custom map for the port registry
 type PortRegistry struct {
 	Ports             map[int32]bool
-	GameServerPorts   map[string]string
 	Indexes           []int32
 	NextFreePortIndex int32
-	Min               int32
-	Max               int32
-	portRequests      chan string
-	portResponses     chan int32
+	Min               int32         // Minimum Port
+	Max               int32         // Maximum Port
+	portRequests      chan struct{} // buffered channel to store port requests
+	portResponses     chan int32    // buffered channel to store port responses (system returns the HostPorts)
 }
 
 // NewPortRegistry initializes the IndexedDictionary that holds the port registry.
 func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32, namespace string) (*PortRegistry, error) {
 
 	pr := &PortRegistry{
-		Ports:           make(map[int32]bool, max-min+1),
-		GameServerPorts: make(map[string]string, max-min+1),
-		Indexes:         make([]int32, max-min+1),
-		Min:             min,
-		Max:             max,
-		portRequests:    make(chan string, 100),
-		portResponses:   make(chan int32, 100),
+		Ports:         make(map[int32]bool, max-min+1),
+		Indexes:       make([]int32, max-min+1),
+		Min:           min,
+		Max:           max,
+		portRequests:  make(chan struct{}, 100),
+		portResponses: make(chan int32, 100),
 	}
 
 	dgsList, err := dgsclientset.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{})
@@ -43,26 +40,33 @@ func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32, namesp
 		return nil, err
 	}
 
+	// gather ports for existing DGS
 	if len(dgsList.Items) > 0 {
 		for _, dgs := range dgsList.Items {
-
 			if len(dgs.Spec.Template.Containers) == 0 {
-				log.Errorf("DGS with name %s has a problem in its Pod Template: %#v", dgs.Name, dgs)
+				log.Errorf("DGS with name %s has no containers in its Pod Template: %#v", dgs.Name, dgs)
 				continue
 			}
+			if len(dgs.Spec.PortsToExpose) == 0 {
+				continue //no ports exported for this DGS
+			}
 
+			portsExposed := make([]int32, len(dgs.Spec.PortsToExpose))
+			portsExposedIndex := 0
 			for j := 0; j < len(dgs.Spec.Template.Containers); j++ {
-				ports := make([]int32, len(dgs.Spec.Template.Containers[j].Ports))
-				for i, portInfo := range dgs.Spec.Template.Containers[j].Ports {
+				for _, portInfo := range dgs.Spec.Template.Containers[j].Ports {
 					if portInfo.HostPort == 0 {
 						log.Errorf("HostPort for DGS %s and ContainerPort %d is zero, ignoring", dgs.Name, portInfo.ContainerPort)
 						continue
 					}
-					ports[i] = portInfo.HostPort
+					// if this port is to be exposed
+					if shared.SliceContains(dgs.Spec.PortsToExpose, portInfo.ContainerPort) {
+						portsExposed[portsExposedIndex] = portInfo.HostPort
+						portsExposedIndex++
+					}
 				}
-				pr.assignRegisteredPorts(ports, dgs.Name)
 			}
-
+			pr.assignRegisteredPorts(portsExposed)
 		}
 	}
 
@@ -74,34 +78,29 @@ func NewPortRegistry(dgsclientset dgsclientset.Interface, min, max int32, namesp
 
 }
 
-func (pr *PortRegistry) initializePortRegistry() {
-
-}
-
 func (pr *PortRegistry) displayRegistry() {
 	fmt.Printf("-------------------------------------\n")
 	fmt.Printf("Ports: %v\n", pr.Ports)
-	fmt.Printf("GameServerPorts: %s\n", pr.GameServerPorts)
 	fmt.Printf("Indexes: %v\n", pr.Indexes)
 	fmt.Printf("NextIndex: %d\n", pr.NextFreePortIndex)
 	fmt.Printf("-------------------------------------\n")
 }
 
 // GetNewPort returns and registers a new port for the designated game server. Locks a mutex
-func (pr *PortRegistry) GetNewPort(serverName string) (int32, error) {
-	pr.portRequests <- serverName
+func (pr *PortRegistry) GetNewPort() (int32, error) {
+	pr.portRequests <- struct{}{}
 
 	port := <-pr.portResponses
 
 	if port == -1 {
-		return -1, errors.New("Cannot register a new port. No more slots")
+		return -1, errors.New("Cannot register a new port. No available ports")
 	}
 
 	return port, nil
 }
 
 func (pr *PortRegistry) portProducer() {
-	for serverName := range pr.portRequests { //wait till a new request comes
+	for range pr.portRequests { //wait till a new request comes
 
 		initialIndex := pr.NextFreePortIndex
 		for {
@@ -109,7 +108,7 @@ func (pr *PortRegistry) portProducer() {
 				//we found a port
 				port := pr.Indexes[pr.NextFreePortIndex]
 				pr.Ports[port] = true
-				pr.GameServerPorts[serverName] = fmt.Sprintf("%d,%s", port, pr.GameServerPorts[serverName])
+
 				pr.increaseNextFreePortIndex()
 
 				//port is set
@@ -134,41 +133,19 @@ func (pr *PortRegistry) Stop() {
 	close(pr.portResponses)
 }
 
-// DeregisterServerPorts deregisters all ports for the designated server. Locks a mutex
-func (pr *PortRegistry) DeregisterServerPorts(serverName string) {
-
-	ports := strings.Split(pr.GameServerPorts[serverName], ",")
-
-	var deleteErrors string
-
-	for _, port := range ports {
-		if port != "" {
-			portInt, errconvert := strconv.Atoi(port)
-			if errconvert != nil {
-				deleteErrors = fmt.Sprintf("%s,%s", deleteErrors, errconvert.Error())
-			}
-
-			pr.Ports[int32(portInt)] = false
-		}
+// DeregisterServerPorts deregisters all ports
+func (pr *PortRegistry) DeregisterServerPorts(ports []int32) {
+	for i := 0; i < len(ports); i++ {
+		pr.Ports[ports[i]] = false
 	}
-
-	delete(pr.GameServerPorts, serverName)
-
 }
 
-func (pr *PortRegistry) assignRegisteredPorts(ports []int32, serverName string) {
-
-	var portsString string
+func (pr *PortRegistry) assignRegisteredPorts(ports []int32) {
 	for i := 0; i < len(ports); i++ {
 		pr.Ports[ports[i]] = true
 		pr.Indexes[i] = ports[i]
 		pr.increaseNextFreePortIndex()
-
-		portsString = fmt.Sprintf("%d,%s", ports[i], portsString)
-
 	}
-	pr.GameServerPorts[serverName] = portsString
-
 }
 
 func (pr *PortRegistry) assignUnregisteredPorts() {

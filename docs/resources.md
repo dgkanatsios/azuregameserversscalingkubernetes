@@ -16,6 +16,7 @@ Some useful resources regarding Kubernetes Operators, CRDs, etc.
 - Guidelines: https://github.com/kubernetes/community/blob/master/contributors/devel/controllers.md
 - https://metacontroller.app/
 - https://github.com/xmudrii/etcdproxy-controller
+- https://github.com/admiraltyio/multicluster-controller#deploymentcopy
 
 Interesting blog posts from Cloudark
 - https://medium.com/@cloudark/kubernetes-custom-controllers-b6c7d0668fdf

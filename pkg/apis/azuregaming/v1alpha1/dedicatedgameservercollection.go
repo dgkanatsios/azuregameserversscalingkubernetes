@@ -32,9 +32,12 @@ type DedicatedGameServerCollectionSpec struct {
 	// Message and SomeValue are example custom spec fields
 	//
 	// this is where you would put your custom resource data
-	Replicas             int32                                    `json:"replicas"`
-	PortsToExpose        []int32                                  `json:"portsToExpose"`
-	Template             corev1.PodSpec                           `json:"template"`
+	Replicas        int32                           `json:"replicas"`
+	PortsToExpose   []int32                         `json:"portsToExpose"`
+	Template        corev1.PodSpec                  `json:"template"`
+	DGSFailBehavior DedicatedGameServerFailBehavior `json:"dgsFailBehavior,omitempty"`
+	DGSMaxFailures  int32                           `json:"dgsMaxFailures,omitempty"`
+
 	PodAutoScalerDetails *DedicatedGameServerPodAutoScalerDetails `json:"podAutoScalerDetails,omitempty"`
 }
 
@@ -52,6 +55,7 @@ type DedicatedGameServerPodAutoScalerDetails struct {
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionStatus struct {
+	DGSTimesFailed                     int32                              `json:"dgsTimesFailed"`
 	AvailableReplicas                  int32                              `json:"availableReplicas"`
 	PodCollectionState                 corev1.PodPhase                    `json:"podsState"`
 	DedicatedGameServerCollectionState DedicatedGameServerCollectionState `json:"gameServersState"`

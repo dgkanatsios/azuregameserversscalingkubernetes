@@ -2,22 +2,19 @@ package controller
 
 import (
 	"fmt"
-	"time"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
-	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
-
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
+	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	logrus "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	informercorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -29,8 +26,8 @@ import (
 
 const dgsControllerAgentName = "dedigated-game-server-controller"
 
-// DedicatedGameServerController is the struct that contains necessary fields for the DGS controller
-type DedicatedGameServerController struct {
+// DGSController is the struct that contains necessary fields for the DGS controller
+type DGSController struct {
 	dgsClient  dgsclientset.Interface
 	podClient  kubernetes.Interface
 	nodeClient kubernetes.Interface
@@ -43,27 +40,22 @@ type DedicatedGameServerController struct {
 	podListerSynced  cache.InformerSynced
 	nodeListerSynced cache.InformerSynced
 
-	namegenerator shared.RandomNameGenerator
-	logger        *logrus.Logger
+	logger *logrus.Logger
 
-	// workqueue is a rate limited work queue. This is used to queue work to be
-	// processed instead of performing it as soon as a change happens. This
-	// means we can ensure we only process a fixed amount of resources at a
-	// time, and makes it easy to ensure we are never processing the same item
-	// simultaneously in two different workers.
-	workqueue workqueue.RateLimitingInterface
+	portRegistry *PortRegistry
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	controllerHelper *controllerHelper
 }
 
 // NewDedicatedGameServerController creates a new DedicatedGameServerController
 func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
-	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer,
-	randomNameGenerator shared.RandomNameGenerator) *DedicatedGameServerController {
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *PortRegistry) *DGSController {
 
-	c := &DedicatedGameServerController{
+	c := &DGSController{
 		dgsClient:        dgsclient,
 		podClient:        client, //getter hits the live API server (can also create/update objects)
 		nodeClient:       client,
@@ -73,11 +65,17 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 		dgsListerSynced:  dgsInformer.Informer().HasSynced,
 		podListerSynced:  podInformer.Informer().HasSynced,
 		nodeListerSynced: nodeInformer.Informer().HasSynced,
-		namegenerator:    randomNameGenerator,
-		workqueue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
+		portRegistry:     portRegistry,
+		logger:           shared.Logger(),
 	}
 
-	c.logger = shared.Logger()
+	c.controllerHelper = &controllerHelper{
+		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
+		logger:         c.logger,
+		syncHandler:    c.syncHandler,
+		cacheSyncs:     []cache.InformerSynced{c.nodeListerSynced, c.dgsListerSynced, c.dgsListerSynced, c.podListerSynced},
+		controllerType: "DedicatedGameServerController",
+	}
 
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
@@ -93,11 +91,11 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 	dgsInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.logger.Print("DedicatedGameServer controller - add DGS")
+				c.logger.Info("DedicatedGameServer controller - add DGS")
 				c.handleDedicatedGameServer(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.logger.Print("DedicatedGameServer controller - update DGS")
+				c.logger.Info("DedicatedGameServer controller - update DGS")
 				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
 				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
 
@@ -105,21 +103,25 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 					return
 				}
 
-				if shared.HasDedicatedGameServerChanged(oldDGS, newDGS) {
+				if c.hasDedicatedGameServerChanged(oldDGS, newDGS) {
 					c.handleDedicatedGameServer(newObj)
 				}
 
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.logger.Info("DedicatedGameServer controller - delete DGS")
+				c.handleDedicatedGameServerDelete(obj)
 			},
 		},
 	)
 	podInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.logger.Print("DedicatedGameServer controller - add pod")
+				c.logger.Info("DedicatedGameServer controller - add pod")
 				c.handlePod(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.logger.Print("DedicatedGameServer controller - update pod")
+				c.logger.Info("DedicatedGameServer controller - update pod")
 				oldPod := oldObj.(*corev1.Pod)
 				newPod := newObj.(*corev1.Pod)
 
@@ -129,7 +131,7 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 				c.handlePod(newObj)
 			},
 			DeleteFunc: func(obj interface{}) {
-				c.logger.Print("DedicatedGameServer controller - delete pod")
+				c.logger.Info("DedicatedGameServer controller - delete pod")
 				c.handlePod(obj)
 			},
 		},
@@ -137,7 +139,7 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 	return c
 }
 
-func (c *DedicatedGameServerController) handlePod(obj interface{}) {
+func (c *DGSController) handlePod(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -160,7 +162,7 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 		dgs, err := c.dgsLister.DedicatedGameServers(object.GetNamespace()).Get(object.GetOwnerReferences()[0].Name)
 
 		if err != nil {
-			runtime.HandleError(fmt.Errorf("error getting DedicatedGameServer for Pod %s. Maybe it has been deleted?", object.GetName()))
+			runtime.HandleError(fmt.Errorf("Warning: cannot get DedicatedGameServer for Pod %s because of %s. Maybe it has been deleted?", object.GetName(), err.Error()))
 			return
 		}
 		//and enqueue it
@@ -168,7 +170,7 @@ func (c *DedicatedGameServerController) handlePod(obj interface{}) {
 	}
 }
 
-func (c *DedicatedGameServerController) handleDedicatedGameServer(obj interface{}) {
+func (c *DGSController) handleDedicatedGameServer(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -188,72 +190,27 @@ func (c *DedicatedGameServerController) handleDedicatedGameServer(obj interface{
 	c.enqueueDedicatedGameServer(object)
 }
 
-// processNextWorkItem deals with one key off the queue.  It returns false
-// when it's time to quit.
-func (c *DedicatedGameServerController) processNextWorkItem() bool {
-	obj, shutdown := c.workqueue.Get()
-
-	if shutdown {
-		return false
+func (c *DGSController) handleDedicatedGameServerDelete(obj interface{}) {
+	dgs, ok := obj.(*dgsv1alpha1.DedicatedGameServer)
+	if ok {
+		//make sure all ports are deleted from the registry
+		c.portRegistry.DeregisterServerPorts(dgs.Spec.PortsToExpose)
 	}
-
-	// We wrap this block in a func so we can defer c.workqueue.Done.
-	err := func(obj interface{}) error {
-		// We call Done here so the workqueue knows we have finished
-		// processing this item. We also must remember to call Forget if we
-		// do not want this work item being re-queued. For example, we do
-		// not call Forget if a transient error occurs, instead the item is
-		// put back on the workqueue and attempted again after a back-off
-		// period.
-		defer c.workqueue.Done(obj)
-		var key string
-		var ok bool
-		// We expect strings to come off the workqueue. These are of the
-		// form namespace/name. We do this as the delayed nature of the
-		// workqueue means the items in the informer cache may actually be
-		// more up to date that when the item was initially put onto the
-		// workqueue.
-		if key, ok = obj.(string); !ok {
-			// As the item in the workqueue is actually invalid, we call
-			// Forget here else we'd go into a loop of attempting to
-			// process a work item that is invalid.
-			c.workqueue.Forget(obj)
-			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
-		}
-		// Run the syncHandler, passing it the namespace/name string of the
-		// DedicatedGameServer resource to be synced.
-		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
-		}
-		// Finally, if no error occurs we Forget this item so it does not
-		// get queued again until another change happens.
-		c.workqueue.Forget(obj)
-		c.logger.Infof("Successfully synced '%s'", key)
-		return nil
-	}(obj)
-
-	if err != nil {
-		runtime.HandleError(err)
-		return true
-	}
-
-	return true
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
-func (c *DedicatedGameServerController) syncHandler(key string) error {
+func (c *DGSController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	namespace, dgsName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
 
 	// try to get the DedicatedGameServer
-	dgsTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(name)
+	dgsTemp, err := c.dgsLister.DedicatedGameServers(namespace).Get(dgsName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// DedicatedGameServer not found
@@ -266,30 +223,18 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 	// DGS is being terminated
 	if !dgsTemp.DeletionTimestamp.IsZero() {
-		c.logger.WithField("DGSName", dgsTemp.Name).Info("DGS is being terminated")
+		c.logger.WithField("DedicatedGameServerName", dgsTemp.Name).Info("DedicatedGameServer is being terminated")
 		return nil
 	}
 
 	//check if DGS is markedForDeletion and has zero players connected to it
 	//if this is the case, then it's time to delete the DGS
 	if c.isDGSMarkedForDeletionWithZeroPlayers(dgsTemp) {
-		err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Delete(dgsTemp.Name, &metav1.DeleteOptions{})
-		if err != nil {
-			c.logger.WithFields(logrus.Fields{
-				"Name":  name,
-				"Error": err.Error(),
-			}).Error("Cannot delete DedicatedGameServer")
-			runtime.HandleError(fmt.Errorf("DedicatedGameServer '%s' cannot be deleted", name))
-			return err
-		}
-		c.logger.WithField("Name", dgsTemp.Name).Info("DedicatedGameServer with state MarkedForDeletion and with 0 ActivePlayers was deleted")
-		c.recorder.Event(dgsTemp, corev1.EventTypeNormal, shared.SuccessSynced, fmt.Sprintf(shared.MessageMarkedForDeletionDedicatedGameServerDeleted, dgsTemp.Name))
-		return nil
+		return c.handleDGSMarkedForDeletionWithZeroPlayers(dgsTemp)
 	}
 
-	// find the pod(s) the have this DGS as parent
+	// find the pod that belongs to this DGS
 	pod, err := c.getPodForDGS(dgsTemp)
-
 	if err != nil {
 		c.logger.WithField("Name", dgsTemp.Name).Error("Error in listing pod(s) for this Dedicated Game Server")
 		return err
@@ -324,6 +269,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	dgsToUpdate := dgsTemp.DeepCopy()
 	c.logger.WithFields(logrus.Fields{
 		"serverName":      dgsTemp.Name,
+		"currentDGSState": dgsTemp.Status.DedicatedGameServerState,
 		"currentPodState": dgsTemp.Status.PodState,
 		"currentPublicIP": dgsTemp.Status.PublicIP,
 		"currentNodeName": dgsTemp.Status.NodeName,
@@ -333,7 +279,6 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	}).Info("Updating DedicatedGameServer")
 
 	dgsToUpdate.Status.PodState = pod.Status.Phase
-	dgsToUpdate.Labels[shared.LabelPodState] = string(pod.Status.Phase)
 
 	dgsToUpdate.Status.PublicIP = ip
 	dgsToUpdate.Status.NodeName = pod.Spec.NodeName
@@ -342,10 +287,10 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 
 	if err != nil {
 		c.logger.WithFields(logrus.Fields{
-			"Name":  name,
+			"Name":  dgsName,
 			"Error": err.Error(),
 		}).Error("Error in updating DedicatedGameServer")
-		c.recorder.Event(dgsTemp, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServer for pod %s", name), err.Error())
+		c.recorder.Event(dgsTemp, corev1.EventTypeWarning, fmt.Sprintf("Error in updating the DedicatedGameServer %s", dgsName), err.Error())
 		return err
 	}
 
@@ -354,7 +299,7 @@ func (c *DedicatedGameServerController) syncHandler(key string) error {
 	return nil
 }
 
-func (c *DedicatedGameServerController) getPodForDGS(dgs *dgsv1alpha1.DedicatedGameServer) (*corev1.Pod, error) {
+func (c *DGSController) getPodForDGS(dgs *dgsv1alpha1.DedicatedGameServer) (*corev1.Pod, error) {
 	// Let's see if the corresponding pod for this DGS exists
 	// grab all the DedicatedGameServers that belong to this DedicatedGameServerCollection
 	set := labels.Set{
@@ -363,133 +308,57 @@ func (c *DedicatedGameServerController) getPodForDGS(dgs *dgsv1alpha1.DedicatedG
 	// we search via Labels, each DGS will have the DGSCol name as a Label
 	selector := labels.SelectorFromSet(set)
 	pods, err := c.podLister.Pods(dgs.Namespace).List(selector)
-
 	if err != nil {
 		return nil, err //pods cannot be listed
 	}
-
 	// if no pod that belong to this DGS are found
 	if len(pods) == 0 {
 		return nil, nil
 	}
-
 	// if there's only one, then return it
 	if len(pods) == 1 {
 		return pods[0], nil
 	}
-
 	// if there's more than one, then probably there's one being terminated
 	if len(pods) > 1 {
-		// return the first one that is running
+		// so we will return the first one that is running
 		for _, pod := range pods {
 			if pod.Status.Phase == corev1.PodRunning {
 				return pod, nil
 			}
-
 		}
 	}
-
-	//if we reached here, just return the first one
+	// not sure why we reached here, just return the first one
 	return pods[0], nil
-}
-
-func (c *DedicatedGameServerController) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {
-	//check its state and active players
-	return dgs.Status.ActivePlayers == 0 && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DedicatedGameServerStateMarkedForDeletion
-}
-
-func (c *DedicatedGameServerController) getPublicIPForNode(nodeName string) (string, error) {
-	node, err := c.nodeLister.Get(nodeName)
-	if err != nil {
-		return "", err
-	}
-
-	for _, x := range node.Status.Addresses {
-		if x.Type == corev1.NodeExternalIP {
-			return x.Address, nil
-		}
-	}
-
-	c.logger.Infof("Node with name %s does not have a Public IP, will try to return the InternalIP", nodeName)
-
-	// externalIP not found, try InternalIP
-	for _, x := range node.Status.Addresses {
-		if x.Type == corev1.NodeInternalIP {
-			return x.Address, nil
-		}
-	}
-
-	return "", fmt.Errorf("Node with name %s does not have a Public or Internal IP", nodeName)
 }
 
 // enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServer.
-func (c *DedicatedGameServerController) enqueueDedicatedGameServer(obj interface{}) {
+func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	c.workqueue.AddRateLimited(key)
+	c.controllerHelper.workqueue.AddRateLimited(key)
 }
 
-func (c *DedicatedGameServerController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
-
+func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
 	pod := shared.NewPod(dgs,
 		shared.APIDetails{
 			SetActivePlayersURL: shared.GetActivePlayersSetURL(),
 			SetServerStatusURL:  shared.GetServerStatusSetURL(),
-		},
-		c.namegenerator)
-
+		})
 	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // Run initiates the DedicatedGameServer controller
-func (c *DedicatedGameServerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
-	defer runtime.HandleCrash()
-	defer c.workqueue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	c.logger.Info("Starting DedicatedGameServer controller")
-
-	// Wait for the caches for all controllers to be synced before starting workers
-	c.logger.Info("Waiting for informer caches to sync for DedicatedGameServer controller")
-	if ok := cache.WaitForCacheSync(stopCh, c.nodeListerSynced, c.dgsListerSynced, c.podListerSynced); !ok {
-		return fmt.Errorf("failed to wait for caches to sync")
-	}
-
-	c.logger.Info("Starting workers for DedicatedGameServer controller")
-
-	// Launch a number of workers to process resources
-	for i := 0; i < controllerThreadiness; i++ {
-		// runWorker will loop until "something bad" happens.  The .Until will
-		// then rekick the worker after one second
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	c.logger.Info("Started workers for DedicatedGameServer Controller")
-	<-stopCh
-	c.logger.Info("Shutting down workers for DedicatedGameServer Controller")
-
-	return nil
-}
-
-// runWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
-func (c *DedicatedGameServerController) runWorker() {
-	// hot loop until we're told to stop.  processNextWorkItem will
-	// automatically wait until there's work available, so we don't worry
-	// about secondary waits
-	c.logger.Info("Starting loop for DedicatedGameServer controller")
-	for c.processNextWorkItem() {
-	}
+func (c *DGSController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+	return c.controllerHelper.Run(controllerThreadiness, stopCh)
 }

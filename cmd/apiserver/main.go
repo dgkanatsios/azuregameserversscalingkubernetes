@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/apiserver"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/apiserver/webhookserver"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apiserver/apiserver"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apiserver/webhookserver"
 	log "github.com/sirupsen/logrus"
 )
 

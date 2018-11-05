@@ -234,7 +234,7 @@ func Run(certFile, keyFile string, port int) *WebhookServer {
 
 	log.Printf("WebHook Server waiting for requests at port %d", port)
 
-	// start webhook server in new rountine
+	// start webhook server in new goroutine
 	go func() {
 		if err := whsvr.ListenAndServeTLS(certFile, keyFile); err != nil {
 			log.Errorf("Failed to listen and serve webhook server: %v", err)

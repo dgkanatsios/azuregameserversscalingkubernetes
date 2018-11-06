@@ -4,8 +4,7 @@ metadata:
   name: simplenodejsudp
 spec:
   replicas: 5
-  # dgsFailBehavior: Delete
-  dgsFailBehavior: Remove
+  dgsFailBehavior: Remove # or Delete
   dgsMaxFailures: 2
   portsToExpose:
   - 22222

@@ -28,7 +28,7 @@ echo "-----Deploying simplenodejsudp collection-----"
 kubectl create -f ${DIR}/../artifacts/examples/simplenodejsudp/dedicatedgameservercollection.yaml
 
 echo "-----Running Go DGSTester-----"
-RUN_IN_K8S=false go run ${DIR}/dgstester/*.go
+RUN_IN_K8S=false go run ${DIR}/cmd/*.go
 
 echo "-----Cleaning up-----"
 make -C ${DIR}/.. cleank8slocal

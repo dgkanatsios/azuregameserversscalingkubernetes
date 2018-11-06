@@ -38,11 +38,11 @@ type DedicatedGameServerCollectionSpec struct {
 	DGSFailBehavior DedicatedGameServerFailBehavior `json:"dgsFailBehavior,omitempty"`
 	DGSMaxFailures  int32                           `json:"dgsMaxFailures,omitempty"`
 
-	PodAutoScalerDetails *DedicatedGameServerPodAutoScalerDetails `json:"podAutoScalerDetails,omitempty"`
+	DgsAutoScalerDetails *DedicatedGameServerDgsAutoScalerDetails `json:"dgsAutoScalerDetails,omitempty"`
 }
 
-// DedicatedGameServerPodAutoScalerDetails contains details about the autoscaling of the dedicated game server collection
-type DedicatedGameServerPodAutoScalerDetails struct {
+// DedicatedGameServerDgsAutoScalerDetails contains details about the autoscaling of the dedicated game server collection
+type DedicatedGameServerDgsAutoScalerDetails struct {
 	MinimumReplicas            int    `json:"minimumReplicas"`
 	MaximumReplicas            int    `json:"maximumReplicas"`
 	ScaleInThreshold           int    `json:"scaleInThreshold"`

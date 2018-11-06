@@ -32,7 +32,7 @@ func (c *DGSCollectionController) setPodCollectionState(dgsCol *dgsv1alpha1.Dedi
 			// so set the collection's Pod State to this one Pod's value
 			dgsCol.Status.PodCollectionState = dgs.Status.PodState
 			if dgsCol.Status.PodCollectionState == "" {
-				dgsCol.Status.PodCollectionState = corev1.PodUnknown
+				dgsCol.Status.PodCollectionState = corev1.PodPending
 			}
 			return nil
 		}

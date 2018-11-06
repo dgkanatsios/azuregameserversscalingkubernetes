@@ -20,6 +20,8 @@ This repository aims to provide a solution/guidance/building blocks for managing
 - [Kubernetes resources](docs/resources.md)
 - [Controllers](docs/controllers.md)
 - [Development and e2e testing](docs/development.md)
+- [Dedicated Game Server Health](docs/dgshealth.md)
+- [Autoscaling](docs/scaling.md)
 - [FAQ](docs/FAQ.md)
 
 ## Architecture
@@ -43,7 +45,7 @@ You can also take a look in the example files in the `artifacts/examples` folder
 
 ### Components
 
-This project contains 2 main components, both of which are created as Kubernetes Deployments:
+This project contains 2 main components, both of which are by default created Kubernetes Deployments in the namespace 'dgs-system':
 
 #### API Server
 
@@ -146,24 +148,6 @@ Images used for this project are hosted on Docker Hub:
 - [A Node.js UDP echo server](https://hub.docker.com/r/dgkanatsios/simplenodejsudp/)
 - [API Server](https://hub.docker.com/r/dgkanatsios/aks_gaming_apiserver/)
 - [Controllers](https://hub.docker.com/r/dgkanatsios/aks_gaming_controller/)
-
-### PodAutoscaler
-
-Project contains an **experimental** Pod autoscaler controller. This autoscaler can scale DedicatedGameServer instances within a DedicatedGameServerCollections. Its use is optional and can be configured when you are deploying a DedicatedGameServerCollection resource. The autoscaler lives on the aks-gaming-controller executable and can be optionally enabled.
-The decision about whether there should be a scaling activity is determined based on the `ActivePlayers` metric. We take into account that each DedicatedGameServer can hold a specific amount of players. If the sum of the active players on all the running servers of the DedicatedGameServerCollection is above a specified threshold (or below, for scale in activity), then the system is clearly in need of more DedicatedGameServer instances, so a scale out activity will occur, increasing the requested replicas of the DedicatedGameServerCollection by one. Moreover, there is a cooldown timeout so that a minimum amount of time will pass between two successive scaling activities.
-Here you can see a configuration example, fields are self-explainable:
-
-```yaml
-# field of DedicatedGameServerCollection.Spec
-podAutoScalerDetails:
-  minimumReplicas: 5
-  maximumReplicas: 10
-  scaleInThreshold: 60
-  scaleOutThreshold: 80
-  enabled: true
-  coolDownInMinutes: 5
-  maxPlayersPerServer: 10
-```
 
 ---
 This is not an official Microsoft product.

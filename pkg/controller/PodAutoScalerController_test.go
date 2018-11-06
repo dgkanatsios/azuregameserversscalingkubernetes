@@ -156,7 +156,7 @@ func TestScaleOutDGSCol(t *testing.T) {
 	f := newPodAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgsCol.Spec.PodAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerPodAutoScalerDetails{
+	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
 		MinimumReplicas:     1,
 		MaximumReplicas:     5,
 		ScaleInThreshold:    60,
@@ -186,7 +186,7 @@ func TestScaleOutDGSCol(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.PodAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
 	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
 
@@ -200,7 +200,7 @@ func TestScaleInDGSCol(t *testing.T) {
 	f := newPodAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgsCol.Spec.PodAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerPodAutoScalerDetails{
+	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
 		MinimumReplicas:     1,
 		MaximumReplicas:     5,
 		ScaleInThreshold:    60,
@@ -235,7 +235,7 @@ func TestScaleInDGSCol(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs2)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.PodAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 1
 	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
 
@@ -249,7 +249,7 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 	f := newPodAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgsCol.Spec.PodAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerPodAutoScalerDetails{
+	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
 		MinimumReplicas:            1,
 		MaximumReplicas:            5,
 		ScaleInThreshold:           60,
@@ -282,7 +282,7 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.PodAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
 	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
 
@@ -296,7 +296,7 @@ func TestWithMalformedLastScaleTime(t *testing.T) {
 	f := newPodAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
-	dgsCol.Spec.PodAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerPodAutoScalerDetails{
+	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
 		MinimumReplicas:            1,
 		MaximumReplicas:            5,
 		ScaleInThreshold:           60,
@@ -327,7 +327,7 @@ func TestWithMalformedLastScaleTime(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.PodAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
 	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
 

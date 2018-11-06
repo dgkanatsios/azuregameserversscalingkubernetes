@@ -47,7 +47,7 @@ spec:
               type: integer
               minimum: 1
               maximum: 100
-            PodAutoScalerDetails:
+            DgsAutoScalerDetails:
               type: object
               properties:
                 MinimumReplicas:

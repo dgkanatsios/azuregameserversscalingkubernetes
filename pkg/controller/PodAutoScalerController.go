@@ -154,7 +154,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 	}
 
 	// check if it has autoscaling enabled
-	if dgsColTemp.Spec.PodAutoScalerDetails == nil || dgsColTemp.Spec.PodAutoScalerDetails.Enabled == false {
+	if dgsColTemp.Spec.DgsAutoScalerDetails == nil || dgsColTemp.Spec.DgsAutoScalerDetails.Enabled == false {
 		return nil
 	}
 
@@ -173,19 +173,19 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 
 	// lastScaleOperationDateTime != "" => scale in/out has happened before, at least once
 	// let's see if time has passed since then is more than the cooldown threshold
-	if dgsColTemp.Spec.PodAutoScalerDetails.LastScaleOperationDateTime != "" {
-		lastScaleOperation, err := time.ParseInLocation(timeformat, dgsColTemp.Spec.PodAutoScalerDetails.LastScaleOperationDateTime, loc)
+	if dgsColTemp.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime != "" {
+		lastScaleOperation, err := time.ParseInLocation(timeformat, dgsColTemp.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime, loc)
 		if err != nil {
 			c.logger.WithFields(logrus.Fields{
 				"DGSColName":                 dgsColTemp.Name,
-				"LastScaleOperationDateTime": dgsColTemp.Spec.PodAutoScalerDetails.LastScaleOperationDateTime,
+				"LastScaleOperationDateTime": dgsColTemp.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime,
 				"Error":                      err.Error(),
 			}).Info("Cannot parse LastScaleOperationDateTime string. Will ignore cooldown duration")
 		} else {
 			currentTime := c.clock.Now().In(loc)
 			durationSinceLastScaleOperation := currentTime.Sub(lastScaleOperation)
 			// cooldown period has not passed
-			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.PodAutoScalerDetails.CoolDownInMinutes) {
+			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.DgsAutoScalerDetails.CoolDownInMinutes) {
 				c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because coolDownPeriod has not passed")
 				return nil
 			}
@@ -207,7 +207,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 	}
 
 	// get scaler information
-	scalerDetails := dgsColTemp.Spec.PodAutoScalerDetails
+	scalerDetails := dgsColTemp.Spec.DgsAutoScalerDetails
 
 	// measure total player capacity
 	totalPlayerCapacity := scalerDetails.MaxPlayersPerServer * len(dgsRunningList)
@@ -232,7 +232,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		//scale out
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas++
-		dgsColToUpdate.Spec.PodAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
+		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
 		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
@@ -256,7 +256,7 @@ func (c *PodAutoScalerController) syncHandler(key string) error {
 		//scale in
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas--
-		dgsColToUpdate.Spec.PodAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
+		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
 		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)

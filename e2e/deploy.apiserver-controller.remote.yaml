@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dgs-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azuregamingcontroller-sa
+  namespace: dgs-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: azuregamingcontroller-rbac
+subjects:
+  - kind: ServiceAccount
+    # Reference to upper's `metadata.name`
+    name: azuregamingcontroller-sa
+    # Reference to upper's `metadata.namespace`
+    namespace: dgs-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aks-gaming-apiserver
+  namespace: dgs-system
+  labels:
+    name: aks-gaming-apiserver
+spec:
+  selector:
+    matchLabels: 
+      name: aks-gaming-apiserver
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: aks-gaming-apiserver
+    spec:
+      serviceAccountName: azuregamingcontroller-sa
+      containers:
+      - name: aks-gaming-apiserver
+        image: docker.io/dgkanatsios/aks_gaming_apiserver:%TAG%
+        args: ["./apiserver","--port","8000"]
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 50m
+            memory: 30Mi
+          requests:
+            cpu: 50m
+            memory: 20Mi
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        volumeMounts:
+        - name: certificate
+          mountPath: "/certificate"
+          readOnly: true
+      volumes:
+      - name: certificate
+        secret:
+          secretName: aks-gaming-certificate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aks-gaming-controller
+  namespace: dgs-system
+  labels:
+    name: aks-gaming-controller
+spec:
+  selector:
+    matchLabels: 
+      name: aks-gaming-controller
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: aks-gaming-controller
+    spec:
+      serviceAccountName: azuregamingcontroller-sa
+      containers:
+      - name: aks-gaming-controller
+        args: ["./controller","--podautoscaler","true"]
+        image: docker.io/dgkanatsios/aks_gaming_controller:%TAG%
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 50m
+            memory: 30Mi
+          requests:
+            cpu: 50m
+            memory: 20Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aks-gaming-apiserver
+  namespace: dgs-system
+  labels:
+    name: aks-gaming-apiserver
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: aks-gaming-apiserver
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aks-gaming-webhookserver
+  namespace: dgs-system
+  labels:
+    name: aks-gaming-webhookserver
+spec:
+  ports:
+    # the port that this service should serve on
+    - port: 443
+      targetPort: 8001
+      protocol: TCP
+      name: https
+  # label keys and values that must match in order to receive traffic for this service
+  selector:
+    name: aks-gaming-apiserver
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aks-gaming-certificate
+  namespace: dgs-system
+type: Opaque
+data:
+  cert.pem: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURuakNDQW9hZ0F3SUJBZ0lVTytacjZWdlhtRWlRTmIyaEN4U1F3M0F0cDRFd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0ZURVRNQkVHQTFVRUF4TUthM1ZpWlhKdVpYUmxjekFlRncweE9ERXdNalF4TURJeE1EQmFGdzB4T1RFdwpNalF4TURJeE1EQmFNREl4TURBdUJnTlZCQU1USjJGcmN5MW5ZVzFwYm1jdGQyVmlhRzl2YTNObGNuWmxjaTVrClozTXRjM2x6ZEdWdExuTjJZekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNa2cKanJ0eWRJZXlOTE8wSEJGQXI0WFpnWkpUM2ptSzJmbnk1Q054NFJaNUtrSTk3RndlalpDNEg5TkdzZ3RtU3hydAoxVGt6bkNPN0tEaFZaS1RkWTB5SWRiWElPajViTDlqTGhlTTJYdktOM2NhMGZaaGNnK3BwVzQxaVplcm5BaEdoCmE3WUY1MzExV3Z5R3g3U3l1MEF6TUpJdkRtRERtU0dJWGt0NTBXMjdYWnF4MDUrNHRtTHllRXBvMmh4UjJxMkQKWDBHeC80YjZlbHIvMDlJQWFLN2h5cklpQ1phQ29iQVRBeHNXNGplNXBWRWFaeXJTNmc5UmIvelRLREpQQzFLbQpRVUlZY055Nkw3bW5OSncxWndzTGxwemd6akhOZDZFMEVrSU1pQjdWeGQzRUo2WnZlMEE0MXdOeGIwcFhQZXhQCk0wV05sS3VaRkJDb05ldEdhOHNDQXdFQUFhT0J5RENCeFRBT0JnTlZIUThCQWY4RUJBTUNCYUF3RXdZRFZSMGwKQkF3d0NnWUlLd1lCQlFVSEF3RXdEQVlEVlIwVEFRSC9CQUl3QURBZEJnTlZIUTRFRmdRVTBUcXkvWU0xMTNQVQpHZTBRbkFObUszd2MzWEV3Y1FZRFZSMFJCR293YUlJWVlXdHpMV2RoYldsdVp5MTNaV0pvYjI5cmMyVnlkbVZ5CmdpTmhhM010WjJGdGFXNW5MWGRsWW1odmIydHpaWEoyWlhJdVpHZHpMWE41YzNSbGJZSW5ZV3R6TFdkaGJXbHUKWnkxM1pXSm9iMjlyYzJWeWRtVnlMbVJuY3kxemVYTjBaVzB1YzNaak1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQgpBUUF5Q21hRmFzWm94cklSbWJlVHRXUUdYRVpzWE1QclBUbVdqOHkyQk5velNrN0lGd0E2dUJCWUdhOFdiTzhoCnd6cmR0NkZjYU9KQzI4bm9oTnFKaWxzUy9sSEhOTU9UT1F1NFVnOC9WOWYyVDF5c0dUWHRxZmNreTIvME5ScjEKVk4yVG1ONFhiRFhERXpsek1qV1lUUmhpWXhoZ0g3YnZNTjNQaGlrMHorWmdSVGNBaXJnNWtEY0RCUDg0ZG5XUQpuWG9oWEs0R0hPVmZJRmZlNXd0SHlLQUdJdVc2QmVjQlVtdmZtNUd5bitYYVI1b05BbGpEc204eS9tNTlRbjAzCk9UZDBWSFRsdFYvTW1PU2Y3WDRYMXEveUYwWFAxbERqdGhzMmZwaWdTQ051SDNZWlRkK2RTbktvUTFJdmU1QVMKSTVVam5ZbTJmZTVWMzRudlVMMWJaUjNOCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  key.pem: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcFFJQkFBS0NBUUVBeVNDT3UzSjBoN0kwczdRY0VVQ3ZoZG1Ca2xQZU9ZclorZkxrSTNIaEZua3FRajNzClhCNk5rTGdmMDBheUMyWkxHdTNWT1RPY0k3c29PRlZrcE4xalRJaDF0Y2c2UGxzdjJNdUY0elplOG8zZHhyUjkKbUZ5RDZtbGJqV0psNnVjQ0VhRnJ0Z1huZlhWYS9JYkh0TEs3UURNd2tpOE9ZTU9aSVloZVMzblJiYnRkbXJIVApuN2kyWXZKNFNtamFIRkhhcllOZlFiSC9odnA2V3YvVDBnQm9ydUhLc2lJSmxvS2hzQk1ER3hiaU43bWxVUnBuCkt0THFEMUZ2L05Nb01rOExVcVpCUWhodzNMb3Z1YWMwbkRWbkN3dVduT0RPTWMxM29UUVNRZ3lJSHRYRjNjUW4KcG05N1FEalhBM0Z2U2xjOTdFOHpSWTJVcTVrVUVLZzE2MFpyeXdJREFRQUJBb0lCQUhHSE9Db2tyQlJnaWhFWgp6SElNb2tjYWhHSVZoeTNSNjhLRDBUVVV0ZXBha0hqOXZTb3VjTmhNcG1JNjJJdEl2WUpBMTRmSFV3NTBPWHE2CjhPbUNzZWRrYTVVbHBZTEhOQlhhcEFPaUVDdzMyZ1Nzb3V4YTVIZHY2eWErY1NzTUpJWFJLUnlBN3E5SmpBZFoKQ09jOXNDYkgvbFcxekJiZ3NkSlV5RzB3SVFBZnIzMEhMdlVUZjg4NGhmVzJpcGRXWGtsK0Q2THZabjFaQmYyLwpnYzY4UktUd1RQLzQwRXBRaC9Pd2djUStMTjZGcTFVazlFSjA2eFBqdzZzNjVTUFk1WnpRSTF3M1NGaEIrZnhYCjNRT1BIUVpuWXBaeC9hbjltb0ppdFdQeCtxMk16NmRsaXAwdnZ3RGNwci9SS1BNU1lnS1VwMjRrVnBHcnVFdlAKWW8zQlZKa0NnWUVBN2VoRFNhYjVUem5Jdk5QMFNMczRkeGhTMWszdnpML0hwdWtEcU13bWZvQlo1WHkwYXp6YQpmZ1F6bWpmMXllM0NRVFQyUnVvcnZva1JsNWY4ZDN4YWpVbnJUTGlTVzkxdVNXVG41bVcrNXNtT0cvd1B0SEVtClNLMDVJMXFLUG1MRjU1blY0MXZhZnVJaDJpMDFVS0lyT2liM3MzWmYzejhQVUs0MjZWa2dEbjhDZ1lFQTJHdzgKT3A5ZXFMS0JxTkZuaVBWTmxYNFBUWnExZGxKQUEza2szblp6SWdiTlhHdnRJUDFKYldDUVI5b09xSnIvbnNZawpOcEZEK01YVll6YTJId0hVQXpPNk5xdmZEdldGM0tQNG1qL1JjeE45RWg2OWZPZmNlUDRkNk52RFE4QjdDbGErCjE2VkliUThxdjJISjdrRlhpdHFkN1NTMURuZHI4Ylk0bDV6bDFMVUNnWUVBenhTTmhVMk8wcFEwazVCV29QdzkKd1FSdURsWFdkajAwZHFkNlpQSVdTNlJERzRyNXJDSlMrTCtGZnlaWWprU2pBb2tzR1R2NWlhYmJwajFJSjJVWgptTVFQeVQ4YlBsVTJpeklHM0xnUmUrZFRDQzdXS0xVWW9zZ001U1lKRVJaK3R3SmpkN3hiS25pQkNOeXkvSlc3CjFLbFlrR0JvUVBVdHlvZHFDcUZtVXRjQ2dZRUF2Szc0ZjUrTVZvVnlsMjBoMS8wTmpBVGdjS2N1QjU5RDRnTlAKU29oNGJqVUIrODY0YVdlS0Njc0RYekZVVUZqNS9VSUFObmJGalBGbHpkN1lQd1pJQWhhcUJab29tWkVqQ0s4SQpRZXJidjNsQk5IZ0tlZ2huWmpFZWdIS0F0ZVB0SWFGcE52Y0p3dE5UVUpHQURMRjVFanp4TE53dzRoRHAwazBzCjM3blJnblVDZ1lFQW5wRHF5UllkZWdtaXpFY3FpTFphS3J0Z2xUY2hycjR2WlhqRjYwTCtMMndVbUpod1JyQ2QKa3VtMTR6QlFPOTZVOTM5NWtRbkxacEw1ZUlWbU4rcTZqUFVHRzRndUxXVTBFV1RZaWFUUjZub3Y1ZEhzeXpIVQpWc3JjaCs1a3N2UG5DQ1BwaStGSll4Q1AzZjhUNlcrMVFINXlteWlrSlZZV0RzTE9kMGJnSk1JPQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: aks-gaming-webhook-mutation
+  namespace: dgs-system
+webhooks:
+  - name: aks-gaming-webhookserver-mutation.azuregaming.com
+    clientConfig:
+      service:
+        name: aks-gaming-webhookserver
+        namespace: dgs-system
+        path: "/mutate"
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRFNE1Ea3hOekEzTkRnME1Gb1hEVEk0TURreE5EQTNORGcwTUZvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBSmdWClNnTk41MkNDc0paWk5nNWNqUmdDQXR0d281OTdwcnc5bXFXVldkeUF6N2FNWk4yOEpzYk0zcVBxeTJmc29ZWlMKeGViUEpDVURKRnVlQko3VzlwWTYrTGN0ZzVHRVZXTW55dldGUUcvcnlqUFpaVHVOSk5SajBDTUhBYVprUzZLaQpqQ2NJcE01WmtIb2dqV2p4WHJxRjduSFFSMGUrRTg2R1h2UFFxcUY4a3FWeGFjaStqTERRQ0lnaGJGVUVuZi9RCjJUYUxjMUFiY3QwKzZib3JUZFdEenYzTzRIMjIxYjQ2ZkFZdklmTk1zcU1zK0lDcXVGRHJBYTZDRUxwWGJPTGEKVmRRSXRwMHNrTkV4ZDBIRzBlQUk1T2tZbGtUdWg1N0p1dnl3d0NFclczRTRlMFpBT2Uwd0g3WGhPY2E4Vkdkcgp5eVA5MnFlVXdOWW5USEZRc3A4Q0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFHcGlnRmdBNDJLTXdVMHU2L01JelV2UWZreUYKR0NhSUtYcWM1dGxqMUFNUXNxOFRFeG1HL0wzMEZCWlJUSk1OUjRvajY0aWJlMUJLNlJkb2pKQnFnbC9UdTM0TQo4amVXaVpBSkZHb3V0QVlVa0Z6TzNwUWMzOHNJbTBHNWpPNHdwTnlTQzBrbWg1QkVDcEpJa3pDa2E2RnkzblRnCmcwVmxYSWJNWlZ1dk9XYzd5dTljM21XWjU3MzY3c3RydmlWZk81T2pUOG9zeGt3c09pTm5idGFzd3ZZWWJDNEIKdlozRDhTbFdvRnJkb2pGMWpJL3huZHBMZUhRVHNoTDg5K2RNdzVBeTVUSzdFSXFyR3loYmkwOCtoTUxIMi84VApqSys1VWZtV29xd001WmRIdzk4NHlqK3QrcFBGc1VGMzlhZUduazlHZnY3T2RZNTg2enoyRmphK2xWYz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    rules:
+      - operations: ["CREATE","UPDATE"]
+        apiGroups: ["azuregaming.com"]
+        apiVersions: ["v1alpha1"]
+        resources: ["dedicatedgameservercollections","dedicatedgameservers"]
+    failurePolicy: Fail

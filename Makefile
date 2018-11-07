@@ -11,6 +11,7 @@ export CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
 export TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
 export KIND_CLUSTER_NAME=1
 export KUBECONFIG_LOCAL=~/.kube/kind-config-${KIND_CLUSTER_NAME}
+export KUBECONFIG=$(KUBECONFIG_LOCAL)
 
 all: test build
 deps:
@@ -49,18 +50,14 @@ builddockerlocal: buildlocal
 		docker build -f various/Dockerfile.controller.local -t $(CONTROLLER_NAME):$(TAG) .	
 
 # you should run 'make builddockerlocal' before running 'deployk8slocal'
-deployk8slocal: export KUBECONFIG=$(KUBECONFIG_LOCAL)
 deployk8slocal:
-		echo $(KUBECONFIG)
 		kubectl apply -f ./artifacts/crds
 		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl apply -f -
-cleank8slocal: export KUBECONFIG=$(KUBECONFIG_LOCAL)
 cleank8slocal:
 		kubectl delete -f ./artifacts/crds
 		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl delete -f -
 .PHONY: e2e
-e2e: export KUBECONFIG=$(KUBECONFIG_LOCAL) 
-e2e:
+e2e: test
 		./e2e/run.sh
 
 #remote building and debugging

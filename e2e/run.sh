@@ -14,11 +14,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 "${DIR}/build_images.sh"
 
-echo "-----Running Go tests-----"
-make -C ${DIR}/.. test 
-
 echo "-----Compiling, building and deploying to local Kubernetes cluster-----"
-make -C ${DIR}/.. deployk8slocal
+kubectl apply -f ${DIR}/../artifacts/crds
+sed "s/%TAG%/$(TAG)/g" ${DIR}/../artifacts/deploy.apiserver-controller.local.yaml | kubectl apply -f -
 
 echo "-----Waiting for APIServer and Controller deployments-----"
 ${DIR}/wait-for-deployment.sh -n dgs-system aks-gaming-apiserver
@@ -31,4 +29,5 @@ echo "-----Running Go DGSTester-----"
 RUN_IN_K8S=false go run ${DIR}/cmd/*.go
 
 echo "-----Cleaning up-----"
-make -C ${DIR}/.. cleank8slocal
+kubectl delete -f ${DIR}/../artifacts/crds
+sed "s/%TAG%/$(TAG)/g" ${DIR}/../artifacts/deploy.apiserver-controller.local.yaml | kubectl delete -f -

@@ -6,13 +6,11 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 VERSION=0.0.43
 REGISTRY ?= docker.io
-APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
-CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
-TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
-export TAG
-
-KIND_CLUSTER_NAME=1
-KUBECONFIG_LOCAL=~/.kube/kind-config-${KIND_CLUSTER_NAME}
+export APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
+export CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
+export TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
+export KIND_CLUSTER_NAME=1
+export KUBECONFIG_LOCAL=~/.kube/kind-config-${KIND_CLUSTER_NAME}
 
 all: test build
 deps:
@@ -49,14 +47,26 @@ buildlocal:
 builddockerlocal: buildlocal
 		docker build -f various/Dockerfile.apiserver.local -t $(APISERVER_NAME):$(TAG) . 
 		docker build -f various/Dockerfile.controller.local -t $(CONTROLLER_NAME):$(TAG) .	
+
 # you should run 'make builddockerlocal' before running 'deployk8slocal'
-deployk8slocal: 
-		KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl apply -f ./artifacts/crds
-		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl apply -f -
+deployk8slocal: export KUBECONFIG=$(KUBECONFIG_LOCAL)
+deployk8slocal:
+		echo $(KUBECONFIG)
+		kubectl apply -f ./artifacts/crds
+		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl apply -f -
+cleank8slocal: export KUBECONFIG=$(KUBECONFIG_LOCAL)
 cleank8slocal:
-		KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl delete -f ./artifacts/crds
-		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl delete -f -
+		kubectl delete -f ./artifacts/crds
+		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | kubectl delete -f -
 .PHONY: e2e
+e2e: export KUBECONFIG=$(KUBECONFIG_LOCAL) 
 e2e:
-		KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} CONTROLLER_NAME=$(CONTROLLER_NAME) \
-		 APISERVER_NAME=$(APISERVER_NAME) TAG=$(TAG) KUBECONFIG=$(KUBECONFIG_LOCAL) ./e2e/run.sh
+		./e2e/run.sh
+
+#remote building and debugging
+buildremotedebug: clean
+		docker build -f ./cmd/apiserver/Dockerfile -t $(REGISTRY)/$(APISERVER_NAME):$(TAG) .
+		docker build -f ./cmd/controller/Dockerfile -t $(REGISTRY)/$(CONTROLLER_NAME):$(TAG) .
+pushremotedebug:
+		docker push $(REGISTRY)/$(APISERVER_NAME):$(TAG)
+		docker push $(REGISTRY)/$(CONTROLLER_NAME):$(TAG)

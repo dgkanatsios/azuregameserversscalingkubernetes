@@ -6,11 +6,12 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 VERSION=0.0.43
 REGISTRY ?= docker.io
-KUBECONFIG_KIND=~/.kube/kind-config-${KIND_CLUSTER_NAME}
+
+export KIND_CLUSTER_NAME=1
 export APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
 export CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
 export TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
-export KIND_CLUSTER_NAME=1
+
 
 all: test build
 deps:

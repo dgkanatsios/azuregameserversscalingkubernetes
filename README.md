@@ -6,9 +6,9 @@
 ![](https://img.shields.io/badge/status-alpha-red.svg)
 [![codecov](https://codecov.io/gh/dgkanatsios/azuregameserversscalingkubernetes/branch/master/graph/badge.svg)](https://codecov.io/gh/dgkanatsios/azuregameserversscalingkubernetes)
 
-# AzureGameServersScalingKubernetes
+# Scaling Dedicated Game Servers on Azure Kubernetes Service
 
-Scaling dedicated game servers is a hard problem. They're stateful (memory), can't (well, shouldn't) be explicitly shut down (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal latency, especially for real-time games.
+Scaling dedicated game servers is a hard problem. They're stateful (having the bulk of player action data stored in server RAM), can't be explicitly shut down (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal latency, especially for real-time games.
 
 This repository aims to provide a solution/guidance/building blocks for managing containerized dedicated game servers using the [Kubernetes](https://k8s.io) orchestrator on Azure using the managed [Azure Kubernetes Service (AKS)](https://azure.microsoft.com/en-us/services/kubernetes-service/).
 

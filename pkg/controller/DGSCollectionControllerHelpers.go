@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (c *DGSCollectionController) hasDedicatedGameServerCollectionChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
+func (c *DGSCollectionController) hasSpecChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
 	return oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas
 }
 
@@ -173,7 +173,7 @@ func (c *DGSCollectionController) increaseTimesFailed(dgsCol *dgsv1alpha1.Dedica
 
 		_, err = c.dgsClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsCol.Namespace).Update(dgsColToUpdate)
 		if err == nil {
-			c.logger.WithFields(logrus.Fields{"DedicatedGameServerCollection": dgsCol.Name}).Infof("Updated DGSTimesFailed field of the DGSCol with value %d, value now is %d", count, dgsColToUpdate.Status.DGSTimesFailed)
+			c.logger.WithFields(logrus.Fields{"DedicatedGameServerCollection": dgsCol.Name}).Infof("Increased DGSTimesFailed field of the DGSCol with value %d, new value is %d", count, dgsColToUpdate.Status.DGSTimesFailed)
 		}
 		return err
 	})
@@ -273,7 +273,7 @@ func (c *DGSCollectionController) reconcileStatuses(dgsCol *dgsv1alpha1.Dedicate
 	return retryErr
 }
 
-func (c *DGSCollectionController) hasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
+func (c *DGSCollectionController) hasDGSStatusChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
 	if oldDGS.Status.DedicatedGameServerState != newDGS.Status.DedicatedGameServerState ||
 		oldDGS.Status.PodState != newDGS.Status.PodState ||
 		len(oldDGS.GetOwnerReferences()) != len(newDGS.GetOwnerReferences()) {

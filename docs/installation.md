@@ -81,7 +81,7 @@ kubectl apply -f https://raw.githubusercontent.com/dgkanatsios/azuregameserverss
 
 You're done! You can now test the Node.js echo demo app.
 
-## Testing with Node.js echo demo app
+## Testing with Node.js demo app (an echo HTTP server)
 
 ### Creation of DedicatedGameServerCollection
 
@@ -146,9 +146,6 @@ kubectl get pods
 
 ```
 NAME                                             READY     STATUS    RESTARTS   AGE
-aks-gaming-apiserver-568cc44954-qgwzf            1/1       Running   0          16h
-aks-gaming-controller-6f4586895d-xg7kh           1/1       Running   0          16h
-aksnodepublicipcontroller-5747674798-zp7wr       1/1       Running   0          7d
 simplenodejsudp-collection-example-docji-vhxhr   1/1       Running   0          31m
 simplenodejsudp-collection-example-jetld-iaumv   1/1       Running   0          31m
 simplenodejsudp-collection-example-nkbso-dfmvi   1/1       Running   0          31m
@@ -312,4 +309,4 @@ Then, you can use this command to launch a DedicatedGameServerCollection with 5 
 kubectl create -f https://raw.githubusercontent.com/dgkanatsios/azuregameserversscalingkubernetes/master/artifacts/examples/openarena/dedicatedgameservercollection.yaml
 ```
 
-Good luck and don't forget that you can open an [issue](https://github.com/dgkanatsios/azuregameserversscalingkubernetes/issues) in case you're stuck.
+Don't forget that you can open an [issue](https://github.com/dgkanatsios/azuregameserversscalingkubernetes/issues) in case you encounter any issues!

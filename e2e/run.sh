@@ -18,6 +18,16 @@ if [ "$BUILD" = "local" ]; then
   "${DIR}/build_images.sh"
 fi
 
+function finish {
+  echo "-----Cleaning up-----"
+  if [ "$BUILD" = "local" ]; then
+    make -C ${DIR}/.. cleank8slocal
+  else
+    make -C ${DIR}/.. cleank8sremotedebug
+  fi
+}
+
+trap finish EXIT
 
 echo "-----Compiling, building and deploying to local Kubernetes cluster-----"
 if [ "$BUILD" = "local" ]; then
@@ -35,10 +45,3 @@ kubectl create -f ${DIR}/../artifacts/examples/simplenodejsudp/dedicatedgameserv
 
 echo "-----Running Go DGSTester-----"
 RUN_IN_K8S=false KUBECONFIG=${HOME}/.kube/${KUBECONFIG_FILE} go run ${DIR}/cmd/*.go
-
-echo "-----Cleaning up-----"
-if [ "$BUILD" = "local" ]; then
-  make -C ${DIR}/.. cleank8slocal
-else
-  make -C ${DIR}/.. cleank8sremotedebug
-fi

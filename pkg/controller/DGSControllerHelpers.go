@@ -11,10 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 )
 
-// hasDedicatedGameServerChanged returns true if *all* of the following DGS properties have changed
+// hasDGSChanged returns true if *all* of the following DGS properties have changed
 // dgsState, podState, publicIP, nodeName, activePlayers
 // As expected, it returns false if at least one has changed
-func (c *DGSController) hasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
+func (c *DGSController) hasDGSChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
 
 	//check if any new containers have been added
 	if len(oldDGS.Spec.Template.Containers) != len(newDGS.Spec.Template.Containers) {
@@ -35,9 +35,6 @@ func (c *DGSController) hasDedicatedGameServerChanged(oldDGS, newDGS *dgsv1alpha
 		oldDGS.Status.NodeName != newDGS.Status.NodeName ||
 		oldDGS.Status.ActivePlayers != newDGS.Status.ActivePlayers ||
 		!shared.AreMapsSame(oldDGS.Labels, newDGS.Labels) {
-
-		//we should also check for ports as well
-		//or not :)
 
 		return true
 	}

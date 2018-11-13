@@ -6,12 +6,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
-	"github.com/jonboulle/clockwork"
-
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+	"github.com/jonboulle/clockwork"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -113,7 +112,7 @@ func (f *dgsColFixture) runController(dgsColName string, startInformers bool, ex
 		f.t.Error("expected error syncing DGSCol, got nil")
 	}
 
-	//for this controller, we're getting only the actions on dgsClient
+	//for this controller, we do care only the actions on dgsClient
 	actions := filterInformerActionsDGSCol(f.dgsClient.Actions())
 
 	for i, action := range actions {
@@ -140,6 +139,12 @@ func (f *dgsColFixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.Ded
 
 func (f *dgsColFixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
+	extAction := extendedAction{action, assertions}
+	f.dgsActions = append(f.dgsActions, extAction)
+}
+
+func (f *dgsColFixture) expectDeleteDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
+	action := core.NewDeleteAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d.Name)
 	extAction := extendedAction{action, assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
@@ -178,7 +183,6 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
 	assert.NoError(t, err)
 	assertDGSList(t, dgss.Items, 5)
-
 }
 
 func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
@@ -252,10 +256,177 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 		} else if _, ok := dgs.Labels[shared.LabelOriginalDedicatedGameServerCollectionName]; ok &&
 			dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion {
 			countNotInCollection++
+		} else {
+			t.Error("we should not be here")
 		}
 	}
 	assert.Equal(t, 3, countInCollection)
 	assert.Equal(t, 2, countNotInCollection)
+}
+
+func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
+	f := newDGSColFixture(t)
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.PodCollectionState = corev1.PodRunning
+	dgsCol.Spec.DGSMaxFailures = 2
+	dgsCol.Spec.DGSFailBehavior = dgsv1alpha1.Remove
+
+	f.dgsColLister = append(f.dgsColLister, dgsCol)
+	f.dgsObjects = append(f.dgsObjects, dgsCol)
+
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
+	var failedDGS *dgsv1alpha1.DedicatedGameServer
+	for i := 0; i < 5; i++ {
+		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+
+		dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
+		dgs.Status.PodState = corev1.PodRunning
+
+		//set one to failed
+		if i == 3 {
+			dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+			failedDGS = dgs
+		}
+		f.dgsLister = append(f.dgsLister, dgs)
+		f.dgsObjects = append(f.dgsObjects, dgs)
+	}
+
+	f.expectUpdateDedicatedGameServerAction(failedDGS, nil) //DGS that's removed from the collection
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, func(actual runtime.Object) {
+		dgsCol := actual.(*dgsv1alpha1.DedicatedGameServerCollection)
+		assert.Equal(t, dgsv1alpha1.DGSColFailed, dgsCol.Status.DedicatedGameServerCollectionState)
+		assert.Equal(t, int32(1), dgsCol.Status.DGSTimesFailed)
+	})
+
+	f.run(getKeyDGSCol(dgsCol, t))
+
+	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	assert.NoError(t, err)
+	assertDGSList(t, dgss.Items, 5) //5 -> 4 in the collection, 1 out. 1 more will be created in next controller loop
+	for i := 0; i < 5; i++ {
+		dgs := dgss.Items[i]
+		if val, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && val == dgsCol.Name && len(dgs.OwnerReferences) > 0 {
+			assert.Equal(t, dgsv1alpha1.DGSRunning, dgs.Status.DedicatedGameServerState)
+		} else {
+			assert.Equal(t, dgsv1alpha1.DGSFailed, dgs.Status.DedicatedGameServerState)
+		}
+	}
+}
+
+func TestFailDedicatedGameServerCollectionPassedThresholdRemove(t *testing.T) {
+	testFailSurpassThreshold(t, dgsv1alpha1.Remove)
+}
+
+func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
+	f := newDGSColFixture(t)
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.PodCollectionState = corev1.PodRunning
+	dgsCol.Spec.DGSMaxFailures = 2
+	dgsCol.Spec.DGSFailBehavior = dgsv1alpha1.Delete
+
+	f.dgsColLister = append(f.dgsColLister, dgsCol)
+	f.dgsObjects = append(f.dgsObjects, dgsCol)
+
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
+	var failedDGS *dgsv1alpha1.DedicatedGameServer
+	for i := 0; i < 5; i++ {
+		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+
+		dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
+		dgs.Status.PodState = corev1.PodRunning
+
+		//set one to failed
+		if i == 3 {
+			dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+			failedDGS = dgs
+		}
+		f.dgsLister = append(f.dgsLister, dgs)
+		f.dgsObjects = append(f.dgsObjects, dgs)
+	}
+
+	f.expectDeleteDedicatedGameServerAction(failedDGS, nil) //DGS that's removed from the collection
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, func(actual runtime.Object) {
+		dgsCol := actual.(*dgsv1alpha1.DedicatedGameServerCollection)
+		assert.Equal(t, dgsv1alpha1.DGSColFailed, dgsCol.Status.DedicatedGameServerCollectionState)
+		assert.Equal(t, int32(1), dgsCol.Status.DGSTimesFailed)
+	})
+
+	f.run(getKeyDGSCol(dgsCol, t))
+
+	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	assert.NoError(t, err)
+	assertDGSList(t, dgss.Items, 4)
+	for i := 0; i < 4; i++ {
+		dgs := dgss.Items[i]
+		if val, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && val == dgsCol.Name && len(dgs.OwnerReferences) > 0 {
+			assert.Equal(t, dgsv1alpha1.DGSRunning, dgs.Status.DedicatedGameServerState)
+		} else {
+			t.Error("There shouldn't be a DGS without a parent")
+		}
+	}
+}
+
+func TestFailDedicatedGameServerCollectionPassedThresholdDelete(t *testing.T) {
+	testFailSurpassThreshold(t, dgsv1alpha1.Delete)
+}
+
+func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFailBehavior){
+	f := newDGSColFixture(t)
+
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.PodCollectionState = corev1.PodRunning
+	dgsCol.Spec.DGSMaxFailures = 2
+	dgsCol.Status.DGSTimesFailed = 2
+	dgsCol.Spec.DGSFailBehavior = fb
+
+	f.dgsColLister = append(f.dgsColLister, dgsCol)
+	f.dgsObjects = append(f.dgsObjects, dgsCol)
+
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
+
+	for i := 0; i < 5; i++ {
+		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+
+		dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
+		dgs.Status.PodState = corev1.PodRunning
+
+		//set one to failed
+		if i == 3 {
+			dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+		}
+		f.dgsLister = append(f.dgsLister, dgs)
+		f.dgsObjects = append(f.dgsObjects, dgs)
+	}
+
+	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, func(actual runtime.Object) {
+		dgsCol := actual.(*dgsv1alpha1.DedicatedGameServerCollection)
+		assert.Equal(t, dgsv1alpha1.DGSColNeedsIntervention, dgsCol.Status.DedicatedGameServerCollectionState)
+		assert.Equal(t, int32(2), dgsCol.Status.DGSTimesFailed)
+	})
+
+	f.run(getKeyDGSCol(dgsCol, t))
+
+	dgss, err := f.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(shared.GameNamespace).List(metav1.ListOptions{})
+	assert.NoError(t, err)
+	assertDGSList(t, dgss.Items, 5)
+	var runningCount, failedCount int
+	for i := 0; i < 5; i++ {
+		dgs := dgss.Items[i]
+		if val, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && val == dgsCol.Name && len(dgs.OwnerReferences) > 0 {
+			if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning {
+				runningCount++
+			} else if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+				failedCount++
+			}
+		}
+	}
+	assert.Equal(t, 4, runningCount)
+	assert.Equal(t, 1, failedCount)
 }
 
 func assertDGSList(t *testing.T, dgss []dgsv1alpha1.DedicatedGameServer, count int) {

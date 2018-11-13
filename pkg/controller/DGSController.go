@@ -103,7 +103,7 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 					return
 				}
 
-				if c.hasDedicatedGameServerChanged(oldDGS, newDGS) {
+				if c.hasDGSChanged(oldDGS, newDGS) {
 					c.handleDedicatedGameServer(newObj)
 				}
 

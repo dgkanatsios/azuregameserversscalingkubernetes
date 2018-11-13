@@ -21,7 +21,7 @@ import (
 
 var fixedTime = time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 
-type podAutoScalerFixture struct {
+type dgsAutoScalerFixture struct {
 	t *testing.T
 
 	k8sClient *k8sfake.Clientset
@@ -41,9 +41,9 @@ type podAutoScalerFixture struct {
 	clock clockwork.FakeClock
 }
 
-func newPodAutoScalerFixture(t *testing.T) *podAutoScalerFixture {
+func newDGSAutoScalerFixture(t *testing.T) *dgsAutoScalerFixture {
 
-	f := &podAutoScalerFixture{}
+	f := &dgsAutoScalerFixture{}
 	f.t = t
 
 	f.k8sObjects = []runtime.Object{}
@@ -53,14 +53,14 @@ func newPodAutoScalerFixture(t *testing.T) *podAutoScalerFixture {
 	return f
 }
 
-func (f *podAutoScalerFixture) newPodAutoScalerController() (*PodAutoScalerController, dgsinformers.SharedInformerFactory) {
+func (f *dgsAutoScalerFixture) newPodAutoScalerController() (*DGSAutoScalerController, dgsinformers.SharedInformerFactory) {
 
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
 	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
 
-	testController := NewPodAutoScalerController(f.k8sClient, f.dgsClient,
+	testController := NewDGSAutoScalerController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.clock)
 
@@ -80,15 +80,15 @@ func (f *podAutoScalerFixture) newPodAutoScalerController() (*PodAutoScalerContr
 	return testController, dgsInformers
 }
 
-func (f *podAutoScalerFixture) run(dgsName string) {
+func (f *dgsAutoScalerFixture) run(dgsName string) {
 	f.runController(dgsName, true, false)
 }
 
-func (f *podAutoScalerFixture) runExpectError(dgsName string) {
+func (f *dgsAutoScalerFixture) runExpectError(dgsName string) {
 	f.runController(dgsName, true, true)
 }
 
-func (f *podAutoScalerFixture) runController(dgsName string, startInformers bool, expectError bool) {
+func (f *dgsAutoScalerFixture) runController(dgsName string, startInformers bool, expectError bool) {
 
 	testController, dgsInformers := f.newPodAutoScalerController()
 	if startInformers {
@@ -122,38 +122,38 @@ func (f *podAutoScalerFixture) runController(dgsName string, startInformers bool
 
 }
 
-func (f *podAutoScalerFixture) expectCreateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
+func (f *dgsAutoScalerFixture) expectCreateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs)
 	extAction := extendedAction{action, assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *podAutoScalerFixture) expectDeleteDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
+func (f *dgsAutoScalerFixture) expectDeleteDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewDeleteAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs.Name)
 	extAction := extendedAction{action, assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *podAutoScalerFixture) expectUpdateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
+func (f *dgsAutoScalerFixture) expectUpdateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs)
 	extAction := extendedAction{action, assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *podAutoScalerFixture) expectUpdateDGSColAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
+func (f *dgsAutoScalerFixture) expectUpdateDGSColAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
 	extAction := extendedAction{action, assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
-func (f *podAutoScalerFixture) expectUpdateDGSColActionStatus(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
+func (f *dgsAutoScalerFixture) expectUpdateDGSColActionStatus(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Group: "azuregaming.com", Resource: "dedicatedgameservercollections", Version: "v1alpha1"}, dgsCol.Namespace, dgsCol)
 	extAction := extendedAction{action, assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
 func TestScaleOutDGSCol(t *testing.T) {
-	f := newPodAutoScalerFixture(t)
+	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
@@ -197,7 +197,7 @@ func TestScaleOutDGSCol(t *testing.T) {
 }
 
 func TestScaleInDGSCol(t *testing.T) {
-	f := newPodAutoScalerFixture(t)
+	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
@@ -246,7 +246,7 @@ func TestScaleInDGSCol(t *testing.T) {
 }
 
 func TestDoNothingBecauseOfCoolDown(t *testing.T) {
-	f := newPodAutoScalerFixture(t)
+	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
@@ -293,7 +293,7 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 
 func TestWithMalformedLastScaleTime(t *testing.T) {
 
-	f := newPodAutoScalerFixture(t)
+	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, podSpec)
 	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{

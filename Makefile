@@ -4,15 +4,20 @@ GOBUILD=CGO_ENABLED=0 GOOS=linux $(GOCMD) build -a -installsuffix cgo
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-VERSION=0.0.43
+VERSION=0.1.0
 REGISTRY ?= docker.io
-APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
-CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
-TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
-export TAG
 
-KIND_CLUSTER_NAME=1
-KUBECONFIG_LOCAL=~/.kube/kind-config-${KIND_CLUSTER_NAME}
+# set these two for remote e2e
+REMOTE_DEBUG_CLUSTER_NAME=aksopenarena
+REMOTE_DEBUG_CONFIG_FILENAME=config-openarena
+
+# this one is for local e2e with kind (kubernetes in docker)
+export KIND_CLUSTER_NAME=1
+
+export APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
+export CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
+export TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
+
 
 all: test build
 deps:
@@ -37,8 +42,13 @@ travis: clean deps
 		$(GOTEST) -v ./... -race -coverprofile=coverage.txt -covermode=atomic
 authorsfile: ## Update the AUTHORS file from the git logs
 		git log --all --format='%aN <%cE>' | sort -u > AUTHORS
+createcrds:
+		kubectl apply -f ./artifacts/crds
+cleancrds:
+		kubectl delete -f ./artifacts/crds
 
 # local development and testing - make sure you have kubernetes-sigs/kind installed!
+# you should run 'make builddockerlocal' before running 'deployk8slocal'
 createcluster:
 		kind create cluster
 deletecluster:
@@ -49,14 +59,25 @@ buildlocal:
 builddockerlocal: buildlocal
 		docker build -f various/Dockerfile.apiserver.local -t $(APISERVER_NAME):$(TAG) . 
 		docker build -f various/Dockerfile.controller.local -t $(CONTROLLER_NAME):$(TAG) .	
-# you should run 'make builddockerlocal' before running 'deployk8slocal'
-deployk8slocal: 
-		KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl apply -f ./artifacts/crds
-		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl apply -f -
-cleank8slocal:
-		KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl delete -f ./artifacts/crds
-		sed "s/%TAG%/$(TAG)/g" ./artifacts/deploy.apiserver-controller.local.yaml | KUBECONFIG=$(KUBECONFIG_LOCAL) kubectl delete -f -
-.PHONY: e2e
-e2e:
-		KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME} CONTROLLER_NAME=$(CONTROLLER_NAME) \
-		 APISERVER_NAME=$(APISERVER_NAME) TAG=$(TAG) KUBECONFIG=$(KUBECONFIG_LOCAL) ./e2e/run.sh
+deployk8slocal: createcrds
+		sed "s/%TAG%/$(TAG)/g" ./e2e/deploy.apiserver-controller.local.yaml | kubectl apply -f -
+cleank8slocal: cleancrds
+		sed "s/%TAG%/$(TAG)/g" ./e2e/deploy.apiserver-controller.local.yaml | kubectl delete -f -
+e2elocal: test
+		kubectl config use-context kubernetes-admin@kind-$(KIND_CLUSTER_NAME)
+		./e2e/run.sh kind-config-$(KIND_CLUSTER_NAME) local
+
+# remote building and deploying
+buildremotedebug: clean
+		docker build -f ./cmd/apiserver/Dockerfile -t $(REGISTRY)/$(APISERVER_NAME):$(TAG) .
+		docker build -f ./cmd/controller/Dockerfile -t $(REGISTRY)/$(CONTROLLER_NAME):$(TAG) .
+pushremotedebug:
+		docker push $(REGISTRY)/$(APISERVER_NAME):$(TAG)
+		docker push $(REGISTRY)/$(CONTROLLER_NAME):$(TAG)
+deployk8sremotedebug: createcrds
+		sed "s/%TAG%/$(TAG)/g" ./e2e/deploy.apiserver-controller.remote.yaml | kubectl apply -f -
+cleank8sremotedebug: cleancrds
+		sed "s/%TAG%/$(TAG)/g" ./e2e/deploy.apiserver-controller.remote.yaml | kubectl delete -f -
+e2eremotedebug: test
+		kubectl config use-context $(REMOTE_DEBUG_CLUSTER_NAME)
+		./e2e/run.sh $(REMOTE_DEBUG_CONFIG_FILENAME) remote 

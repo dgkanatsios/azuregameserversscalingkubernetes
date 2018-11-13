@@ -87,7 +87,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 				if oldDGSCol.ResourceVersion == newDGSCol.ResourceVersion {
 					return
 				}
-				if c.hasDedicatedGameServerCollectionChanged(oldDGSCol, newDGSCol) {
+				if c.hasSpecChanged(oldDGSCol, newDGSCol) {
 					c.handleDedicatedGameServerCollection(newObj)
 				}
 
@@ -108,7 +108,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 				if oldDGS.ResourceVersion == newDGS.ResourceVersion {
 					return
 				}
-				if c.hasDedicatedGameServerChanged(oldDGS, newDGS) {
+				if c.hasDGSStatusChanged(oldDGS, newDGS) {
 					c.handleDedicatedGameServer(newObj)
 				}
 			},

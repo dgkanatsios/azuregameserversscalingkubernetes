@@ -76,7 +76,7 @@ func main() {
 
 	// let's test some DGS failure - recall that DGSCol.FailBehavior is set to Remove. DGSMaxFailures is 2
 	log.Info("Step 5a")
-	setRandomDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
+	setRandomRunningDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
 	// runningDGSCount should be 7 because another one will be created in the Failed one's place
 	validateClusterState(clusterState{
 		totalPodCount:                 8,
@@ -89,7 +89,7 @@ func main() {
 	// let's fail another one
 	// we're about to surpass the threshold of 2
 	log.Info("Step 5b")
-	setRandomDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
+	setRandomRunningDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
 	validateClusterState(clusterState{
 		totalPodCount:                 9,
 		runningDGSCount:               7,
@@ -104,7 +104,7 @@ func main() {
 	// and the DGSCOlState is NeedsIntervention
 	// no change in the number of Pods
 	log.Info("Step 5c")
-	setRandomDGSToFailed()
+	setRandomRunningDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 9,
 		runningDGSCount:               6,
@@ -118,7 +118,7 @@ func main() {
 	// no change, since we are in the NeedsIntervention state
 	// only one more DGS failed
 	log.Info("Step 5d")
-	setRandomDGSToFailed()
+	setRandomRunningDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 9,
 		runningDGSCount:               5,
@@ -145,7 +145,7 @@ func main() {
 	// a random failure
 	// DGSTimesFailed will become 1
 	log.Info("Step 6b")
-	setRandomDGSToFailed()
+	setRandomRunningDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
 		runningDGSCount:               5,
@@ -158,7 +158,7 @@ func main() {
 	// another random failure
 	// DGSTimesFailed will become 2
 	log.Info("Step 6c")
-	setRandomDGSToFailed()
+	setRandomRunningDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
 		runningDGSCount:               5,
@@ -173,7 +173,7 @@ func main() {
 	// DGSTimesFailed will stay 2
 	// state will become NeedsIntervention
 	log.Info("Step 6d")
-	setRandomDGSToFailed()
+	setRandomRunningDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
 		runningDGSCount:               4,
@@ -187,7 +187,7 @@ func main() {
 	// state is NeedsIntervention
 	// DGSTimesFailed will stay 2
 	log.Info("Step 6e")
-	setRandomDGSToFailed()
+	setRandomRunningDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
 		runningDGSCount:               3,
@@ -196,10 +196,106 @@ func main() {
 		dgsColState:                   dgsv1alpha1.DGSColNeedsIntervention,
 	})
 	validateDGSTimesFailed(2)
+
+	// reset the cluster, delete all DGS, set replicas to 5
+	// reset DGSTimesFailed to zero
+	// set the DGSFailBehavior to Delete
+	// add DGS autoscaler - minimum Replicas 5, maximum 7
+	log.Info("Step 7a")
+	resetClusterState(5, dgsv1alpha1.Remove)
+	// HACK - on resetClusterState, DGSs are delete while the DGSCol is in NeedsIntervention - so no more DGS will be created
+	// so we delete a randomDGS after it in order to trigger the controller
+	deleteRandomDGS()
+	validateClusterState(clusterState{
+		totalPodCount:   5,
+		runningDGSCount: 5,
+		dgsColState:     dgsv1alpha1.DGSColRunning,
+	})
+	addAutoScalerDetails()
+	setAllActivePlayers(9)
+	// verify that autoscaler has kicked in and we have one more DGS
+	validateClusterState(clusterState{
+		totalPodCount:   6,
+		runningDGSCount: 6,
+		dgsColState:     dgsv1alpha1.DGSColRunning,
+	})
+
+	// set again 9 players for all DGS - 1 new DGS will be created
+	log.Info("Step 7b")
+	setAutoscalerLastScaleOperationDateTimeToZeroValue()
+	setAllActivePlayers(9)
+	// verify that autoscaler has kicked in and we have one more DGS
+	validateClusterState(clusterState{
+		totalPodCount:   7,
+		runningDGSCount: 7,
+		dgsColState:     dgsv1alpha1.DGSColRunning,
+	})
+
+	// set again 9 players for all DGS - no new DGS will be created since we are at the maximum of 7
+	log.Info("Step 7c")
+	setAutoscalerLastScaleOperationDateTimeToZeroValue()
+	setAllActivePlayers(9)
+	validateClusterState(clusterState{
+		totalPodCount:   7,
+		runningDGSCount: 7,
+		dgsColState:     dgsv1alpha1.DGSColRunning,
+	})
+
+	// set 5 players for all DGS -> 1 DGS less
+	log.Info("Step 7d")
+	setAutoscalerLastScaleOperationDateTimeToZeroValue()
+	setAllActivePlayers(5)
+	validateClusterState(clusterState{
+		totalPodCount:             7, // 7 pods: 6 in collection, 1 out
+		runningDGSCount:           6,
+		dgsColState:               dgsv1alpha1.DGSColRunning,
+		markedForDeletionDGSCount: 1,
+	})
+
+	// set again 5 players for all DGS -> 1 DGS less
+	log.Info("Step 7e")
+	setAutoscalerLastScaleOperationDateTimeToZeroValue()
+	setAllActivePlayers(5)
+	validateClusterState(clusterState{
+		totalPodCount:             7, // 7 pods: 5 in collection, 2 out
+		runningDGSCount:           5,
+		dgsColState:               dgsv1alpha1.DGSColRunning,
+		markedForDeletionDGSCount: 2,
+	})
+
+	// set 5 players for all DGS -> not going less than the minimum (5) replicas
+	log.Info("Step 7f")
+	setAutoscalerLastScaleOperationDateTimeToZeroValue()
+	setAllActivePlayers(5)
+	validateClusterState(clusterState{
+		totalPodCount:             7,
+		runningDGSCount:           5,
+		dgsColState:               dgsv1alpha1.DGSColRunning,
+		markedForDeletionDGSCount: 2,
+	})
+
 }
 
 func handleError(err error) {
 	log.Panic(err)
+}
+
+func setAutoscalerLastScaleOperationDateTimeToZeroValue() {
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		dgscol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		dgscol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = ""
+		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgscol)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if retryErr != nil {
+		handleError(retryErr)
+	}
 }
 
 func validateDGSTimesFailed(times int32) {
@@ -210,44 +306,71 @@ func validateDGSTimesFailed(times int32) {
 	}
 }
 
+func addAutoScalerDetails() {
+	log.Info("    Adding DGS AutoScaler")
+
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		dgscol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		dgscol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
+			MinimumReplicas:     5,
+			MaximumReplicas:     7,
+			ScaleInThreshold:    60,
+			ScaleOutThreshold:   80,
+			Enabled:             true,
+			CoolDownInMinutes:   5,
+			MaxPlayersPerServer: 10,
+		}
+		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgscol)
+		return err
+	})
+	if retryErr != nil {
+		handleError(fmt.Errorf("Cannot update DGSCol because of %s", retryErr.Error()))
+	}
+}
+
 func resetClusterState(replicas int32, failbehavior dgsv1alpha1.DedicatedGameServerFailBehavior) {
-	log.Info("Resetting cluster state")
+	log.Info("    Resetting cluster state")
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		handleError(fmt.Errorf("Cannot get DGSs"))
 	}
 
-	//delete all of them
+	//delete all of the failed ones
 	for _, dgs := range dgss.Items {
-		err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Delete(dgs.Name, &metav1.DeleteOptions{})
-		if err != nil {
-			handleError(fmt.Errorf("Cannot delete DGS because of %s", err))
+		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+			err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Delete(dgs.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				handleError(fmt.Errorf("Cannot delete DGS because of %s", err))
+			}
 		}
 	}
 
 	log.Infof("    Waiting for %d seconds", delayInSeconds)
 	time.Sleep(time.Duration(delayInSeconds) * time.Second)
 
-	dgscol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
-	if err != nil {
-		handleError(fmt.Errorf("Cannot get DGSCol"))
-	}
-
-	dgscol.Spec.DGSFailBehavior = failbehavior
-	dgscol.Spec.Replicas = replicas
-	dgscol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
-	dgscol.Status.DGSTimesFailed = 0
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		dgscol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		dgscol.Spec.DGSFailBehavior = failbehavior
+		dgscol.Spec.Replicas = replicas
+		dgscol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+		dgscol.Status.DGSTimesFailed = 0
 		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgscol)
 		return err
 	})
 	if retryErr != nil {
-		handleError(fmt.Errorf("Cannot update DGSCol"))
+		handleError(fmt.Errorf("Cannot update DGSCol because of %s", retryErr.Error()))
 	}
 }
 
-func setRandomDGSToFailed() {
-	log.Info("Setting a random DGS from the collection to Failed")
+func setRandomRunningDGSToFailed() {
+	log.Info("    Setting a random running DGS from the collection to Failed")
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{
 		LabelSelector: shared.LabelDedicatedGameServerCollectionName,
 	})
@@ -255,11 +378,25 @@ func setRandomDGSToFailed() {
 		handleError(fmt.Errorf("Cannot get DGSs"))
 	}
 
-	dgs := dgss.Items[getRandomInt(0, len(dgss.Items)-1)].DeepCopy()
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
-
-	dgsUpdate, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgs)
-	if err != nil {
+	var dgsUpdate *dgsv1alpha1.DedicatedGameServer
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var dgs *dgsv1alpha1.DedicatedGameServer
+		for {
+			dgs = &dgss.Items[getRandomInt(0, len(dgss.Items)-1)]
+			dgs, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Get(dgs.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning { // if it's Running
+				dgs = dgs.DeepCopy()
+				dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+				break
+			}
+		}
+		dgsUpdate, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgs)
+		return err
+	})
+	if retryErr != nil {
 		handleError(fmt.Errorf("Cannot update DGS"))
 	}
 
@@ -269,7 +406,7 @@ func setRandomDGSToFailed() {
 }
 
 func deleteRandomPod() {
-	log.Info("Deleting a random pod")
+	log.Info("    Deleting a random pod")
 	pods, err := client.CoreV1().Pods(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		handleError(fmt.Errorf("Cannot get pods"))
@@ -281,7 +418,7 @@ func deleteRandomPod() {
 }
 
 func deleteRandomDGS() {
-	log.Info("Deleting a random DGS from the collection")
+	log.Info("    Deleting a random DGS from the collection")
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{
 		LabelSelector: shared.LabelDedicatedGameServerCollectionName,
 	})
@@ -297,7 +434,7 @@ func deleteRandomDGS() {
 }
 
 func setActivePlayersOfMarkedForDeletionToZero() {
-	log.Info("Setting active players of MarkedForDeletion DGS to zero")
+	log.Info("    Setting active players of MarkedForDeletion DGS to zero")
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		handleError(fmt.Errorf("Cannot get DGSs"))
@@ -308,8 +445,12 @@ func setActivePlayersOfMarkedForDeletionToZero() {
 			dgs.Status.ActivePlayers == 2 {
 			dgsCopy := dgs.DeepCopy()
 			dgsCopy.Status.ActivePlayers = 0
-			dgsUpdated, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsCopy)
-			if err != nil {
+			var dgsUpdated *dgsv1alpha1.DedicatedGameServer
+			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				dgsUpdated, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsCopy)
+				return err
+			})
+			if retryErr != nil {
 				handleError(fmt.Errorf("Cannot update DGS %s", dgsCopy.Name))
 			}
 			if dgsUpdated.Status.ActivePlayers != 0 {
@@ -320,47 +461,60 @@ func setActivePlayersOfMarkedForDeletionToZero() {
 }
 
 func setAllActivePlayers(playerscount int) {
-	log.Info("Setting active players to 2 for all DGS")
+	log.Infof("    Setting active players to %d for all DGS", playerscount)
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		handleError(fmt.Errorf("Cannot get DGSs"))
 	}
 
 	for _, dgs := range dgss.Items {
-		dgsCopy := dgs.DeepCopy()
-		dgsCopy.Status.ActivePlayers = playerscount
-		dgsUpdated, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsCopy)
-		if err != nil {
-			handleError(fmt.Errorf("Cannot update DGS %s because of %s", dgsCopy.Name, err.Error()))
+		var dgsUpdated *dgsv1alpha1.DedicatedGameServer
+		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			dgsCopy, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Get(dgs.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			dgsCopy.Status.ActivePlayers = playerscount
+			dgsUpdated, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgsCopy)
+			return err
+		})
+		if retryErr != nil {
+			handleError(fmt.Errorf("Cannot update DGS %s because of %s", dgs.Name, err.Error()))
 		}
-		if dgsUpdated.Status.ActivePlayers != 2 {
-			handleError(fmt.Errorf("DGS %s was not updated with 2 Players, value is %d", dgsCopy.Name, dgsUpdated.Status.ActivePlayers))
+		if dgsUpdated.Status.ActivePlayers != playerscount {
+			handleError(fmt.Errorf("DGS %s was not updated with 2 Players, value is %d", dgs.Name, dgsUpdated.Status.ActivePlayers))
 		}
 	}
 }
 
 func increaseReplicasToTen() {
-	log.Info("Increasing replicas of DGSCol to 10")
-	dgsCol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
-	if err != nil {
-		handleError(fmt.Errorf("Cannot get DGSCol"))
-	}
-	dgsCol.Spec.Replicas = 10
-	_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsCol)
-	if err != nil {
+	log.Info("    Increasing replicas of DGSCol to 10")
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		dgsCol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		dgsCol.Spec.Replicas = 10
+		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsCol)
+		return err
+	})
+	if retryErr != nil {
 		handleError(fmt.Errorf("Cannot update DGSCol"))
 	}
 }
 
 func decreaseReplicasToSeven() {
-	log.Info("Decreasing replicas of DGSCol to 7")
-	dgsCol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
-	if err != nil {
-		handleError(fmt.Errorf("Cannot get DGSCol"))
-	}
-	dgsCol.Spec.Replicas = 7
-	_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsCol)
-	if err != nil {
+	log.Info("    Decreasing replicas of DGSCol to 7")
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		dgsCol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		dgsCol.Spec.Replicas = 7
+		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsCol)
+		return err
+	})
+	if retryErr != nil {
 		handleError(fmt.Errorf("Cannot update DGSCol"))
 	}
 }

@@ -8,6 +8,7 @@ import (
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubeinformers "k8s.io/client-go/informers"
@@ -170,6 +171,14 @@ func TestCreatesPod(t *testing.T) {
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
+	f.k8sObjects = append(f.k8sObjects, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "apiaccesscode",
+			Namespace: shared.GameNamespace,
+		},
+		StringData: map[string]string{"code": ""},
+	})
+
 	expPod := shared.NewPod(dgs, shared.APIDetails{APIServerURL: "", Code: ""})
 
 	f.expectCreatePodAction(expPod, nil)
@@ -227,13 +236,15 @@ func TestDGSStatusIsUpdated(t *testing.T) {
 func filterInformerActionsDGS(actions []core.Action) []core.Action {
 	ret := []core.Action{}
 	for _, action := range actions {
-		if len(action.GetNamespace()) == 0 &&
-			(action.Matches("list", "pods") ||
-				action.Matches("watch", "pods") ||
-				action.Matches("list", "dedicatedgameservers") ||
-				action.Matches("watch", "dedicatedgameservers") ||
-				action.Matches("list", "nodes") ||
-				action.Matches("watch", "nodes")) {
+		if action.Matches("list", "pods") ||
+			action.Matches("watch", "pods") ||
+			action.Matches("list", "dedicatedgameservers") ||
+			action.Matches("watch", "dedicatedgameservers") ||
+			action.Matches("list", "nodes") ||
+			action.Matches("watch", "nodes") ||
+			action.Matches("list", "secrets") ||
+			action.Matches("watch", "secrets") ||
+			action.Matches("get", "secrets") {
 			continue
 		}
 		ret = append(ret, action)

@@ -4,7 +4,7 @@ import "testing"
 
 func TestGetAccessCode(t *testing.T) {
 	accesscode = "code123!"
-	code, _ := getAccessCode()
+	code, _ := GetAccessCode(nil)
 	if code != accesscode {
 		t.Error("Codes should be the same")
 	}

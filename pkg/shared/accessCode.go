@@ -3,26 +3,34 @@ package shared
 import (
 	log "github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // AuthenticateWebServerCode authenticates the user request by comparing the given code with the actual
 func AuthenticateWebServerCode(code string) (bool, error) {
-	correctCode, err := getAccessCode()
+	if accesscode == "" {
 
-	if err != nil {
-		return false, err
+		client, _, err := GetClientSet()
+		if err != nil {
+			return false, err
+		}
+		_, err = GetAccessCode(client)
+		if err != nil {
+			return false, err
+		}
 	}
-	return code == correctCode, nil
+
+	return code == accesscode, nil
 }
 
 var accesscode string
 
-func getAccessCode() (string, error) {
+func GetAccessCode(client kubernetes.Interface) (string, error) {
 	if accesscode == "" { //if we haven't accessed the code
-		client, _, err := GetClientSet()
-		if err != nil {
-			return "", err
-		}
+		// client, _, err := GetClientSet()
+		// if err != nil {
+		// 	return "", err
+		// }
 		secret, err := client.Core().Secrets(GameNamespace).Get(APIAccessCodeSecretName, meta_v1.GetOptions{})
 		if err != nil {
 			log.Fatalf("Cannot get API Server access code due to %s", err.Error())
@@ -30,8 +38,4 @@ func getAccessCode() (string, error) {
 		accesscode = string(secret.Data["code"])
 	}
 	return accesscode, nil
-}
-
-func AccessCode() string {
-	return accesscode
 }

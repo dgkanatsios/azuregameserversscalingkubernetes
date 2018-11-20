@@ -347,12 +347,16 @@ func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
 }
 
 func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
+	accesscode, err := shared.GetAccessCode(c.podClient)
+	if err != nil {
+		return fmt.Errorf("Cannot get API Server Access Code because of: %s", err.Error())
+	}
 	pod := shared.NewPod(dgs,
 		shared.APIDetails{
 			APIServerURL: shared.APIServerURL,
-			Code:         shared.AccessCode(),
+			Code:         accesscode,
 		})
-	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
+	_, err = c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {
 		return err
 	}

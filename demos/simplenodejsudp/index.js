@@ -133,7 +133,7 @@ const healthPostData = {
 
 
 // send "Healthy" to the APIServer
-sendData(process.env.healthMethodURL, healthPostData, function (err, response, body) {
+sendData(healthMethodURL, healthPostData, function (err, response, body) {
   if (err) {
     console.log(err);
   } else if (response) {
@@ -148,7 +148,7 @@ const statePostData = {
 };
 
 // send "Assigned" to the APIServer
-sendData(process.env.stateMethodURL, statePostData, function (err, response, body) {
+sendData(stateMethodURL, statePostData, function (err, response, body) {
   if (err) {
     console.log(err);
   } else if (response) {

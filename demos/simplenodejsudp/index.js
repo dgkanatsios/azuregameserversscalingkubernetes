@@ -128,7 +128,7 @@ const markedForDeletionMethodURL= `${process.env.API_SERVER_URL}/setdgsmarkedfor
 const healthPostData = {
   serverName: process.env.SERVER_NAME,
   namespace: process.env.SERVER_NAMESPACE,
-  status: "Healthy"
+  health: "Healthy"
 };
 
 
@@ -144,7 +144,7 @@ sendData(healthMethodURL, healthPostData, function (err, response, body) {
 const statePostData = {
   serverName: process.env.SERVER_NAME,
   namespace: process.env.SERVER_NAMESPACE,
-  status: "Assigned"
+  state: "Assigned"
 };
 
 // send "Assigned" to the APIServer

@@ -268,17 +268,18 @@ func (c *DGSController) syncHandler(key string) error {
 	// let's update the DGS
 	dgsToUpdate := dgsTemp.DeepCopy()
 	c.logger.WithFields(logrus.Fields{
-		"serverName":      dgsTemp.Name,
-		"currentDGSState": dgsTemp.Status.DedicatedGameServerState,
-		"currentPodState": dgsTemp.Status.PodState,
-		"currentPublicIP": dgsTemp.Status.PublicIP,
-		"currentNodeName": dgsTemp.Status.NodeName,
-		"updatedPodState": pod.Status.Phase,
-		"updatedPublicIP": ip,
-		"updatedNodeName": pod.Spec.NodeName,
+		"serverName":       dgsTemp.Name,
+		"currentDGSHealth": dgsTemp.Status.Health,
+		"currentDGSState":  dgsTemp.Status.DGSState,
+		"currentPodPhase":  dgsTemp.Status.PodPhase,
+		"currentPublicIP":  dgsTemp.Status.PublicIP,
+		"currentNodeName":  dgsTemp.Status.NodeName,
+		"updatedPodPhase":  pod.Status.Phase,
+		"updatedPublicIP":  ip,
+		"updatedNodeName":  pod.Spec.NodeName,
 	}).Info("Updating DedicatedGameServer")
 
-	dgsToUpdate.Status.PodState = pod.Status.Phase
+	dgsToUpdate.Status.PodPhase = pod.Status.Phase
 
 	dgsToUpdate.Status.PublicIP = ip
 	dgsToUpdate.Status.NodeName = pod.Spec.NodeName
@@ -348,8 +349,8 @@ func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
 func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
 	pod := shared.NewPod(dgs,
 		shared.APIDetails{
-			SetActivePlayersURL: shared.GetActivePlayersSetURL(),
-			SetServerStatusURL:  shared.GetServerStatusSetURL(),
+			APIServerURL: shared.APIServerURL,
+			Code:         shared.AccessCode(),
 		})
 	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {

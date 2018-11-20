@@ -168,14 +168,14 @@ func TestScaleOutDGSCol(t *testing.T) {
 
 	dgsCol.Spec.Replicas = 1
 	dgsCol.Status.AvailableReplicas = 1
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
+	dgs.Status.Health = dgsv1alpha1.DGSHealthy
 
-	dgs.Status.PodState = corev1.PodRunning
+	dgs.Status.PodPhase = corev1.PodRunning
 
 	dgs.Status.ActivePlayers = 9
 
@@ -188,7 +188,7 @@ func TestScaleOutDGSCol(t *testing.T) {
 	expDGSCol := dgsCol.DeepCopy()
 	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
-	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 	f.expectUpdateDGSColAction(expDGSCol, nil)
 	//f.expectUpdateDGSColActionStatus(expDGSCol)
@@ -212,17 +212,17 @@ func TestScaleInDGSCol(t *testing.T) {
 
 	dgsCol.Spec.Replicas = 2
 	dgsCol.Status.AvailableReplicas = 2
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
-	dgs.Status.PodState = corev1.PodRunning
+	dgs.Status.Health = dgsv1alpha1.DGSHealthy
+	dgs.Status.PodPhase = corev1.PodRunning
 	dgs.Status.ActivePlayers = 5
 
 	dgs2 := shared.NewDedicatedGameServer(dgsCol, podSpec)
-	dgs2.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
-	dgs2.Status.PodState = corev1.PodRunning
+	dgs2.Status.Health = dgsv1alpha1.DGSHealthy
+	dgs2.Status.PodPhase = corev1.PodRunning
 	dgs2.Status.ActivePlayers = 5
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
@@ -237,7 +237,7 @@ func TestScaleInDGSCol(t *testing.T) {
 	expDGSCol := dgsCol.DeepCopy()
 	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 1
-	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 	f.expectUpdateDGSColAction(expDGSCol, nil)
 	//f.expectUpdateDGSColActionStatus(expDGSCol)
@@ -264,14 +264,14 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 
 	dgsCol.Spec.Replicas = 1
 	dgsCol.Status.AvailableReplicas = 1
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
+	dgs.Status.Health = dgsv1alpha1.DGSHealthy
 
-	dgs.Status.PodState = corev1.PodRunning
+	dgs.Status.PodPhase = corev1.PodRunning
 
 	dgs.Status.ActivePlayers = 9
 
@@ -284,7 +284,7 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 	expDGSCol := dgsCol.DeepCopy()
 	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
-	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 	//expect nothing
 
@@ -309,14 +309,14 @@ func TestWithMalformedLastScaleTime(t *testing.T) {
 
 	dgsCol.Spec.Replicas = 1
 	dgsCol.Status.AvailableReplicas = 1
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
+	dgs.Status.Health = dgsv1alpha1.DGSHealthy
 
-	dgs.Status.PodState = corev1.PodRunning
+	dgs.Status.PodPhase = corev1.PodRunning
 
 	dgs.Status.ActivePlayers = 9
 
@@ -329,7 +329,7 @@ func TestWithMalformedLastScaleTime(t *testing.T) {
 	expDGSCol := dgsCol.DeepCopy()
 	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
-	expDGSCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 	f.expectUpdateDGSColAction(expDGSCol, nil)
 	//f.expectUpdateDGSColActionStatus(expDGSCol)

@@ -9,7 +9,7 @@ spec:
   dnsPolicy: ClusterFirstWithHostNet
   containers:
   - name: openarena
-    image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.5
+    image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.6
     env:
     - name: OA_STARTMAP
       value: "dm4ish"

@@ -5,8 +5,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var accesscode string
-
 // AuthenticateWebServerCode authenticates the user request by comparing the given code with the actual
 func AuthenticateWebServerCode(code string) (bool, error) {
 	correctCode, err := getAccessCode()
@@ -16,6 +14,8 @@ func AuthenticateWebServerCode(code string) (bool, error) {
 	}
 	return code == correctCode, nil
 }
+
+var accesscode string
 
 func getAccessCode() (string, error) {
 	if accesscode == "" { //if we haven't accessed the code
@@ -30,4 +30,8 @@ func getAccessCode() (string, error) {
 		accesscode = string(secret.Data["code"])
 	}
 	return accesscode, nil
+}
+
+func AccessCode() string {
+	return accesscode
 }

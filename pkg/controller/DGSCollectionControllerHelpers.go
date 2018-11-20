@@ -28,9 +28,9 @@ func (c *DGSCollectionController) setPodCollectionState(dgsCol *dgsv1alpha1.Dedi
 
 	for _, dgs := range dgsInstances {
 		//one pod is not running
-		if dgs.Status.PodState != corev1.PodRunning {
+		if dgs.Status.PodPhase != corev1.PodRunning {
 			// so set the collection's Pod State to this one Pod's value
-			dgsCol.Status.PodCollectionState = dgs.Status.PodState
+			dgsCol.Status.PodCollectionState = dgs.Status.PodPhase
 			if dgsCol.Status.PodCollectionState == "" {
 				dgsCol.Status.PodCollectionState = corev1.PodPending
 			}
@@ -43,8 +43,8 @@ func (c *DGSCollectionController) setPodCollectionState(dgsCol *dgsv1alpha1.Dedi
 
 }
 
-func (c *DGSCollectionController) setDedicatedGameServerCollectionState(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
-	if dgsCol.Status.DedicatedGameServerCollectionState == dgsv1alpha1.DGSColNeedsIntervention {
+func (c *DGSCollectionController) setDedicatedGameServerCollectionHealth(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+	if dgsCol.Status.DGSCollectionHealth == dgsv1alpha1.DGSColNeedsIntervention {
 		return nil
 	}
 
@@ -61,14 +61,14 @@ func (c *DGSCollectionController) setDedicatedGameServerCollectionState(dgsCol *
 
 	for _, dgs := range dgsInstances {
 		//at least one of the DGS is not running
-		if dgs.Status.DedicatedGameServerState != dgsv1alpha1.DGSRunning {
+		if dgs.Status.Health != dgsv1alpha1.DGSHealthy {
 			//so set the overall collection state as the state of this one
-			dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DedicatedGameServerCollectionState(dgs.Status.DedicatedGameServerState)
+			dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealth(dgs.Status.Health)
 			return nil
 		}
 	}
 	//all of the DGS are running, so set the DGSCol state as running
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (c *DGSCollectionController) setAvailableReplicasStatus(dgsCol *dgsv1alpha1
 	dgsCol.Status.AvailableReplicas = 0
 
 	for _, dgs := range dgsInstances {
-		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning && dgs.Status.PodState == corev1.PodRunning {
+		if dgs.Status.Health == dgsv1alpha1.DGSHealthy && dgs.Status.PodPhase == corev1.PodRunning {
 			dgsCol.Status.AvailableReplicas++
 		}
 	}
@@ -150,7 +150,7 @@ func (c *DGSCollectionController) removeDGSColReplicas(dgsColTemp *dgsv1alpha1.D
 		//remove the DGSCol name from the DGS labels
 		delete(dgsToMarkForDeletionToUpdate.ObjectMeta.Labels, shared.LabelDedicatedGameServerCollectionName)
 		//set its state as marked for deletion
-		dgsToMarkForDeletionToUpdate.Status.DedicatedGameServerState = dgsv1alpha1.DGSMarkedForDeletion
+		dgsToMarkForDeletionToUpdate.Status.MarkedForDeletion = true
 		//set its previous Collection owner
 		dgsToMarkForDeletionToUpdate.ObjectMeta.Labels[shared.LabelOriginalDedicatedGameServerCollectionName] = dgsColTemp.Name
 		//update the DGS CRD
@@ -194,7 +194,7 @@ func (c *DGSCollectionController) getNotFailedDGSForDGSCol(dgsColTemp *dgsv1alph
 	dgsToReturn := make([]*dgsv1alpha1.DedicatedGameServer, 0)
 
 	for _, dgs := range dgss {
-		if dgs.Status.DedicatedGameServerState != dgsv1alpha1.DGSFailed {
+		if dgs.Status.Health != dgsv1alpha1.DGSFailed {
 			dgsToReturn = append(dgsToReturn, dgs)
 		}
 	}
@@ -214,7 +214,7 @@ func (c *DGSCollectionController) getFailedDGSForDGSCol(dgsCol *dgsv1alpha1.Dedi
 	dgsToReturn := make([]*dgsv1alpha1.DedicatedGameServer, 0)
 
 	for _, dgs := range dgss {
-		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+		if dgs.Status.Health == dgsv1alpha1.DGSFailed {
 			dgsToReturn = append(dgsToReturn, dgs)
 		}
 	}
@@ -228,7 +228,7 @@ func (c *DGSCollectionController) setDGSColToNeedsIntervention(dgsCol *dgsv1alph
 		if err != nil {
 			return err
 		}
-		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColNeedsIntervention
+		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColNeedsIntervention
 		_, err = c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsCol.Namespace).Update(dgsColToUpdate)
 
 		if err != nil {
@@ -251,13 +251,13 @@ func (c *DGSCollectionController) reconcileStatuses(dgsCol *dgsv1alpha1.Dedicate
 			return err
 		}
 
-		//assign DGSCol.Status.DGSState
-		err = c.setDedicatedGameServerCollectionState(dgsColToUpdate)
+		//assign DGSCol.Status.DGSHealth
+		err = c.setDedicatedGameServerCollectionHealth(dgsColToUpdate)
 		if err != nil {
 			return err
 		}
 
-		//assign DGSCol.Status.PodState
+		//assign DGSCol.Status.PodPhase
 		err = c.setPodCollectionState(dgsColToUpdate)
 		if err != nil {
 			return err
@@ -274,8 +274,8 @@ func (c *DGSCollectionController) reconcileStatuses(dgsCol *dgsv1alpha1.Dedicate
 }
 
 func (c *DGSCollectionController) hasDGSStatusChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
-	if oldDGS.Status.DedicatedGameServerState != newDGS.Status.DedicatedGameServerState ||
-		oldDGS.Status.PodState != newDGS.Status.PodState ||
+	if oldDGS.Status.Health != newDGS.Status.Health ||
+		oldDGS.Status.PodPhase != newDGS.Status.PodPhase ||
 		len(oldDGS.GetOwnerReferences()) != len(newDGS.GetOwnerReferences()) {
 		return true
 	}

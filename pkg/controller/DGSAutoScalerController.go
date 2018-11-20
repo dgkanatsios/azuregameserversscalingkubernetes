@@ -159,7 +159,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 	}
 
 	// check if both DGS and Pod status != Running
-	if dgsColTemp.Status.DedicatedGameServerCollectionState != dgsv1alpha1.DGSColRunning ||
+	if dgsColTemp.Status.DGSCollectionHealth != dgsv1alpha1.DGSColHealthy ||
 		dgsColTemp.Status.PodCollectionState != corev1.PodRunning {
 		c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because DedicatedGameServer and/or Pod states are not Running")
 		return nil
@@ -231,7 +231,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas++
 		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
-		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 		if err != nil {
@@ -249,7 +249,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas--
 		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
-		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 		if err != nil {

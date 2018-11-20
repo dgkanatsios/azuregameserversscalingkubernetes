@@ -1,6 +1,10 @@
 #!/bin/bash
 echo "Start processing"
 
+SetHealthAPIServerURL="$API_SERVER_URL/setsdgshealth?code=$API_SERVER_CODE"
+SetStateAPIServerURL="$API_SERVER_URL/setsdgshealth?code=$API_SERVER_CODE"
+SetActivePlayersAPIServerURL="$API_SERVER_URL/setsdgshealth?code=$API_SERVER_CODE"
+
 while IFS= read -r line
 do
     #echo line so that docker can gather its logs from stdout
@@ -10,8 +14,10 @@ do
     init=$(echo $line | grep 'Opening IP socket' | wc -l)
     if [ $init -eq 1 ]
     then
-        echo "About to send data for server status: {\"serverName\":\"$SERVER_NAME\", \"status\":\"Running\"}"
-        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"status\":\"Running\"}" --header=Content-Type:application/json "$SET_SERVER_STATUS_URL"
+        echo "About to send data for server health: {\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"health\":\"Healthy\"}"
+        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"health\":\"Healthy\"}" --header=Content-Type:application/json "$SetHealthAPIServerURL"
+        echo "About to send data for server status: {\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"state\":\"Assigned\"}"
+        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"state\":\"Assigned\"}" --header=Content-Type:application/json "$SetStateAPIServerURL"
     fi
 
     #client connection
@@ -44,8 +50,8 @@ do
         connected=$(($connected+$toAdd))
         echo $connected > /tmp/connected
 
-        echo "About to send data for active players: {\"serverName\":\"$SERVER_NAME\", \"playerCount\":$connected}"
-        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"playerCount\":$connected}" --header=Content-Type:application/json "$SET_ACTIVE_PLAYERS_URL"
+        echo "About to send data for active players: {\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"playerCount\":$connected}"
+        wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"playerCount\":$connected}" --header=Content-Type:application/json "$SetActivePlayersAPIServerURL"
 
     fi 
 done

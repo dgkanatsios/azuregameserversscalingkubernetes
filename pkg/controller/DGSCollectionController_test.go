@@ -237,7 +237,7 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 		dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec)
 		f.expectUpdateDedicatedGameServerAction(dgsExpected, func(actual runtime.Object) {
 			dgs := actual.(*dgsv1alpha1.DedicatedGameServer)
-			assert.Equal(t, dgsv1alpha1.DGSMarkedForDeletion, dgs.Status.DedicatedGameServerState)
+			assert.Equal(t, true, dgs.Status.MarkedForDeletion)
 		})
 	}
 
@@ -253,8 +253,7 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	for _, dgs := range dgss.Items {
 		if _, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && len(dgs.OwnerReferences) > 0 {
 			countInCollection++
-		} else if _, ok := dgs.Labels[shared.LabelOriginalDedicatedGameServerCollectionName]; ok &&
-			dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion {
+		} else if _, ok := dgs.Labels[shared.LabelOriginalDedicatedGameServerCollectionName]; ok && dgs.Status.MarkedForDeletion {
 			countNotInCollection++
 		} else {
 			t.Error("we should not be here")
@@ -268,7 +267,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
 	f := newDGSColFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	dgsCol.Spec.DGSMaxFailures = 2
 	dgsCol.Spec.DGSFailBehavior = dgsv1alpha1.Remove
@@ -281,12 +280,12 @@ func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-		dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
-		dgs.Status.PodState = corev1.PodRunning
+		dgs.Status.Health = dgsv1alpha1.DGSHealthy
+		dgs.Status.PodPhase = corev1.PodRunning
 
 		//set one to failed
 		if i == 3 {
-			dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+			dgs.Status.Health = dgsv1alpha1.DGSFailed
 			failedDGS = dgs
 		}
 		f.dgsLister = append(f.dgsLister, dgs)
@@ -296,7 +295,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
 	f.expectUpdateDedicatedGameServerAction(failedDGS, nil) //DGS that's removed from the collection
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, func(actual runtime.Object) {
 		dgsCol := actual.(*dgsv1alpha1.DedicatedGameServerCollection)
-		assert.Equal(t, dgsv1alpha1.DGSColFailed, dgsCol.Status.DedicatedGameServerCollectionState)
+		assert.Equal(t, dgsv1alpha1.DGSColFailed, dgsCol.Status.DGSCollectionHealth)
 		assert.Equal(t, int32(1), dgsCol.Status.DGSTimesFailed)
 	})
 
@@ -308,9 +307,9 @@ func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		dgs := dgss.Items[i]
 		if val, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && val == dgsCol.Name && len(dgs.OwnerReferences) > 0 {
-			assert.Equal(t, dgsv1alpha1.DGSRunning, dgs.Status.DedicatedGameServerState)
+			assert.Equal(t, dgsv1alpha1.DGSHealthy, dgs.Status.Health)
 		} else {
-			assert.Equal(t, dgsv1alpha1.DGSFailed, dgs.Status.DedicatedGameServerState)
+			assert.Equal(t, dgsv1alpha1.DGSFailed, dgs.Status.Health)
 		}
 	}
 }
@@ -323,7 +322,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
 	f := newDGSColFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	dgsCol.Spec.DGSMaxFailures = 2
 	dgsCol.Spec.DGSFailBehavior = dgsv1alpha1.Delete
@@ -336,12 +335,12 @@ func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-		dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
-		dgs.Status.PodState = corev1.PodRunning
+		dgs.Status.Health = dgsv1alpha1.DGSHealthy
+		dgs.Status.PodPhase = corev1.PodRunning
 
 		//set one to failed
 		if i == 3 {
-			dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+			dgs.Status.Health = dgsv1alpha1.DGSFailed
 			failedDGS = dgs
 		}
 		f.dgsLister = append(f.dgsLister, dgs)
@@ -351,7 +350,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
 	f.expectDeleteDedicatedGameServerAction(failedDGS, nil) //DGS that's removed from the collection
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, func(actual runtime.Object) {
 		dgsCol := actual.(*dgsv1alpha1.DedicatedGameServerCollection)
-		assert.Equal(t, dgsv1alpha1.DGSColFailed, dgsCol.Status.DedicatedGameServerCollectionState)
+		assert.Equal(t, dgsv1alpha1.DGSColFailed, dgsCol.Status.DGSCollectionHealth)
 		assert.Equal(t, int32(1), dgsCol.Status.DGSTimesFailed)
 	})
 
@@ -363,7 +362,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		dgs := dgss.Items[i]
 		if val, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && val == dgsCol.Name && len(dgs.OwnerReferences) > 0 {
-			assert.Equal(t, dgsv1alpha1.DGSRunning, dgs.Status.DedicatedGameServerState)
+			assert.Equal(t, dgsv1alpha1.DGSHealthy, dgs.Status.Health)
 		} else {
 			t.Error("There shouldn't be a DGS without a parent")
 		}
@@ -374,11 +373,11 @@ func TestFailDedicatedGameServerCollectionPassedThresholdDelete(t *testing.T) {
 	testFailSurpassThreshold(t, dgsv1alpha1.Delete)
 }
 
-func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFailBehavior){
+func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFailBehavior) {
 	f := newDGSColFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
-	dgsCol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColRunning
+	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	dgsCol.Spec.DGSMaxFailures = 2
 	dgsCol.Status.DGSTimesFailed = 2
@@ -392,12 +391,12 @@ func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFa
 	for i := 0; i < 5; i++ {
 		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
-		dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSRunning
-		dgs.Status.PodState = corev1.PodRunning
+		dgs.Status.Health = dgsv1alpha1.DGSHealthy
+		dgs.Status.PodPhase = corev1.PodRunning
 
 		//set one to failed
 		if i == 3 {
-			dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+			dgs.Status.Health = dgsv1alpha1.DGSFailed
 		}
 		f.dgsLister = append(f.dgsLister, dgs)
 		f.dgsObjects = append(f.dgsObjects, dgs)
@@ -405,7 +404,7 @@ func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFa
 
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, func(actual runtime.Object) {
 		dgsCol := actual.(*dgsv1alpha1.DedicatedGameServerCollection)
-		assert.Equal(t, dgsv1alpha1.DGSColNeedsIntervention, dgsCol.Status.DedicatedGameServerCollectionState)
+		assert.Equal(t, dgsv1alpha1.DGSColNeedsIntervention, dgsCol.Status.DGSCollectionHealth)
 		assert.Equal(t, int32(2), dgsCol.Status.DGSTimesFailed)
 	})
 
@@ -418,9 +417,9 @@ func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFa
 	for i := 0; i < 5; i++ {
 		dgs := dgss.Items[i]
 		if val, ok := dgs.Labels[shared.LabelDedicatedGameServerCollectionName]; ok && val == dgsCol.Name && len(dgs.OwnerReferences) > 0 {
-			if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning {
+			if dgs.Status.Health == dgsv1alpha1.DGSHealthy {
 				runningCount++
-			} else if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+			} else if dgs.Status.Health == dgsv1alpha1.DGSFailed {
 				failedCount++
 			}
 		}

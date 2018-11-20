@@ -15,18 +15,22 @@ spec:
   #subresources:
   #  status: {}  # status enables the status subresource
   additionalPrinterColumns:
-  - name: ActivePlayers
+  - name: Players
     type: string
     description: number of active players on the server
     JSONPath: .status.activePlayers
-  - name: GameServerState
+  - name: DGSState
     type: string
     description: state of the game server
-    JSONPath: .status.gameServerState
-  - name: PodState
+    JSONPath: .status.dgsState
+  - name: PodPhase
     type: string
-    description: state of the game server's pod
-    JSONPath: .status.podState
+    description: phase of the game server's pod
+    JSONPath: .status.podPhase
+  - name: Health
+    type: string
+    description: health of the DGS
+    JSONPath: .status.health
   - name: Ports
     type: string
     description: port mapping of the game server

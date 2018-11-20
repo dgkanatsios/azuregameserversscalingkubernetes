@@ -12,7 +12,7 @@ Check out a [project](https://github.com/dgkanatsios/AzureContainerInstancesMana
 
 Game Servers are loaded on each Node on a specific port (conceptually similar to docker run dedicatedgameserver -p X:Y). Port mapping is managed by our project.
 
-## Why are you keeping duplicate values (both in CRD .Spec and in Labels) about ActivePlayers, PodState and DedicatedGameServer?
+## Why are you keeping duplicate values (both in CRD .Spec and in Labels) about ActivePlayers, PodPhase and DedicatedGameServer?
 
 We need to be able to query them via our APIServer. Currently, you can GET normal K8s objects via filters [source](https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/), however there is an [open issue](https://github.com/kubernetes/kubernetes/issues/53459) regarding CRDs.
 

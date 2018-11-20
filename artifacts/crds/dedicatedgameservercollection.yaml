@@ -25,14 +25,14 @@ spec:
     type: string
     description: number of requested replicas
     JSONPath: .spec.replicas
-  - name: AvailableReplicas
+  - name: Available
     type: string
     description: number of available replicas
     JSONPath: .status.availableReplicas
-  - name: GameServerCollectionState
+  - name: DGSColHealth
     type: string
-    description: state of the game server collection
-    JSONPath: .status.gameServersState
+    description: health of the game server collection
+    JSONPath: .status.dgsHealth
   - name: PodCollectionState
     type: string
     description: state of the game server collection's pods

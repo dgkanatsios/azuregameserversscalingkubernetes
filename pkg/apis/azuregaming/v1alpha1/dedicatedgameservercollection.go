@@ -55,10 +55,10 @@ type DedicatedGameServerDgsAutoScalerDetails struct {
 
 // DedicatedGameServerCollectionStatus is the status for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionStatus struct {
-	DGSTimesFailed                     int32                              `json:"dgsTimesFailed"`
-	AvailableReplicas                  int32                              `json:"availableReplicas"`
-	PodCollectionState                 corev1.PodPhase                    `json:"podsState"`
-	DedicatedGameServerCollectionState DedicatedGameServerCollectionState `json:"gameServersState"`
+	DGSTimesFailed      int32           `json:"dgsTimesFailed"`
+	AvailableReplicas   int32           `json:"availableReplicas"`
+	PodCollectionState  corev1.PodPhase `json:"podsState"`
+	DGSCollectionHealth DGSColHealth    `json:"dgsHealth"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

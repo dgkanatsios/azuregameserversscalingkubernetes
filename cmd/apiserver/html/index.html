@@ -58,7 +58,7 @@
                     <th>Ports</th>
                     <th>DedicatedGameServerCollectionName</th>
                     <th>DedicatedGameServerState</th>
-                    <th>PodState</th>
+                    <th>PodPhase</th>
                 </tr>
             </thead>
             <tbody>
@@ -92,7 +92,7 @@
                         <td>${JSON.stringify(el.spec.template.containers[0].ports)}</td>
                         <td>${el.metadata.labels.DedicatedGameServerCollectionName}</td>
                         <td>${el.metadata.labels.DedicatedGameServerState}</td>
-                        <td>${el.status.podState}</td>
+                        <td>${el.status.podPhase}</td>
                         </tr>`
                     );
                 });

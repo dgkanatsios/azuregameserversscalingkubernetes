@@ -170,7 +170,7 @@ func (c *DGSCollectionController) syncHandler(key string) error {
 	}
 
 	// DGSCol needs intervention
-	if dgsCol.Status.DedicatedGameServerCollectionState == dgsv1alpha1.DGSColNeedsIntervention {
+	if dgsCol.Status.DGSCollectionHealth == dgsv1alpha1.DGSColNeedsIntervention {
 		c.logger.WithField("DGSColName", dgsCol.Name).Info("DGSCol is in NeedsIntervention state, will not proceed")
 		return nil
 	}
@@ -214,7 +214,7 @@ func (c *DGSCollectionController) syncHandler(key string) error {
 func (c *DGSCollectionController) handleDGSFailed(dgsCol *dgsv1alpha1.DedicatedGameServerCollection,
 	failedDGSs []*dgsv1alpha1.DedicatedGameServer) error {
 
-	if dgsCol.Status.DedicatedGameServerCollectionState == dgsv1alpha1.DGSColNeedsIntervention {
+	if dgsCol.Status.DGSCollectionHealth == dgsv1alpha1.DGSColNeedsIntervention {
 		return nil
 	}
 
@@ -316,9 +316,9 @@ func (c *DGSCollectionController) handleDedicatedGameServer(obj interface{}) {
 			runtime.HandleError(fmt.Errorf("error getting a DedicatedGameServerCollection from the DedicatedGameServer with Name %s, err: %s", object.GetName(), err.Error()))
 			return
 		}
-		// its state is Failed or MarkedForDeletion
-		// this check may be redundant (Why would a Running DGS be out of the collection?) but anyway
-		if dgs := object.(*dgsv1alpha1.DedicatedGameServer); dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed || dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion {
+		// its state is Failed or it is MarkedForDeletion
+		// this check may be redundant (Why would a Healthy DGS be out of the collection?) but anyway
+		if dgs := object.(*dgsv1alpha1.DedicatedGameServer); dgs.Status.Health == dgsv1alpha1.DGSFailed || dgs.Status.MarkedForDeletion {
 			c.enqueueDedicatedGameServerCollection(dgsCol)
 		}
 	}

@@ -170,7 +170,7 @@ func TestCreatesPod(t *testing.T) {
 	f.dgsLister = append(f.dgsLister, dgs)
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
-	expPod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""})
+	expPod := shared.NewPod(dgs, shared.APIDetails{APIServerURL: "", Code: ""})
 
 	f.expectCreatePodAction(expPod, nil)
 
@@ -184,9 +184,10 @@ func TestDeleteDGSWithZeroActivePlayers(t *testing.T) {
 	dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
 
 	dgs.Status.ActivePlayers = 0
-	dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSMarkedForDeletion
+	dgs.Status.Health = dgsv1alpha1.DGSHealthy
+	dgs.Status.MarkedForDeletion = true
 
-	delPod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""})
+	delPod := shared.NewPod(dgs, shared.APIDetails{APIServerURL: "", Code: ""})
 
 	f.podLister = append(f.podLister, delPod)
 	f.k8sObjects = append(f.k8sObjects, delPod)
@@ -207,7 +208,7 @@ func TestDGSStatusIsUpdated(t *testing.T) {
 
 	//dgs.Status.ActivePlayers = 0
 
-	pod := shared.NewPod(dgs, shared.APIDetails{SetActivePlayersURL: "", SetServerStatusURL: ""})
+	pod := shared.NewPod(dgs, shared.APIDetails{APIServerURL: "", Code: ""})
 
 	f.podLister = append(f.podLister, pod)
 	f.k8sObjects = append(f.k8sObjects, pod)

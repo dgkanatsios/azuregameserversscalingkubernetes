@@ -1,8 +1,10 @@
-package controller
+package controllers
 
 import (
 	"errors"
 	"testing"
+
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
 
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
@@ -55,7 +57,7 @@ func TestPortRegistry(t *testing.T) {
 	dgsObjects = append(dgsObjects, server2)
 	dgsClient := fake.NewSimpleClientset(dgsObjects...)
 
-	dgsInformers := dgsinformers.NewSharedInformerFactory(dgsClient, noResyncPeriodFunc())
+	dgsInformers := dgsinformers.NewSharedInformerFactory(dgsClient, testhelpers.NoResyncPeriodFunc())
 	dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(server1)
 	dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers().Informer().GetIndexer().Add(server2)
 

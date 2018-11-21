@@ -1,4 +1,4 @@
-package controller
+package controllers
 
 import (
 	"fmt"
@@ -11,8 +11,18 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type controllerHelper struct {
-	workqueue      workqueue.RateLimitingInterface
+func NewControllerHelper(workqueue workqueue.RateLimitingInterface, logger *logrus.Logger, syncHandler func(string) error, controllerType string, cacheSyncs []cache.InformerSynced) *ControllerHelper {
+	return &ControllerHelper{
+		Workqueue:      workqueue,
+		logger:         logger,
+		syncHandler:    syncHandler,
+		controllerType: controllerType,
+		cacheSyncs:     cacheSyncs,
+	}
+}
+
+type ControllerHelper struct {
+	Workqueue      workqueue.RateLimitingInterface
 	logger         *logrus.Logger
 	syncHandler    func(string) error
 	controllerType string
@@ -21,8 +31,8 @@ type controllerHelper struct {
 
 // processNextWorkItem deals with one key off the queue.  It returns false
 // when it's time to quit.
-func (c *controllerHelper) processNextWorkItem() bool {
-	obj, shutdown := c.workqueue.Get()
+func (c *ControllerHelper) processNextWorkItem() bool {
+	obj, shutdown := c.Workqueue.Get()
 
 	if shutdown {
 		return false
@@ -36,7 +46,7 @@ func (c *controllerHelper) processNextWorkItem() bool {
 		// not call Forget if a transient error occurs, instead the item is
 		// put back on the workqueue and attempted again after a back-off
 		// period.
-		defer c.workqueue.Done(obj)
+		defer c.Workqueue.Done(obj)
 		var key string
 		var ok bool
 		// We expect strings to come off the workqueue. These are of the
@@ -48,7 +58,7 @@ func (c *controllerHelper) processNextWorkItem() bool {
 			// As the item in the workqueue is actually invalid, we call
 			// Forget here else we'd go into a loop of attempting to
 			// process a work item that is invalid.
-			c.workqueue.Forget(obj)
+			c.Workqueue.Forget(obj)
 			runtime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
 		}
@@ -56,12 +66,12 @@ func (c *controllerHelper) processNextWorkItem() bool {
 		// DedicatedGameServer resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
-			c.workqueue.AddRateLimited(key)
+			c.Workqueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
-		c.workqueue.Forget(obj)
+		c.Workqueue.Forget(obj)
 		c.logger.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
@@ -77,7 +87,7 @@ func (c *controllerHelper) processNextWorkItem() bool {
 // runWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
-func (c *controllerHelper) runWorker() {
+func (c *ControllerHelper) runWorker() {
 	// hot loop until we're told to stop.  processNextWorkItem will
 	// automatically wait until there's work available, so we don't worry
 	// about secondary waits
@@ -86,9 +96,9 @@ func (c *controllerHelper) runWorker() {
 	}
 }
 
-func (c *controllerHelper) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+func (c *ControllerHelper) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
-	defer c.workqueue.ShutDown()
+	defer c.Workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
 	c.logger.Infof("Starting %s", c.controllerType)

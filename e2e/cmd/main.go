@@ -34,7 +34,7 @@ func main() {
 		log.Errorf("Cannot initialize connection to cluster due to: %v", err)
 	}
 
-	// on this step, we do check if there are 5 running DGSs
+	// on this step, we do check if there are 5 healthy DGSs
 	log.Info("Step 1")
 	initialValidation() // check if there are 5 DGS
 
@@ -43,21 +43,21 @@ func main() {
 	log.Info("Step 2a")
 	// scale out
 	increaseReplicasToTen()                                                    // kubectl scale dgsc ... --replicas=10
-	validateClusterState(clusterState{totalPodCount: 10, runningDGSCount: 10}) // check if there are 10 DGS and 10 pods
+	validateClusterState(clusterState{totalPodCount: 10, healthyDGSCount: 10}) // check if there are 10 DGS and 10 pods
 	setAllActivePlayers(2)                                                     // set all ActivePlayers to two
 
 	// decrease from 10 to 7
 	// so our DGSCol should now contain 7 DGS, whereas 3 DGS should be out of the collection in MarkedForDeletion state
 	log.Info("Step 2b")
 	decreaseReplicasToSeven() // kubectl scale dgsc ... --replicas=7
-	validateClusterState(clusterState{totalPodCount: 10, runningDGSCount: 7, markedForDeletionDGSCount: 3})
+	validateClusterState(clusterState{totalPodCount: 10, healthyDGSCount: 7, markedForDeletionDGSCount: 3})
 
 	// make players leave from the MarkedForDeletionServers
 	// these DGSs should be deleted
 	log.Info("Step 3")
 	// make players leave
 	setActivePlayersOfMarkedForDeletionToZero() // set all ActivePlayers to zero
-	validateClusterState(clusterState{totalPodCount: 7, runningDGSCount: 7, markedForDeletionDGSCount: 0})
+	validateClusterState(clusterState{totalPodCount: 7, healthyDGSCount: 7, markedForDeletionDGSCount: 0})
 
 	// introduce some chaos doing random pod/DGS deletes
 	log.Info("Step 4a")
@@ -65,22 +65,22 @@ func main() {
 	deleteRandomDGS() // delete a random DGS
 	deleteRandomPod() // delete a random DGS-ownered pod
 	deleteRandomDGS() // delete a random DGS
-	validateClusterState(clusterState{totalPodCount: 7, runningDGSCount: 7})
+	validateClusterState(clusterState{totalPodCount: 7, healthyDGSCount: 7})
 
 	// more chaos
 	log.Info("Step 4b")
 	deleteRandomPod() // delete a random DGS-ownered pod
 	deleteRandomDGS() // delete a random DGS
 	deleteRandomPod() // delete a random DGS-ownered pod
-	validateClusterState(clusterState{totalPodCount: 7, runningDGSCount: 7})
+	validateClusterState(clusterState{totalPodCount: 7, healthyDGSCount: 7})
 
 	// let's test some DGS failure - recall that DGSCol.FailBehavior is set to Remove. DGSMaxFailures is 2
 	log.Info("Step 5a")
-	setRandomRunningDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
-	// runningDGSCount should be 7 because another one will be created in the Failed one's place
+	setRandomHealthyDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
+	// healthyDGSCount should be 7 because another one will be created in the Failed one's place
 	validateClusterState(clusterState{
 		totalPodCount:                 8,
-		runningDGSCount:               7,
+		healthyDGSCount:               7,
 		failedDGSInCollectionCount:    0,
 		failedDGSNotInCollectionCount: 1,
 	})
@@ -89,14 +89,14 @@ func main() {
 	// let's fail another one
 	// we're about to surpass the threshold of 2
 	log.Info("Step 5b")
-	setRandomRunningDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
+	setRandomHealthyDGSToFailed() // set a random's DGS GameState to Failed, this DGS should be removed from the collection
 	validateClusterState(clusterState{
 		totalPodCount:                 9,
-		runningDGSCount:               7,
+		healthyDGSCount:               7,
 		failedDGSInCollectionCount:    0,
 		failedDGSNotInCollectionCount: 2,
 	})
-	//runningDGSCount is 7 because another one will be created
+	// healthyDGSCount is 7 because another one will be created
 	validateDGSTimesFailed(2) // check that DGS times failed is 2
 
 	// another failure
@@ -104,13 +104,13 @@ func main() {
 	// and the DGSCOlState is NeedsIntervention
 	// no change in the number of Pods
 	log.Info("Step 5c")
-	setRandomRunningDGSToFailed()
+	setRandomHealthyDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 9,
-		runningDGSCount:               6,
+		healthyDGSCount:               6,
 		failedDGSInCollectionCount:    1,
 		failedDGSNotInCollectionCount: 2,
-		dgsColState:                   dgsv1alpha1.DGSColNeedsIntervention,
+		dgsColHealth:                  dgsv1alpha1.DGSColNeedsIntervention,
 	})
 	validateDGSTimesFailed(2)
 
@@ -118,13 +118,13 @@ func main() {
 	// no change, since we are in the NeedsIntervention state
 	// only one more DGS failed
 	log.Info("Step 5d")
-	setRandomRunningDGSToFailed()
+	setRandomHealthyDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 9,
-		runningDGSCount:               5,
+		healthyDGSCount:               5,
 		failedDGSInCollectionCount:    2,
 		failedDGSNotInCollectionCount: 2,
-		dgsColState:                   dgsv1alpha1.DGSColNeedsIntervention,
+		dgsColHealth:                  dgsv1alpha1.DGSColNeedsIntervention,
 	})
 	validateDGSTimesFailed(2)
 
@@ -135,36 +135,36 @@ func main() {
 	resetClusterState(5, dgsv1alpha1.Delete)
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
-		runningDGSCount:               5,
+		healthyDGSCount:               5,
 		failedDGSInCollectionCount:    0,
 		failedDGSNotInCollectionCount: 0,
-		dgsColState:                   dgsv1alpha1.DGSColRunning,
+		dgsColHealth:                  dgsv1alpha1.DGSColHealthy,
 	})
 	validateDGSTimesFailed(0)
 
 	// a random failure
 	// DGSTimesFailed will become 1
 	log.Info("Step 6b")
-	setRandomRunningDGSToFailed()
+	setRandomHealthyDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
-		runningDGSCount:               5,
+		healthyDGSCount:               5,
 		failedDGSInCollectionCount:    0,
 		failedDGSNotInCollectionCount: 0,
-		dgsColState:                   dgsv1alpha1.DGSColRunning,
+		dgsColHealth:                  dgsv1alpha1.DGSColHealthy,
 	})
 	validateDGSTimesFailed(1)
 
 	// another random failure
 	// DGSTimesFailed will become 2
 	log.Info("Step 6c")
-	setRandomRunningDGSToFailed()
+	setRandomHealthyDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
-		runningDGSCount:               5,
+		healthyDGSCount:               5,
 		failedDGSInCollectionCount:    0,
 		failedDGSNotInCollectionCount: 0,
-		dgsColState:                   dgsv1alpha1.DGSColRunning,
+		dgsColHealth:                  dgsv1alpha1.DGSColHealthy,
 	})
 	validateDGSTimesFailed(2)
 
@@ -173,13 +173,13 @@ func main() {
 	// DGSTimesFailed will stay 2
 	// state will become NeedsIntervention
 	log.Info("Step 6d")
-	setRandomRunningDGSToFailed()
+	setRandomHealthyDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
-		runningDGSCount:               4,
+		healthyDGSCount:               4,
 		failedDGSInCollectionCount:    1,
 		failedDGSNotInCollectionCount: 0,
-		dgsColState:                   dgsv1alpha1.DGSColNeedsIntervention,
+		dgsColHealth:                  dgsv1alpha1.DGSColNeedsIntervention,
 	})
 	validateDGSTimesFailed(2)
 
@@ -187,13 +187,13 @@ func main() {
 	// state is NeedsIntervention
 	// DGSTimesFailed will stay 2
 	log.Info("Step 6e")
-	setRandomRunningDGSToFailed()
+	setRandomHealthyDGSToFailed()
 	validateClusterState(clusterState{
 		totalPodCount:                 5,
-		runningDGSCount:               3,
+		healthyDGSCount:               3,
 		failedDGSInCollectionCount:    2,
 		failedDGSNotInCollectionCount: 0,
-		dgsColState:                   dgsv1alpha1.DGSColNeedsIntervention,
+		dgsColHealth:                  dgsv1alpha1.DGSColNeedsIntervention,
 	})
 	validateDGSTimesFailed(2)
 
@@ -208,16 +208,16 @@ func main() {
 	deleteRandomDGS()
 	validateClusterState(clusterState{
 		totalPodCount:   5,
-		runningDGSCount: 5,
-		dgsColState:     dgsv1alpha1.DGSColRunning,
+		healthyDGSCount: 5,
+		dgsColHealth:    dgsv1alpha1.DGSColHealthy,
 	})
 	addAutoScalerDetails()
 	setAllActivePlayers(9)
 	// verify that autoscaler has kicked in and we have one more DGS
 	validateClusterState(clusterState{
 		totalPodCount:   6,
-		runningDGSCount: 6,
-		dgsColState:     dgsv1alpha1.DGSColRunning,
+		healthyDGSCount: 6,
+		dgsColHealth:    dgsv1alpha1.DGSColHealthy,
 	})
 
 	// set again 9 players for all DGS - 1 new DGS will be created
@@ -227,8 +227,8 @@ func main() {
 	// verify that autoscaler has kicked in and we have one more DGS
 	validateClusterState(clusterState{
 		totalPodCount:   7,
-		runningDGSCount: 7,
-		dgsColState:     dgsv1alpha1.DGSColRunning,
+		healthyDGSCount: 7,
+		dgsColHealth:    dgsv1alpha1.DGSColHealthy,
 	})
 
 	// set again 9 players for all DGS - no new DGS will be created since we are at the maximum of 7
@@ -237,8 +237,8 @@ func main() {
 	setAllActivePlayers(9)
 	validateClusterState(clusterState{
 		totalPodCount:   7,
-		runningDGSCount: 7,
-		dgsColState:     dgsv1alpha1.DGSColRunning,
+		healthyDGSCount: 7,
+		dgsColHealth:    dgsv1alpha1.DGSColHealthy,
 	})
 
 	// set 5 players for all DGS -> 1 DGS less
@@ -247,8 +247,8 @@ func main() {
 	setAllActivePlayers(5)
 	validateClusterState(clusterState{
 		totalPodCount:             7, // 7 pods: 6 in collection, 1 out
-		runningDGSCount:           6,
-		dgsColState:               dgsv1alpha1.DGSColRunning,
+		healthyDGSCount:           6,
+		dgsColHealth:              dgsv1alpha1.DGSColHealthy,
 		markedForDeletionDGSCount: 1,
 	})
 
@@ -258,8 +258,8 @@ func main() {
 	setAllActivePlayers(5)
 	validateClusterState(clusterState{
 		totalPodCount:             7, // 7 pods: 5 in collection, 2 out
-		runningDGSCount:           5,
-		dgsColState:               dgsv1alpha1.DGSColRunning,
+		healthyDGSCount:           5,
+		dgsColHealth:              dgsv1alpha1.DGSColHealthy,
 		markedForDeletionDGSCount: 2,
 	})
 
@@ -269,8 +269,8 @@ func main() {
 	setAllActivePlayers(5)
 	validateClusterState(clusterState{
 		totalPodCount:             7,
-		runningDGSCount:           5,
-		dgsColState:               dgsv1alpha1.DGSColRunning,
+		healthyDGSCount:           5,
+		dgsColHealth:              dgsv1alpha1.DGSColHealthy,
 		markedForDeletionDGSCount: 2,
 	})
 
@@ -340,7 +340,7 @@ func resetClusterState(replicas int32, failbehavior dgsv1alpha1.DedicatedGameSer
 
 	//delete all of the failed ones
 	for _, dgs := range dgss.Items {
-		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+		if dgs.Status.Health == dgsv1alpha1.DGSFailed {
 			err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Delete(dgs.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				handleError(fmt.Errorf("Cannot delete DGS because of %s", err))
@@ -359,7 +359,7 @@ func resetClusterState(replicas int32, failbehavior dgsv1alpha1.DedicatedGameSer
 
 		dgscol.Spec.DGSFailBehavior = failbehavior
 		dgscol.Spec.Replicas = replicas
-		dgscol.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+		dgscol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 		dgscol.Status.DGSTimesFailed = 0
 		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgscol)
 		return err
@@ -369,8 +369,8 @@ func resetClusterState(replicas int32, failbehavior dgsv1alpha1.DedicatedGameSer
 	}
 }
 
-func setRandomRunningDGSToFailed() {
-	log.Info("    Setting a random running DGS from the collection to Failed")
+func setRandomHealthyDGSToFailed() {
+	log.Info("    Setting a random healthy DGS from the collection to Failed")
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{
 		LabelSelector: shared.LabelDedicatedGameServerCollectionName,
 	})
@@ -387,9 +387,8 @@ func setRandomRunningDGSToFailed() {
 			if err != nil {
 				return err
 			}
-			if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning { // if it's Running
-				dgs = dgs.DeepCopy()
-				dgs.Status.DedicatedGameServerState = dgsv1alpha1.DGSFailed
+			if dgs.Status.Health == dgsv1alpha1.DGSHealthy && dgs.Status.PodPhase == corev1.PodRunning { // if it's Healthy
+				dgs.Status.Health = dgsv1alpha1.DGSFailed
 				break
 			}
 		}
@@ -400,7 +399,7 @@ func setRandomRunningDGSToFailed() {
 		handleError(fmt.Errorf("Cannot update DGS"))
 	}
 
-	if dgsUpdate.Status.DedicatedGameServerState != dgsv1alpha1.DGSFailed {
+	if dgsUpdate.Status.Health != dgsv1alpha1.DGSFailed {
 		handleError(fmt.Errorf("DGS was not updated"))
 	}
 }
@@ -441,7 +440,8 @@ func setActivePlayersOfMarkedForDeletionToZero() {
 	}
 
 	for _, dgs := range dgss.Items {
-		if dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion &&
+		if dgs.Status.Health == dgsv1alpha1.DGSHealthy &&
+			dgs.Status.MarkedForDeletion &&
 			dgs.Status.ActivePlayers == 2 {
 			dgsCopy := dgs.DeepCopy()
 			dgsCopy.Status.ActivePlayers = 0
@@ -530,14 +530,14 @@ func initialValidation() {
 		log.Error(err)
 	}
 
-	log.Infof("    Verifying that %d DedicatedGameServers are Running", count)
-	err = loopCheck(verifyRunningDedicatedGameServers, count)
+	log.Infof("    Verifying that %d DedicatedGameServers are Healthy", count)
+	err = loopCheck(verifyHealthyDedicatedGameServers, count)
 	if err != nil {
 		log.Error(err)
 	}
 
-	log.Infof("    Verifying that DedicatedGameServerCollection with %d replicas is Running", count)
-	err = loopCheckDGSCol(verifyDedicatedGameServerCollection, count, dgsv1alpha1.DGSColRunning, corev1.PodRunning)
+	log.Infof("    Verifying that DedicatedGameServerCollection with %d replicas is Pod/Running and DGS/Healthy", count)
+	err = loopCheckDGSCol(verifyDedicatedGameServerCollection, count, dgsv1alpha1.DGSColHealthy, corev1.PodRunning)
 	if err != nil {
 		log.Error(err)
 	}

@@ -29,18 +29,19 @@ type DedicatedGameServer struct {
 
 // DedicatedGameServerSpec is the spec for a DedicatedGameServer resource
 type DedicatedGameServerSpec struct {
-	// this is where you would put your custom resource data
 	PortsToExpose []int32        `json:"portsToExpose"`
 	Template      corev1.PodSpec `json:"template"`
 }
 
 // DedicatedGameServerStatus is the status for a DedicatedGameServer resource
 type DedicatedGameServerStatus struct {
-	PodState                 corev1.PodPhase          `json:"podState"`
-	DedicatedGameServerState DedicatedGameServerState `json:"gameServerState"`
-	PublicIP                 string                   `json:"publicIP"`
-	NodeName                 string                   `json:"nodeName"`
-	ActivePlayers            int                      `json:"activePlayers"`
+	PodPhase          corev1.PodPhase `json:"podPhase"`
+	Health            DGSHealth       `json:"health"`
+	DGSState          DGSState        `json:"dgsState"`
+	MarkedForDeletion bool            `json:"markedForDeletion"`
+	PublicIP          string          `json:"publicIP"`
+	NodeName          string          `json:"nodeName"`
+	ActivePlayers     int             `json:"activePlayers"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

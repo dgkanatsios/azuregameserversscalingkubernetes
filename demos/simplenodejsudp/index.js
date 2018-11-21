@@ -31,8 +31,8 @@ server.on('message', function (message, remote) {
 
   if (message.toString().toUpperCase().startsWith("PLAYERS")) {
     const number = parseInt(message.toString().split("|")[1].replace("\n",""));
-    const postData = { "serverName": process.env.SERVER_NAME, "playerCount": number };
-    sendData(process.env.SET_ACTIVE_PLAYERS_URL, postData, function (err, response, body) {
+    const postData = { "serverName": process.env.SERVER_NAME, "namespace": process.env.SERVER_NAMESPACE, "playerCount": number };
+    sendData(activePlayersMethodURL, postData, function (err, response, body) {
       let serverResponse = message.toString().replace("\n","");
       if (err) {
         console.log(err);
@@ -44,10 +44,40 @@ server.on('message', function (message, remote) {
       sendResponse(serverResponse, remote);
     });
   }
-  else if (message.toString().toUpperCase().startsWith("STATUS")) {
-    const status = message.toString().split("|")[1].replace("\n","");
-    const postData = { "serverName": process.env.SERVER_NAME, "status": status };
-    sendData(process.env.SET_SERVER_STATUS_URL, postData, function (err, response, body) {
+  else if (message.toString().toUpperCase().startsWith("HEALTH")) {
+    const health = message.toString().split("|")[1].replace("\n","");
+    const postData = { "serverName": process.env.SERVER_NAME, "namespace": process.env.SERVER_NAMESPACE, "health": health };
+    sendData(healthMethodURL, postData, function (err, response, body) {
+      let serverResponse = message.toString().replace("\n","");
+      if (err) {
+        console.log(err);
+        serverResponse = `${serverResponse}, error in setting Server Health: ${err}\n`;
+      } else if (response) {
+        console.log("Set Server Health OK");
+        serverResponse = `${serverResponse}, set Server Status to ${status} OK\n`;
+      }
+      sendResponse(serverResponse, remote);
+    });
+  }
+  else if (message.toString().toUpperCase().startsWith("STATE")) {
+    const state = message.toString().split("|")[1].replace("\n","");
+    const postData = { "serverName": process.env.SERVER_NAME, "namespace": process.env.SERVER_NAMESPACE, "state": state };
+    sendData(stateMethodURL, postData, function (err, response, body) {
+      let serverResponse = message.toString().replace("\n","");
+      if (err) {
+        console.log(err);
+        serverResponse = `${serverResponse}, error in setting Server Status: ${err}\n`;
+      } else if (response) {
+        console.log("Set Server Status OK");
+        serverResponse = `${serverResponse}, set Server Status to ${status} OK\n`;
+      }
+      sendResponse(serverResponse, remote);
+    });
+  }
+  else if (message.toString().toUpperCase().startsWith("MARKEDFORDELETION")) {
+    const markedForDeletion = message.toString().split("|")[1].replace("\n","");
+    const postData = { "serverName": process.env.SERVER_NAME, "namespace": process.env.SERVER_NAMESPACE, "markedForDeletion": markedForDeletion };
+    sendData(markedForDeletionMethodURL, postData, function (err, response, body) {
       let serverResponse = message.toString().replace("\n","");
       if (err) {
         console.log(err);
@@ -75,28 +105,54 @@ if (!process.env.SERVER_NAME) {
   process.exit(-1);
 }
 
-if (!process.env.SET_SERVER_STATUS_URL) {
-  console.log("$SET_SERVER_STATUS_URL is not defined");
+if (!process.env.SERVER_NAMESPACE) {
+  console.log("$SERVER_NAMESPACE is not defined");
   process.exit(-1);
 }
 
-if (!process.env.SET_ACTIVE_PLAYERS_URL) {
-  console.log("$SET_ACTIVE_PLAYERS_URL is not defined");
+if (!process.env.API_SERVER_URL) {
+  console.log("$API_SERVER_URL is not defined");
   process.exit(-1);
 }
 
-const postData = {
+if (!process.env.API_SERVER_CODE) {
+  console.log("$API_SERVER_CODE is not defined");
+  process.exit(-1);
+}
+
+const healthMethodURL = `${process.env.API_SERVER_URL}/setsdgshealth?code=${process.env.API_SERVER_CODE}`;
+const stateMethodURL = `${process.env.API_SERVER_URL}/setsdgsstate?code=${process.env.API_SERVER_CODE}`;
+const activePlayersMethodURL = `${process.env.API_SERVER_URL}/setactiveplayers?code=${process.env.API_SERVER_CODE}`;
+const markedForDeletionMethodURL= `${process.env.API_SERVER_URL}/setdgsmarkedfordeletion?code=${process.env.API_SERVER_CODE}`;
+
+const healthPostData = {
   serverName: process.env.SERVER_NAME,
-  status: "Running"
+  namespace: process.env.SERVER_NAMESPACE,
+  health: "Healthy"
 };
 
-// send "Running" to the APIServer
-sendData(process.env.SET_SERVER_STATUS_URL, postData, function (err, response, body) {
-  // this callback will only be called when the request succeeded or after maxAttempts or on error
+
+// send "Healthy" to the APIServer
+sendData(healthMethodURL, healthPostData, function (err, response, body) {
   if (err) {
     console.log(err);
   } else if (response) {
-    console.log("Set status running OK");
+    console.log("Set status Healthy OK");
+  }
+});
+
+const statePostData = {
+  serverName: process.env.SERVER_NAME,
+  namespace: process.env.SERVER_NAMESPACE,
+  state: "Assigned"
+};
+
+// send "Assigned" to the APIServer
+sendData(stateMethodURL, statePostData, function (err, response, body) {
+  if (err) {
+    console.log(err);
+  } else if (response) {
+    console.log("Set status Assigned OK");
   }
 });
 

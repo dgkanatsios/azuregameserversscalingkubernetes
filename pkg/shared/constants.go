@@ -4,8 +4,7 @@ const APIAccessCodeSecretName = "apiaccesscode"
 
 // make sure to change the host values if the K8s service name for the API Server is changed
 const (
-	setActivePlayersURLPrefix = "http://aks-gaming-apiserver.dgs-system.svc.cluster.local/setactiveplayers?code="
-	setServerStatusURLPrefix  = "http://aks-gaming-apiserver.dgs-system.svc.cluster.local/setserverstatus?code="
+	APIServerURL = "http://aks-gaming-apiserver.dgs-system.svc.cluster.local"
 )
 
 const (

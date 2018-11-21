@@ -1,4 +1,4 @@
-package controller
+package autoscale
 
 import (
 	"fmt"
@@ -6,13 +6,12 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"k8s.io/client-go/kubernetes"
-
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	logrus "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	record "k8s.io/client-go/tools/record"
@@ -45,7 +45,7 @@ type DGSAutoScalerController struct {
 	// Kubernetes API.
 	recorder record.EventRecorder
 
-	controllerHelper *controllerHelper
+	controllerHelper *controllers.ControllerHelper
 }
 
 // NewDGSAutoScalerController creates a new DGSAutoScalerController
@@ -64,13 +64,13 @@ func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 		logger:             shared.Logger(),
 	}
 
-	c.controllerHelper = &controllerHelper{
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DGSAutoScalerSync"),
-		logger:         c.logger,
-		syncHandler:    c.syncHandler,
-		cacheSyncs:     []cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced},
-		controllerType: "DGSAutoScalerController",
-	}
+	c.controllerHelper = controllers.NewControllerHelper(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DGSAutoScalerSync"),
+		c.logger,
+		c.syncHandler,
+		"DGSAutoScalerController",
+		[]cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced},
+	)
 
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
@@ -80,7 +80,7 @@ func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(c.logger.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: dgsControllerAgentName})
+	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: autoscalerControllerAgentName})
 
 	c.logger.Info("Setting up event handlers for DGSAutoScaler controller")
 
@@ -159,7 +159,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 	}
 
 	// check if both DGS and Pod status != Running
-	if dgsColTemp.Status.DedicatedGameServerCollectionState != dgsv1alpha1.DGSColRunning ||
+	if dgsColTemp.Status.DGSCollectionHealth != dgsv1alpha1.DGSColHealthy ||
 		dgsColTemp.Status.PodCollectionState != corev1.PodRunning {
 		c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because DedicatedGameServer and/or Pod states are not Running")
 		return nil
@@ -231,7 +231,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas++
 		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
-		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 		if err != nil {
@@ -249,7 +249,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas--
 		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
-		dgsColToUpdate.Status.DedicatedGameServerCollectionState = dgsv1alpha1.DGSColCreating
+		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 		if err != nil {
@@ -275,7 +275,7 @@ func (c *DGSAutoScalerController) enqueueDedicatedGameServerCollection(obj inter
 		runtime.HandleError(err)
 		return
 	}
-	c.controllerHelper.workqueue.AddRateLimited(key)
+	c.controllerHelper.Workqueue.AddRateLimited(key)
 }
 
 // Run initiates the AutoScalerController

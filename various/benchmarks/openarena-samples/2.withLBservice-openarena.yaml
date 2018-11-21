@@ -7,7 +7,7 @@ metadata:
 spec:
   containers:
   - name: openarena-pod
-    image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.5
+    image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.7
     env:
     - name: OA_STARTMAP
       value: "dm4ish"
@@ -36,7 +36,7 @@ metadata:
 spec:
   containers:
   - name: openarena-service
-    image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.5
+    image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.7
     env:
     - name: OA_STARTMAP
       value: "dm4ish"

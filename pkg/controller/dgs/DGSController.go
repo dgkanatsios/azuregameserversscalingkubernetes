@@ -1,4 +1,4 @@
-package controller
+package dgs
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	logrus "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -42,18 +43,18 @@ type DGSController struct {
 
 	logger *logrus.Logger
 
-	portRegistry *PortRegistry
+	portRegistry *controllers.PortRegistry
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
 
-	controllerHelper *controllerHelper
+	controllerHelper *controllers.ControllerHelper
 }
 
 // NewDedicatedGameServerController creates a new DedicatedGameServerController
 func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
-	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *PortRegistry) *DGSController {
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *controllers.PortRegistry) *DGSController {
 
 	c := &DGSController{
 		dgsClient:        dgsclient,
@@ -69,13 +70,13 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 		logger:           shared.Logger(),
 	}
 
-	c.controllerHelper = &controllerHelper{
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
-		logger:         c.logger,
-		syncHandler:    c.syncHandler,
-		cacheSyncs:     []cache.InformerSynced{c.nodeListerSynced, c.dgsListerSynced, c.dgsListerSynced, c.podListerSynced},
-		controllerType: "DedicatedGameServerController",
-	}
+	c.controllerHelper = controllers.NewControllerHelper(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
+		c.logger,
+		c.syncHandler,
+		"DedicatedGameServerController",
+		[]cache.InformerSynced{c.nodeListerSynced, c.dgsListerSynced, c.dgsListerSynced, c.podListerSynced},
+	)
 
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
@@ -268,17 +269,18 @@ func (c *DGSController) syncHandler(key string) error {
 	// let's update the DGS
 	dgsToUpdate := dgsTemp.DeepCopy()
 	c.logger.WithFields(logrus.Fields{
-		"serverName":      dgsTemp.Name,
-		"currentDGSState": dgsTemp.Status.DedicatedGameServerState,
-		"currentPodState": dgsTemp.Status.PodState,
-		"currentPublicIP": dgsTemp.Status.PublicIP,
-		"currentNodeName": dgsTemp.Status.NodeName,
-		"updatedPodState": pod.Status.Phase,
-		"updatedPublicIP": ip,
-		"updatedNodeName": pod.Spec.NodeName,
+		"serverName":       dgsTemp.Name,
+		"currentDGSHealth": dgsTemp.Status.Health,
+		"currentDGSState":  dgsTemp.Status.DGSState,
+		"currentPodPhase":  dgsTemp.Status.PodPhase,
+		"currentPublicIP":  dgsTemp.Status.PublicIP,
+		"currentNodeName":  dgsTemp.Status.NodeName,
+		"updatedPodPhase":  pod.Status.Phase,
+		"updatedPublicIP":  ip,
+		"updatedNodeName":  pod.Spec.NodeName,
 	}).Info("Updating DedicatedGameServer")
 
-	dgsToUpdate.Status.PodState = pod.Status.Phase
+	dgsToUpdate.Status.PodPhase = pod.Status.Phase
 
 	dgsToUpdate.Status.PublicIP = ip
 	dgsToUpdate.Status.NodeName = pod.Spec.NodeName
@@ -342,16 +344,20 @@ func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.controllerHelper.workqueue.AddRateLimited(key)
+	c.controllerHelper.Workqueue.AddRateLimited(key)
 }
 
 func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
+	accesscode, err := shared.GetAccessCode(c.podClient)
+	if err != nil {
+		return fmt.Errorf("Cannot get API Server Access Code because of: %s", err.Error())
+	}
 	pod := shared.NewPod(dgs,
 		shared.APIDetails{
-			SetActivePlayersURL: shared.GetActivePlayersSetURL(),
-			SetServerStatusURL:  shared.GetServerStatusSetURL(),
+			APIServerURL: shared.APIServerURL,
+			Code:         accesscode,
 		})
-	_, err := c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
+	_, err = c.podClient.CoreV1().Pods(dgs.Namespace).Create(pod)
 	if err != nil {
 		return err
 	}

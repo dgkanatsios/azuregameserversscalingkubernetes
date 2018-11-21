@@ -44,7 +44,7 @@ az network nsg rule create \
   --destination-port-range 20000-30000
 ```
 
-## Assigning Public IPs to the existing Nodes and to potential new ones
+## Assigning Public IPs to the existing Nodes in the cluster
 
 As of now, AKS Nodes don't get a Public IP by default (even though you could use [acs-engine](https://github.com/Azure/acs-engine) to create a self-managed K8s cluster that supports that). To assign Public IP to a Node/VM, you can find the Resource Group where the AKS resources are installed on the [portal](https://portal.azure.com) (it should have a name like `MC_resourceGroupName_AKSName_location`). Then, you can follow the instructions [here](https://blogs.technet.microsoft.com/srinathv/2018/02/07/how-to-add-a-public-ip-address-to-azure-vm-for-vm-failed-over-using-asr/) to create a new Public IP and assign it to the Node/VM. For more information on Public IPs for VM NICs, see [this document](https://docs.microsoft.com/azure/virtual-network/virtual-network-network-interface-addresses). 
 
@@ -91,7 +91,7 @@ Use this command to create a collection of DedicatedGameServers. The 'game' that
 kubectl apply -f https://raw.githubusercontent.com/dgkanatsios/azuregameserversscalingkubernetes/master/artifacts/examples/simplenodejsudp/dedicatedgameservercollection.yaml
 ```
 
-Hopefully, 5 instances will be created. Type `kubectl get dgsc` to see the DedicatedGameCollection as well as its status
+If everything works good, 5 instances will be created. Type `kubectl get dgsc` to see the DedicatedGameCollection as well as its status
 
 ```
 NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCOLLECTIONSTATE   PODCOLLECTIONSTATE

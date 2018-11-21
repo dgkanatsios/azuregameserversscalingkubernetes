@@ -7,6 +7,9 @@ import (
 
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/autoscale"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/dgs"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/dgscollection"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
 	"github.com/jonboulle/clockwork"
@@ -34,12 +37,12 @@ func main() {
 	dgsSharedInformerFactory := dgsinformers.NewSharedInformerFactory(dgsclient, 30*time.Minute)
 
 	log.Info("Initializing Port Registry")
-	portRegistry, err := controller.NewPortRegistry(dgsclient, shared.MinPort, shared.MaxPort, metav1.NamespaceAll)
+	portRegistry, err := controllers.NewPortRegistry(dgsclient, shared.MinPort, shared.MaxPort, metav1.NamespaceAll)
 	if err != nil {
 		log.Panicf("Cannot initialize Port Registry because of %s", err.Error())
 	}
 
-	dgsColController, err := controller.NewDedicatedGameServerCollectionController(client, dgsclient,
+	dgsColController, err := dgscollection.NewDedicatedGameServerCollectionController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
 		portRegistry)
@@ -49,14 +52,14 @@ func main() {
 		return
 	}
 
-	dgsController := controller.NewDedicatedGameServerController(client, dgsclient,
+	dgsController := dgs.NewDedicatedGameServerController(client, dgsclient,
 		dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(),
 		sharedInformerFactory.Core().V1().Pods(), sharedInformerFactory.Core().V1().Nodes(), portRegistry)
 
 	controllers := []controllerHelper{dgsColController, dgsController}
 
 	if *podautoscalerenabled {
-		podAutoscalerController := controller.NewDGSAutoScalerController(client, dgsclient,
+		podAutoscalerController := autoscale.NewDGSAutoScalerController(client, dgsclient,
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(), clockwork.NewRealClock())
 		controllers = append(controllers, podAutoscalerController)

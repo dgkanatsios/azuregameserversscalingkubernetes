@@ -1,4 +1,4 @@
-package controller
+package dgs
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 )
 
 // hasDGSChanged returns true if *all* of the following DGS properties have changed
-// dgsState, podState, publicIP, nodeName, activePlayers
+// dgsHealth, podPhase, publicIP, nodeName, activePlayers
 // As expected, it returns false if at least one has changed
 func (c *DGSController) hasDGSChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
 
@@ -29,8 +29,8 @@ func (c *DGSController) hasDGSChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameS
 	}
 
 	// we check if all of the following fields are the same
-	if oldDGS.Status.DedicatedGameServerState != newDGS.Status.DedicatedGameServerState ||
-		oldDGS.Status.PodState != newDGS.Status.PodState ||
+	if oldDGS.Status.Health != newDGS.Status.Health ||
+		oldDGS.Status.PodPhase != newDGS.Status.PodPhase ||
 		oldDGS.Status.PublicIP != newDGS.Status.PublicIP ||
 		oldDGS.Status.NodeName != newDGS.Status.NodeName ||
 		oldDGS.Status.ActivePlayers != newDGS.Status.ActivePlayers ||
@@ -79,9 +79,9 @@ func (c *DGSController) getPublicIPForNode(nodeName string) (string, error) {
 
 func (c *DGSController) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {
 	//check its state and active players
-	return dgs.Status.ActivePlayers == 0 && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion
+	return dgs.Status.ActivePlayers == 0 && dgs.Status.MarkedForDeletion
 }
 
 func (c *DGSController) isDGSFailed(dgs *dgsv1alpha1.DedicatedGameServer) bool {
-	return dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed
+	return dgs.Status.Health == dgsv1alpha1.DGSFailed
 }

@@ -15,25 +15,25 @@ import (
 )
 
 type clusterState struct {
-	runningDGSCount               int32
+	healthyDGSCount               int32
 	totalPodCount                 int32
 	failedDGSNotInCollectionCount int32
 	failedDGSInCollectionCount    int32
 	markedForDeletionDGSCount     int32
-	dgsColState                   dgsv1alpha1.DedicatedGameServerCollectionState
-	podColState                   corev1.PodPhase
+	dgsColHealth                  dgsv1alpha1.DGSColHealth
+	podColPhase                   corev1.PodPhase
 }
 
 func validateClusterState(state clusterState) {
 	log.Infof("    Waiting for %d seconds", delayInSeconds)
 	time.Sleep(time.Duration(delayInSeconds) * time.Second)
 
-	if state.dgsColState == "" {
-		state.dgsColState = dgsv1alpha1.DGSColRunning
+	if state.dgsColHealth == "" {
+		state.dgsColHealth = dgsv1alpha1.DGSColHealthy
 	}
 
-	if state.podColState == "" {
-		state.podColState = corev1.PodRunning
+	if state.podColPhase == "" {
+		state.podColPhase = corev1.PodRunning
 	}
 
 	log.Infof("    Verifying that %d pods are in state %s", state.totalPodCount, corev1.PodRunning)
@@ -42,14 +42,14 @@ func validateClusterState(state clusterState) {
 		handleError(err)
 	}
 
-	log.Infof("    Verifying that %d DedicatedGameServers are Running", state.runningDGSCount)
-	err = loopCheck(verifyRunningDedicatedGameServers, state.runningDGSCount)
+	log.Infof("    Verifying that %d DedicatedGameServers are Healthy", state.healthyDGSCount)
+	err = loopCheck(verifyHealthyDedicatedGameServers, state.healthyDGSCount)
 	if err != nil {
 		handleError(err)
 	}
 
-	log.Infof("    Verifying that DedicatedGameServerCollection with %d replicas is in state DGS: %s, Pod: %s", state.runningDGSCount, state.dgsColState, state.podColState)
-	err = loopCheckDGSCol(verifyDedicatedGameServerCollection, state.runningDGSCount, state.dgsColState, state.podColState)
+	log.Infof("    Verifying that DedicatedGameServerCollection with %d replicas is in state DGS: %s, Pod: %s", state.healthyDGSCount, state.dgsColHealth, state.podColPhase)
+	err = loopCheckDGSCol(verifyDedicatedGameServerCollection, state.healthyDGSCount, state.dgsColHealth, state.podColPhase)
 	if err != nil {
 		handleError(err)
 	}
@@ -102,7 +102,7 @@ func verifyPods(count int32) error {
 	return errors.New("Pods not OK")
 }
 
-func verifyRunningDedicatedGameServers(count int32) error {
+func verifyHealthyDedicatedGameServers(count int32) error {
 	dgss, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServers(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		log.Error("Cannot get DGSs")
@@ -111,7 +111,7 @@ func verifyRunningDedicatedGameServers(count int32) error {
 
 	dgsCount := 0
 	for _, dgs := range dgss.Items {
-		if dgs.Status.PodState == corev1.PodRunning && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSRunning {
+		if dgs.Status.PodPhase == corev1.PodRunning && dgs.Status.Health == dgsv1alpha1.DGSHealthy {
 			if lbl, ok := dgs.ObjectMeta.Labels[shared.LabelDedicatedGameServerCollectionName]; ok {
 				if lbl == dgsColName {
 					if len(dgs.OwnerReferences) > 0 && dgs.OwnerReferences[0].Name == dgsColName {
@@ -136,7 +136,7 @@ func verifyFailedDedicatedGameServersNotInCollection(count int32) error {
 
 	dgsCount := 0
 	for _, dgs := range dgss.Items {
-		if dgs.Status.PodState == corev1.PodRunning && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+		if dgs.Status.PodPhase == corev1.PodRunning && dgs.Status.Health == dgsv1alpha1.DGSFailed {
 			if lbl, ok := dgs.ObjectMeta.Labels[shared.LabelOriginalDedicatedGameServerCollectionName]; ok {
 				if lbl == dgsColName {
 					if len(dgs.OwnerReferences) == 0 {
@@ -161,7 +161,7 @@ func verifyFailedDedicatedGameServersInCollection(count int32) error {
 
 	dgsCount := 0
 	for _, dgs := range dgss.Items {
-		if dgs.Status.PodState == corev1.PodRunning && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSFailed {
+		if dgs.Status.PodPhase == corev1.PodRunning && dgs.Status.Health == dgsv1alpha1.DGSFailed {
 			if lbl, ok := dgs.ObjectMeta.Labels[shared.LabelDedicatedGameServerCollectionName]; ok {
 				if lbl == dgsColName {
 					if len(dgs.OwnerReferences) > 0 && dgs.OwnerReferences[0].Name == dgsColName {
@@ -177,14 +177,14 @@ func verifyFailedDedicatedGameServersInCollection(count int32) error {
 	return errors.New("DGSs not OK")
 }
 
-func verifyDedicatedGameServerCollection(availableReplicas int32, dgsColState dgsv1alpha1.DedicatedGameServerCollectionState, podColState corev1.PodPhase) error {
+func verifyDedicatedGameServerCollection(availableReplicas int32, dgsColState dgsv1alpha1.DGSColHealth, podColState corev1.PodPhase) error {
 	dgsCol, err := dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Get(dgsColName, metav1.GetOptions{})
 	if err != nil {
 		log.Error("Cannot get DGSCol")
 		return err
 	}
 	if dgsCol.Status.AvailableReplicas == availableReplicas &&
-		dgsCol.Status.DedicatedGameServerCollectionState == dgsColState &&
+		dgsCol.Status.DGSCollectionHealth == dgsColState &&
 		dgsCol.Status.PodCollectionState == podColState {
 		return nil
 	}
@@ -200,7 +200,7 @@ func verifyMarkedForDeletionDedicatedGameServers(count int32) error {
 
 	dgsCount := 0
 	for _, dgs := range dgss.Items {
-		if dgs.Status.PodState == corev1.PodRunning && dgs.Status.DedicatedGameServerState == dgsv1alpha1.DGSMarkedForDeletion {
+		if dgs.Status.PodPhase == corev1.PodRunning && dgs.Status.Health == dgsv1alpha1.DGSHealthy && dgs.Status.MarkedForDeletion {
 			if lbl, ok := dgs.ObjectMeta.Labels[shared.LabelOriginalDedicatedGameServerCollectionName]; ok {
 				if lbl == dgsColName {
 					if len(dgs.OwnerReferences) == 0 {
@@ -240,8 +240,8 @@ func loopCheck(fn func(int32) error, count int32) error {
 	return fmt.Errorf("Could not get %d available object types, error: %s", count, err.Error())
 }
 
-func loopCheckDGSCol(fn func(int32, dgsv1alpha1.DedicatedGameServerCollectionState, corev1.PodPhase) error,
-	count int32, dgsColState dgsv1alpha1.DedicatedGameServerCollectionState, podColState corev1.PodPhase) error {
+func loopCheckDGSCol(fn func(int32, dgsv1alpha1.DGSColHealth, corev1.PodPhase) error,
+	count int32, dgsColState dgsv1alpha1.DGSColHealth, podColState corev1.PodPhase) error {
 	var err error
 	for times := 0; times < loopTimes; times++ {
 		err = fn(count, dgsColState, podColState)

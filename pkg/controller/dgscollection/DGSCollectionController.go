@@ -1,4 +1,4 @@
-package controller
+package dgscollection
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
@@ -36,15 +37,15 @@ type DGSCollectionController struct {
 	dgsListerSynced    cache.InformerSynced
 	clock              clockwork.Clock
 	logger             *logrus.Logger
-	portRegistry       *PortRegistry
+	portRegistry       *controllers.PortRegistry
 	recorder           record.EventRecorder
-	controllerHelper   *controllerHelper
+	controllerHelper   *controllers.ControllerHelper
 }
 
 // NewDedicatedGameServerCollectionController initializes and returns a new DedicatedGameServerCollectionController instance
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer,
-	portRegistry *PortRegistry) (*DGSCollectionController, error) {
+	portRegistry *controllers.PortRegistry) (*DGSCollectionController, error) {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 
 	c := &DGSCollectionController{
@@ -58,13 +59,13 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 		logger:             shared.Logger(),
 	}
 
-	c.controllerHelper = &controllerHelper{
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
-		logger:         c.logger,
-		syncHandler:    c.syncHandler,
-		cacheSyncs:     []cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced},
-		controllerType: "DedicatedGameServerCollectionController",
-	}
+	c.controllerHelper = controllers.NewControllerHelper(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerCollectionSync"),
+		c.logger,
+		c.syncHandler,
+		"DedicatedGameServerCollectionController",
+		[]cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced},
+	)
 
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(c.logger.Infof)
@@ -334,7 +335,7 @@ func (c *DGSCollectionController) enqueueDedicatedGameServerCollection(obj inter
 		runtime.HandleError(err)
 		return
 	}
-	c.controllerHelper.workqueue.AddRateLimited(key)
+	c.controllerHelper.Workqueue.AddRateLimited(key)
 }
 
 // Run starts the DedicatedGameServerCollectionController

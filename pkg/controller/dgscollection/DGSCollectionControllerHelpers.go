@@ -1,4 +1,4 @@
-package controller
+package dgscollection
 
 import (
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"

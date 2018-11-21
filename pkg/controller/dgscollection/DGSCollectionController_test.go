@@ -1,16 +1,15 @@
-package controller
+package dgscollection
 
 import (
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,19 +20,6 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-var (
-	alwaysReady        = func() bool { return true }
-	noResyncPeriodFunc = func() time.Duration { return 0 }
-)
-
-var podSpec = corev1.PodSpec{
-	Containers: []corev1.Container{
-		corev1.Container{
-			Ports: []corev1.ContainerPort{}, // if we create any ports here we need to initialize port registry before (during??) running the test
-		},
-	},
-}
-
 type dgsColFixture struct {
 	t *testing.T
 
@@ -43,7 +29,7 @@ type dgsColFixture struct {
 	dgsColLister []*dgsv1alpha1.DedicatedGameServerCollection
 	dgsLister    []*dgsv1alpha1.DedicatedGameServer
 	// Actions expected to happen on the client.
-	dgsActions []extendedAction
+	dgsActions []testhelpers.ExtendedAction
 	// Objects from here preloaded into NewSimpleFake.
 	k8sObjects []runtime.Object
 	dgsObjects []runtime.Object
@@ -56,7 +42,7 @@ func newDGSColFixture(t *testing.T) *dgsColFixture {
 	f := &dgsColFixture{}
 	f.t = t
 	f.dgsObjects = []runtime.Object{}
-	f.clock = clockwork.NewFakeClockAt(fixedTime)
+	f.clock = clockwork.NewFakeClockAt(testhelpers.FixedTime)
 	return f
 }
 
@@ -64,7 +50,7 @@ func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DGSCollec
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
-	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, noResyncPeriodFunc())
+	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, testhelpers.NoResyncPeriodFunc())
 
 	testController, err := NewDedicatedGameServerCollectionController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
@@ -74,8 +60,8 @@ func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DGSCollec
 		f.t.Fatalf("Error in initializing DGSCol: %s", err.Error())
 	}
 
-	testController.dgsColListerSynced = alwaysReady
-	testController.dgsListerSynced = alwaysReady
+	testController.dgsColListerSynced = testhelpers.AlwaysReady
+	testController.dgsListerSynced = testhelpers.AlwaysReady
 	testController.recorder = &record.FakeRecorder{}
 
 	for _, dgsCol := range f.dgsColLister {
@@ -123,7 +109,7 @@ func (f *dgsColFixture) runController(dgsColName string, startInformers bool, ex
 
 		expectedAction := f.dgsActions[i]
 
-		checkAction(expectedAction, action, f.t)
+		testhelpers.CheckAction(expectedAction, action, f.t)
 	}
 
 	if len(f.dgsActions) > len(actions) {
@@ -133,25 +119,25 @@ func (f *dgsColFixture) runController(dgsColName string, startInformers bool, ex
 
 func (f *dgsColFixture) expectCreateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
-	extAction := extendedAction{action, assertions}
+	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
 func (f *dgsColFixture) expectUpdateDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d)
-	extAction := extendedAction{action, assertions}
+	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
 func (f *dgsColFixture) expectDeleteDedicatedGameServerAction(d *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
 	action := core.NewDeleteAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, d.Namespace, d.Name)
-	extAction := extendedAction{action, assertions}
+	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
 func (f *dgsColFixture) expectUpdateDedicatedGameServerCollectionAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
-	extAction := extendedAction{action, assertions}
+	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
 
@@ -167,12 +153,12 @@ func getKeyDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, t *testing.
 func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, testhelpers.PodSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
-	expDGS := shared.NewDedicatedGameServer(dgsCol, podSpec)
+	expDGS := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 	for i := 0; i < 5; i++ {
@@ -188,13 +174,13 @@ func TestCreatesDedicatedGameServerCollection(t *testing.T) {
 func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, testhelpers.PodSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
 	for i := 0; i < 5; i++ {
-		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgs := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 		f.dgsLister = append(f.dgsLister, dgs)
 		f.dgsObjects = append(f.dgsObjects, dgs)
 	}
@@ -204,7 +190,7 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 
 	for i := 0; i < 5; i++ {
-		dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgsExpected := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 		f.expectCreateDedicatedGameServerAction(dgsExpected, nil)
 	}
 
@@ -218,13 +204,13 @@ func TestIncreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, testhelpers.PodSpec)
 
 	f.dgsColLister = append(f.dgsColLister, dgsCol)
 	f.dgsObjects = append(f.dgsObjects, dgsCol)
 
 	for i := 0; i < 5; i++ {
-		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgs := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 		f.dgsLister = append(f.dgsLister, dgs)
 		f.dgsObjects = append(f.dgsObjects, dgs)
 	}
@@ -234,7 +220,7 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 
 	for i := 0; i < 2; i++ {
-		dgsExpected := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgsExpected := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 		f.expectUpdateDedicatedGameServerAction(dgsExpected, func(actual runtime.Object) {
 			dgs := actual.(*dgsv1alpha1.DedicatedGameServer)
 			assert.Equal(t, true, dgs.Status.MarkedForDeletion)
@@ -266,7 +252,7 @@ func TestDecreaseReplicasOnDedicatedGameServerCollection(t *testing.T) {
 func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, testhelpers.PodSpec)
 	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	dgsCol.Spec.DGSMaxFailures = 2
@@ -278,7 +264,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeRemove(t *testing.T) {
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 	var failedDGS *dgsv1alpha1.DedicatedGameServer
 	for i := 0; i < 5; i++ {
-		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgs := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 
 		dgs.Status.Health = dgsv1alpha1.DGSHealthy
 		dgs.Status.PodPhase = corev1.PodRunning
@@ -321,7 +307,7 @@ func TestFailDedicatedGameServerCollectionPassedThresholdRemove(t *testing.T) {
 func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, testhelpers.PodSpec)
 	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	dgsCol.Spec.DGSMaxFailures = 2
@@ -333,7 +319,7 @@ func TestFailDedicatedGameServerCollectionForFirstTimeDelete(t *testing.T) {
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 	var failedDGS *dgsv1alpha1.DedicatedGameServer
 	for i := 0; i < 5; i++ {
-		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgs := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 
 		dgs.Status.Health = dgsv1alpha1.DGSHealthy
 		dgs.Status.PodPhase = corev1.PodRunning
@@ -376,7 +362,7 @@ func TestFailDedicatedGameServerCollectionPassedThresholdDelete(t *testing.T) {
 func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFailBehavior) {
 	f := newDGSColFixture(t)
 
-	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, podSpec)
+	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 5, testhelpers.PodSpec)
 	dgsCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColHealthy
 	dgsCol.Status.PodCollectionState = corev1.PodRunning
 	dgsCol.Spec.DGSMaxFailures = 2
@@ -389,7 +375,7 @@ func testFailSurpassThreshold(t *testing.T, fb dgsv1alpha1.DedicatedGameServerFa
 	f.expectUpdateDedicatedGameServerCollectionAction(dgsCol, nil)
 
 	for i := 0; i < 5; i++ {
-		dgs := shared.NewDedicatedGameServer(dgsCol, podSpec)
+		dgs := shared.NewDedicatedGameServer(dgsCol, testhelpers.PodSpec)
 
 		dgs.Status.Health = dgsv1alpha1.DGSHealthy
 		dgs.Status.PodPhase = corev1.PodRunning

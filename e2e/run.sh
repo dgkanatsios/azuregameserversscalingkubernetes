@@ -27,7 +27,7 @@ function finish {
   fi
 }
 
-#trap finish EXIT
+trap finish EXIT
 
 echo "-----Compiling, building and deploying to local Kubernetes cluster-----"
 if [ "$BUILD" = "local" ]; then

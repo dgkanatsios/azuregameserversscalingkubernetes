@@ -179,6 +179,9 @@ func UpdateDGSStatus(serverName string, namespace string, fields DGSStatusFields
 		if fields.PodPhase != nil {
 			dgs.Status.PodPhase = *fields.PodPhase
 		}
+		if fields.DGSState != nil {
+			dgs.Status.DGSState = *fields.DGSState
+		}
 
 		_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgs)
 		if err != nil {

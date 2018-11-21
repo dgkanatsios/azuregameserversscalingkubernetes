@@ -2,8 +2,8 @@
 echo "Start processing"
 
 SetHealthAPIServerURL="$API_SERVER_URL/setsdgshealth?code=$API_SERVER_CODE"
-SetStateAPIServerURL="$API_SERVER_URL/setsdgshealth?code=$API_SERVER_CODE"
-SetActivePlayersAPIServerURL="$API_SERVER_URL/setsdgshealth?code=$API_SERVER_CODE"
+SetStateAPIServerURL="$API_SERVER_URL/setdgsstate?code=$API_SERVER_CODE"
+SetActivePlayersAPIServerURL="$API_SERVER_URL/setactiveplayers?code=$API_SERVER_CODE"
 
 while IFS= read -r line
 do
@@ -16,7 +16,7 @@ do
     then
         echo "About to send data for server health: {\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"health\":\"Healthy\"}"
         wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"health\":\"Healthy\"}" --header=Content-Type:application/json "$SetHealthAPIServerURL"
-        echo "About to send data for server status: {\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"state\":\"Assigned\"}"
+        echo "About to send data for server state: {\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"state\":\"Assigned\"}"
         wget -O- --post-data="{\"serverName\":\"$SERVER_NAME\", \"namespace\":\"$SERVER_NAMESPACE\", \"state\":\"Assigned\"}" --header=Content-Type:application/json "$SetStateAPIServerURL"
     fi
 

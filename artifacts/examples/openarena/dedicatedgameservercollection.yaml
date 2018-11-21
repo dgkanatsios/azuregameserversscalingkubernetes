@@ -13,7 +13,7 @@ spec:
     dnsPolicy: ClusterFirstWithHostNet
     containers:
     - name: openarena
-      image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.6
+      image: docker.io/dgkanatsios/docker_openarena_k8s:0.0.7
       resources:
         limits:
           cpu: 100m

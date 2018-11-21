@@ -1,4 +1,4 @@
-package controller
+package dgs
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	logrus "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -42,18 +43,18 @@ type DGSController struct {
 
 	logger *logrus.Logger
 
-	portRegistry *PortRegistry
+	portRegistry *controllers.PortRegistry
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
 
-	controllerHelper *controllerHelper
+	controllerHelper *controllers.ControllerHelper
 }
 
 // NewDedicatedGameServerController creates a new DedicatedGameServerController
 func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
-	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *PortRegistry) *DGSController {
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *controllers.PortRegistry) *DGSController {
 
 	c := &DGSController{
 		dgsClient:        dgsclient,
@@ -69,13 +70,13 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 		logger:           shared.Logger(),
 	}
 
-	c.controllerHelper = &controllerHelper{
-		workqueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
-		logger:         c.logger,
-		syncHandler:    c.syncHandler,
-		cacheSyncs:     []cache.InformerSynced{c.nodeListerSynced, c.dgsListerSynced, c.dgsListerSynced, c.podListerSynced},
-		controllerType: "DedicatedGameServerController",
-	}
+	c.controllerHelper = controllers.NewControllerHelper(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DedicatedGameServerSync"),
+		c.logger,
+		c.syncHandler,
+		"DedicatedGameServerController",
+		[]cache.InformerSynced{c.nodeListerSynced, c.dgsListerSynced, c.dgsListerSynced, c.podListerSynced},
+	)
 
 	// Create event broadcaster
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
@@ -343,7 +344,7 @@ func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.controllerHelper.workqueue.AddRateLimited(key)
+	c.controllerHelper.Workqueue.AddRateLimited(key)
 }
 
 func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {

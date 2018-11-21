@@ -56,9 +56,11 @@
                     <th>PublicIP</th>
                     <th>Players</th>
                     <th>Ports</th>
-                    <th>DedicatedGameServerCollectionName</th>
-                    <th>DedicatedGameServerState</th>
+                    <th>DGSCollectionName</th>
+                    <th>MarkedForDeletion</th>
                     <th>PodPhase</th>
+                    <th>DGSHealth</th>
+                    <th>DGSState</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,8 +93,11 @@
                         <td>${el.status.activePlayers}</td>
                         <td>${JSON.stringify(el.spec.template.containers[0].ports)}</td>
                         <td>${el.metadata.labels.DedicatedGameServerCollectionName}</td>
-                        <td>${el.metadata.labels.DedicatedGameServerState}</td>
+                        <td>${el.status.markedForDeletion}</td>
                         <td>${el.status.podPhase}</td>
+                        <td>${el.status.health}</td>
+                        <td>${el.status.dgsState}</td>
+
                         </tr>`
                     );
                 });

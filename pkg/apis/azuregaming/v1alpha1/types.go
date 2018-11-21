@@ -18,8 +18,11 @@ const (
 type DGSHealth string
 
 const (
+	// DGSCreating represents Creating DGS
 	DGSCreating DGSHealth = "Creating"
+	// DGSHealthy represents a Healthy DGS
 	DGSHealthy  DGSHealth = "Healthy"
+	// DGSFailed represents a Failed DGS
 	DGSFailed   DGSHealth = "Failed"
 )
 

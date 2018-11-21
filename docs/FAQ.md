@@ -2,27 +2,24 @@
 
 ## Any recommendations about the "Nodes should have a Public IP" requirement?
 
-Yup, check out [this](https://github.com/dgkanatsios/AksNodePublicIPController) project, it will probably help. An alternative project that does the same task is [here](https://github.com/dgkanatsios/AksNodePublicIP).
+Yup, check out [this](https://github.com/dgkanatsios/AksNodePublicIPController) project, it's recommended. An alternative project that does the same task is [here](https://github.com/dgkanatsios/AksNodePublicIP).
 
 ## Inspiration about this project?
 
-Check out a [project](https://github.com/dgkanatsios/AzureContainerInstancesManagement) I worked on some time ago. This uses [Azure Container Instances](https://azure.microsoft.com/en-us/services/container-instances/) and [Azure Functions](https://functions.azure.com) to scale dedicated game servers on the Azure Cloud. Making a similar mechanism with Kubernetes was the next logical step.
+Check out a [project](https://github.com/dgkanatsios/AzureContainerInstancesManagement) that I worked on some time ago. This uses [Azure Container Instances](https://azure.microsoft.com/en-us/services/container-instances/) and [Azure Functions](https://functions.azure.com) to scale dedicated game servers on  Azure. Making a similar mechanism with Kubernetes was the next logical step.
 
 ## How are game servers exposed to the Internet? 
 
-Game Servers are loaded on each Node on a specific port (conceptually similar to docker run dedicatedgameserver -p X:Y). Port mapping is managed by our project.
+DGSs are crated on each Node on a specific port (or set of ports, depending on the server requirements) (conceptually similar to the command `docker run dedicatedgameserver -p X:Y`). Port assignment and mapping is managed by our project.
 
-## Why are you keeping duplicate values (both in CRD .Spec and in Labels) about ActivePlayers, PodPhase and DedicatedGameServer?
+## How did you end up using this networking solution? I know that Kubernetes has a thing called 'Service' that allows exposing applications on the Internet (and a lot more).
 
-We need to be able to query them via our APIServer. Currently, you can GET normal K8s objects via filters [source](https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors/), however there is an [open issue](https://github.com/kubernetes/kubernetes/issues/53459) regarding CRDs.
+[Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/) is a way to expose a set of Pods via a DNS name (and more). Traffic sent to a Service is distributed to a corresponding set of Pods via a specified Load Balancing algorithm. A certain type of Service, called [Load Balancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer) allows exposing a set of Pods over the Internet, via the cloud provider's Load Balancer Service. On Azure, a service called [Azure Load Balancer](https://docs.microsoft.com/en-us/azure/load-balancer/load-balancer-overview) is used for this purpose.
 
-## How did you end up using this networking solution? I know that Kubernetes has a thing called 'services' that allows exposing applications on the Internet (and a lot more).
+In our case, each DGS is a single entity. There is no need for an extra layer for the Load Balancing and network traffic management, since game clients are connecting directly to the DGS. Moreover, the use of a Load Balancer Service was also discouraged because a) it would be an overkill to have a unique Load Balancer for each Dedicated Game Server and b) (most importantly) the presense of a Load Balancer would potentially add unnecessary network hops, thus probably increasing the network latency. Another solution we tested was this of a [NodePort Service](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport). This was abandoned as well because of the overhead of managing the Service entities.
+Consequently, the solution was to expose the Nodes to the Internet via Public IPs. AKS does not allow that by default in the time of writing, so we created [this](https://github.com/dgkanatsios/AksNodePublicIPController) utility to implement this functionality. 
 
-Correct, [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/) are a way to expose a set of Pods via a DNS name. Traffic sent to this Service is distributed to this set of Pods via a specified Load Balancing Algorithm. A certain type of Service, called [Load Balancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer) allows exposing a set of Pods over the Internet, via a cloud provider's Load Balancer Service. In the case of Azure, a service called [Azure Load Balancer](https://docs.microsoft.com/en-us/azure/load-balancer/load-balancer-overview) is used.
-
-In our case, each Dedicated Game Server is a single entity. There is no need for an extra layer to do the Load Balancing, since players are connecting directly to the game server. Moreover, the use of a Load Balancer Service was rejected because a) it would be an overkill to have a unique Load Balancer for each Dedicated Game Server and b) (most importantly) the presense of a Load Balancer would add unnecessary network hops, thus increasing the Latency. Another solution we tested was this of a [NodePort Service](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport). This was abandoned as well because of the overhead of managing the Services. Consequently, the only remaining solution was to expose the Nodes to the Internet via Public IPs. AKS does not allow that by default in the time of writing, so we wrote [this](https://github.com/dgkanatsios/AksNodePublicIPController) utility to implement this functionality. 
-
-First effort was to use `hostNetwork` functionality for each Pod [link](http://alesnosek.com/blog/2017/02/14/accessing-kubernetes-pods-from-outside-of-the-cluster/), so we would hook up the container to each Node's network layer (=> no software NAT for our containers). This would require us to have the Dedicated Game Server listen to a specific port, so each game server we would use would have to be activated in a different port for every running Pod. As you can understand, this could easily become an issue in the future since it might not be possible to customize listening port for a game server. So, we ended up using Kubernetes `hostPort` for each Pod. We set a manual port (or more) for each Pod that is mapped to the game server's original listening port. Mapping itself is made possible via software NAT. The tricky part is that we manage the Port mapping for each Pod on each Node ourselves.
+Moreover, on the port assignment, our first effort was to use `hostNetwork` functionality for each Pod [link](http://alesnosek.com/blog/2017/02/14/accessing-kubernetes-pods-from-outside-of-the-cluster/), so we would hook up the container to each Node's network layer (=> no software NAT for our containers). This would require us to have the DGS listen to a specific port (assigned by our project). As you can easily understand, this could disqualify DGSs that can only listen to hardcoded ports. So, we ended up using Kubernetes `hostPort` for each Pod. What we do is set a manual port (or more, depending on the DGS) for each Pod that is mapped to the game server's original listening port. Mapping is made possible via software NAT (container networking).
 
 ## How can I view the Kubernetes Master control plane logs on AKS?
 
@@ -32,7 +29,7 @@ Check [here](https://docs.microsoft.com/en-us/azure/aks/view-master-logs).
 
 Check [here](https://docs.microsoft.com/en-us/azure/aks/kubelet-logs).
 
-## How did you mock time in your code? [or, what is this 'clock' field in some objects]
+## How did you mock time in your code for the autoscaler tests? [or, what is this 'clock' field in some objects]
 
 We needed to mock `time` object for our tests, check [this](https://medium.com/agrea-technogies/mocking-time-with-go-a89e66553e79) blog post for instructions.
 
@@ -48,7 +45,7 @@ kubectl port-forward -n weave "$(kubectl get -n weave pod --selector=weave-scope
 # open localhost:4040 on your browser
 ```
 
-## I see that you have a self-signed key for authentication with WebhookServer. How can I generate my own?
+## I see that you have a self-signed certificate for authentication with WebhookServer. How can I generate my own?
 
 Easy enough, use openssl ([source](https://stackoverflow.com/questions/10175812/how-to-create-a-self-signed-certificate-with-openssl))
 
@@ -64,6 +61,30 @@ Run this command ([source](https://medium.com/ibm-cloud/diving-into-kubernetes-m
 kubectl get configmap -n kube-system extension-apiserver-authentication -o=jsonpath='{.data.client-ca-file}' | base64 | tr -d '\n'
 ```
 
-## Any tool to "smoke test" my AKS installation?
+## Any tool to "smoke test" my AKS installation and see if everything is working as supposed to?
 
 Check [this](https://github.com/dsalamancaMS/K8sSmokeTest/blob/master/smoke.sh) bash script. [These](https://github.com/malachma/supp-tools/tree/master/k8s) script might help in troubleshooting as well.
+
+## Can I change the namespace that the solution components are created? 
+
+Yes, but unfortunately at the time of writing it is hardcoded into the application (check the constants.go file), so you would need to recompile and redeploy the solution.
+
+## My containers take time to load/how can I make them smaller?
+
+You could potentially move some of your static assets out of the container image and have it hosted elsewhere, e.g. on an [Azure File Storage](https://azure.microsoft.com/en-us/services/storage/files/) account. This will allow you to have a smaller image. Beware though that you should pay attention when you upgrade your image.
+
+## Project installation creates an external Load Balancer that opens public access to the API Server. How could I make the Load Balancer internal?
+
+Project (mainly for demonstration purposes) creates a LoadBalancer Kubernetes Service for the project's API Server. Even though its methods are protected by a code (the one that's stored in a Secret), it would be wise to hide it from the public internet. To accomplish this, you can use an internal Load Balancer using the instructions [here](https://docs.microsoft.com/en-us/azure/aks/internal-lb).
+
+## Any recommendations for hosting my private game server images?
+
+Check [Azure Container Registry](https://azure.microsoft.com/en-us/services/container-registry/)
+
+## Any alternatives to this project? What other options do I have?
+
+A lot!
+- for a fully managed approach, you might want to check [PlayFab Multiplayer Servers](https://api.playfab.com/blog/introducing-playfab-multiplayer-servers)
+- if you want to use Azure Container Instances service, check [this](https://github.com/dgkanatsios/AzureContainerInstancesManagement) project
+- if you want to use Azure Batch service, check [this](https://github.com/PoisonousJohn/gameserver-autoscaler) project to get started
+- Google and Ubisoft are working on project [Agones](https://github.com/GoogleCloudPlatform/agones) which runs [absolutely fine](https://github.com/GoogleCloudPlatform/agones/tree/master/install#setting-up-an-azure-kubernetes-service-aks-cluster) on AKS

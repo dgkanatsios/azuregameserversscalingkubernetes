@@ -154,7 +154,6 @@ func UpdateGameServerHealth(serverName string, namespace string, serverHealth dg
 type DGSStatusFields struct {
 	MarkedForDeletion *bool
 	DGSHealth         *dgsv1alpha1.DGSHealth
-	PodPhase          *corev1.PodPhase
 	DGSState          *dgsv1alpha1.DGSState
 	ActivePlayers     *int
 }
@@ -176,11 +175,11 @@ func UpdateDGSStatus(serverName string, namespace string, fields DGSStatusFields
 		if fields.MarkedForDeletion != nil {
 			dgs.Status.MarkedForDeletion = *fields.MarkedForDeletion
 		}
-		if fields.PodPhase != nil {
-			dgs.Status.PodPhase = *fields.PodPhase
-		}
 		if fields.DGSState != nil {
 			dgs.Status.DGSState = *fields.DGSState
+		}
+		if fields.ActivePlayers != nil {
+			dgs.Status.ActivePlayers = *fields.ActivePlayers
 		}
 
 		_, err = dgsClient.AzuregamingV1alpha1().DedicatedGameServers(namespace).Update(dgs)

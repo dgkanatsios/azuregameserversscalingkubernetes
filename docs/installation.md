@@ -57,13 +57,13 @@ You can check its [instructions](https://github.com/dgkanatsios/AksNodePublicIPC
 
 ## CRD and APIServer/Controllers installation
 
-First of all, create a Kubernetes secret that will hold our access code for the APIServer's endpoints:
+First of all, create a Kubernetes secret that will hold the access code for the API Server's endpoints:
 ```bash
-# just use a code that will be kept hidden
+# use a code that will be kept secret
 kubectl create secret generic apiaccesscode --from-literal=code=YOUR_CODE_HERE
 ```
 
-Then, create DedicatedGameServer Custom Resource Definition:
+Then, create the DedicatedGameServer Custom Resource Definition:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/dgkanatsios/azuregameserversscalingkubernetes/master/artifacts/crds/dedicatedgameservercollection.yaml 
@@ -94,8 +94,8 @@ kubectl apply -f https://raw.githubusercontent.com/dgkanatsios/azuregameserverss
 If everything works good, 5 instances will be created. Type `kubectl get dgsc` to see the DedicatedGameCollection as well as its status
 
 ```
-NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCOLLECTIONSTATE   PODCOLLECTIONSTATE
-simplenodejsudp-collection-example   5          5                   Running                     Running
+NAME              REPLICAS   AVAILABLE   DGSCOLHEALTH   PODCOLLECTIONSTATE
+simplenodejsudp   5          5           Healthy        Running
 ```
 
 If you don't see "Running" in both states in the beginning, please try again. Remember that the flow of events is

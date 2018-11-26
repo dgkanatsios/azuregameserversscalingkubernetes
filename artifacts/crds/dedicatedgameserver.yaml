@@ -39,3 +39,7 @@ spec:
     type: string
     description: node's public IP for this DedicatedGameServer
     JSONPath: .status.publicIP
+  - name: MFD
+    type: string
+    description: MarkedForDeletion status value
+    JSONPath: .status.markedForDeletion

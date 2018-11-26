@@ -98,107 +98,108 @@ NAME              REPLICAS   AVAILABLE   DGSCOLHEALTH   PODCOLLECTIONSTATE
 simplenodejsudp   5          5           Healthy        Running
 ```
 
-If you don't see "Running" in both states in the beginning, please try again. Remember that the flow of events is
+If you don't see "Running" and "Healthy" in the beginning, wait a few minutes and try again. Remember that the flow of events is:
 
 - DedicatedGameServerCollection will create 5 DedicatedGameServers
 - Each DedicatedGameServer will create a single Pod
-- Kubernetes will pull the Docker image for the Pod and begin it
+- Kubernetes will pull the Docker image for the Pod and start it
 - As soon as Pod is running, "Running" state will be reported in its parent DedicatedGameServer
-- When the game server begins executing, it should report "Running" state to the API Server
-- The DedicatedGameServerController will have GameServerCollectionState equal to "Running" state only if all DedicatedGameServers are in the "Running" state. Same applies to PodCollectionState.
+- When the game server begins executing, it should report "Healthy" health state to the API Server
+- The DedicatedGameServerController will have DGSCOLHEALTH equal to "Healthy" state only if all DedicatedGameServers are "Healthy". Same applies to PodCollectionState for "Running" value.
 
-Now, try `kubectl get dgs` to see the statuses of each individual DedicatedGameServer. As mentioned, all should be "Running"
+Now, try `kubectl get dgs` to see the statuses of each individual DedicatedGameServer. As mentioned, all should be "Healthy" and "Running".
 
 ```
-NAME                                       ACTIVEPLAYERS   GAMESERVERSTATE   PODSTATE   PORTS                                                    PUBLICIP
-simplenodejsudp-collection-example-docji   0               Running           Running    [map[containerPort:22222 hostPort:22388 protocol:UDP]]   40.115.5.154
-simplenodejsudp-collection-example-jetld   0               Running           Running    [map[containerPort:22222 hostPort:25682 protocol:UDP]]   40.115.7.145
-simplenodejsudp-collection-example-nkbso   0               Running           Running    [map[containerPort:22222 hostPort:20866 protocol:UDP]]   40.115.6.130
-simplenodejsudp-collection-example-pgqud   0               Running           Running    [map[containerPort:22222 hostPort:20745 protocol:UDP]]   40.115.5.154
-simplenodejsudp-collection-example-tjvym   0               Running           Running    [map[containerPort:22222 hostPort:24984 protocol:UDP]]   40.115.6.130
+NAME                    PLAYERS   DGSSTATE   PODPHASE   HEALTH    PORTS                                                    PUBLICIP        MFD
+simplenodejsudp-gamng   0         Idle       Running    Healthy   [map[hostPort:28682 protocol:UDP containerPort:22222]]   13.73.179.116   false
+simplenodejsudp-rpzio   0         Idle       Running    Healthy   [map[containerPort:22222 hostPort:29041 protocol:UDP]]   13.73.179.116   false
+simplenodejsudp-wdosf   0         Idle       Running    Healthy   [map[hostPort:24598 protocol:UDP containerPort:22222]]   13.73.179.116   false
+simplenodejsudp-wxkzm   0         Idle       Running    Healthy   [map[containerPort:22222 hostPort:29430 protocol:UDP]]   13.73.179.116   false
+simplenodejsudp-xjaji   0         Idle       Running    Healthy   [map[containerPort:22222 hostPort:24317 protocol:UDP]]   13.73.179.116   false
 ```
 
-Here you can also see ActivePlayers and assigned ports. Let's try to connect to one of them to test our installation. To do that, we'll use the netcat command. Let's try connect to the first DedicatedGameServer. The Node's IP is 40.115.5.154 (change it accordingly) whereas the assigned port is 22388. We're using a UDP connection, thus the *-u* parameter.
+Here you can also see ActivePlayers, assigned ports, PublicIP and MarkedForDeletion (MFD) info. Let's try to connect to one of them to test our installation. To do that, we'll use the netcat command. Let's try connect to the first DedicatedGameServer. The Node's IP is 13.73.179.116 (change it accordingly) whereas the assigned port is 28682. We're using the [netcat](https://en.wikipedia.org/wiki/Netcat) utility with a UDP connection, thus the *-u* parameter.
 
 ```bash
-nc -u 40.115.5.154 22388
+nc -u 13.73.179.116 28682
 ```
 
 Now, if everything goes well, you can type whatever you like and the server will echo the message back:
 
 ```
 hello
-simplenodejsudp-collection-example-docji-vhxhr says: hello
+simplenodejsudp-collection-example-gamng-vhxhr says: hello
 ```
 
 The demo app supports two extra commands for setting active players and server status. 
 
 - Setting Active Players: If you write `players|3`, then the demo app will send a message to the project's API Server that there are 5 connected players.
-- Setting DedicatedGameServer status: If you write `status|Running`, then the demo app will send a message to the project's API Server that its status is *Running*.
+- Setting DedicatedGameServer state: If you write `status|Running`, then the demo app will send a message to the project's API Server that its state is *Running*.
+- Setting DedicatedGameServer health: If you write `health|Healthy`, then the demo app will send a message to the project's API Server that its health is *Healthy*.
+- Setting DedicatedGameServer MarkedForDeletion state: If you write `markedfordeletion|true`, then the demo app will send a message to the project's API Server that its MarkedForDeletion state is *true*.
 
-You can now use Ctrl-C (or Cmd-C) to disconnect from the demo app.
+You can use Ctrl-C (or Cmd-C) to disconnect from the demo app.
 
-Before we proceed, feel free to check the running pods as well
+Before we proceed, feel free to check the running pods as well:
 
 ```bash
 kubectl get pods
 ```
 
 ```
-NAME                                             READY     STATUS    RESTARTS   AGE
-simplenodejsudp-collection-example-docji-vhxhr   1/1       Running   0          31m
-simplenodejsudp-collection-example-jetld-iaumv   1/1       Running   0          31m
-simplenodejsudp-collection-example-nkbso-dfmvi   1/1       Running   0          31m
-simplenodejsudp-collection-example-pgqud-cozlk   1/1       Running   0          31m
-simplenodejsudp-collection-example-tjvym-zfcqt   1/1       Running   0          31m
+NAME                          READY   STATUS    RESTARTS   AGE
+simplenodejsudp-gamng-fmpai   1/1     Running   0          25m
+simplenodejsudp-rpzio-arduj   1/1     Running   0          25m
+simplenodejsudp-wdosf-dnrjs   1/1     Running   0          25m
+simplenodejsudp-wxkzm-kikkj   1/1     Running   0          25m
+simplenodejsudp-xjaji-aoldx   1/1     Running   0          25m
 ```
 
-First two pods correspond to APIServer and Controller executable whereas the third is responsible for assigning Public IPs to Kubernetes Worker Nodes. The last 5 correspond to our DedicatedGameServers.
+Those pods host our game server containers and are children to the DedicatedGameServers.
 
-Now it's a good time to check our web frontend. Type `kubectl get svc` to see the available Kubernetes services.
+Now it's a good time to check our web frontend. Type `kubectl get svc -n dgs-system` to see the available Kubernetes services.
 
 ```
-NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)        AGE
-aks-gaming-apiserver   LoadBalancer   10.0.125.248   104.214.226.21   80:30419/TCP   15d
-kubernetes             ClusterIP      10.0.0.1       <none>           443/TCP        50d
+NAME                       TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+aks-gaming-apiserver       LoadBalancer   10.0.156.246   104.214.226.21     80:31186/TCP   27m
+aks-gaming-webhookserver   ClusterIP      10.0.213.246   <none>        443/TCP        27m
 ```
 
-Grap the External IP of the *aks-gaming-apiserver* Service and paste it in your web browser of choice. You should see a list with all the "Running" DedicatedGameServers.
+Grap the External IP of the *aks-gaming-apiserver* Service and paste it in your web browser of choice. You should see a list with all the "Healthy" DedicatedGameServers.
 
 ### Scaling
 
 Let's scale out our DedicatedGameServerCollection to 8 replicas.
 
 ```bash
-kubectl scale dgsc simplenodejsudp-collection-example --replicas=8
+kubectl scale dgsc simplenodejsudp --replicas=8
 ```
 
-If everything goes well, eventually you will have 8 available replicas
+If everything goes well, eventually you will have 8 available replicas.
 
 ```bash
 kubectl get dgsc
 ```
 
 ```
-NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCOLLECTIONSTATE   PODCOLLECTIONSTATE
-simplenodejsudp-collection-example   8          8                   Running                     Running
+NAME              REPLICAS   AVAILABLE   DGSCOLHEALTH   PODCOLLECTIONSTATE
+simplenodejsudp   8          8           Healthy        Running
+
 ```
 
 Great! Let's trick our system so that all DedicatedGameServers have 5 active players. Normally, each DedicatedGameServer would have to call the respective APIServer REST method to set the number of active players.
 
 ```bash
 # get DGS names
-dgs=`kubectl get dgs -l DedicatedGameServerCollectionName=simplenodejsudp-collection-example | cut -d ' ' -f 1 | sed 1,1d`
+dgs=`kubectl get dgs -l DedicatedGameServerCollectionName=simplenodejsudp | cut -d ' ' -f 1 | sed 1,1d`
 # update DGS.Spec.ActivePlayers
 kubectl patch dgs $dgs -p '[{ "op": "replace", "path": "/status/activePlayers", "value": 5 },]' --type='json'
-# update DGS.Labels[ActivePlayers]
-kubectl label dgs $dgs ActivePlayers=5 --overwrite
 ```
 
 Let's scale our DedicatedGameServerCollection to 6 replicas
 
 ```bash
-kubectl scale dgsc simplenodejsudp-collection-example --replicas=6
+kubectl scale dgsc simplenodejsudp --replicas=6
 ```
 
 Use the following command to see that DedicatedGameServerCollection has 6 available replicas
@@ -208,8 +209,8 @@ kubectl get dgsc
 ```
 
 ```
-NAME                                 REPLICAS   AVAILABLEREPLICAS   GAMESERVERCOLLECTIONSTATE   PODCOLLECTIONSTATE
-simplenodejsudp-collection-example   6          6                   Running                     Running
+NAME              REPLICAS   AVAILABLE   DGSCOLHEALTH   PODCOLLECTIONSTATE
+simplenodejsudp   6          6           Healthy        Running
 ```
 
 However, there are still 8 DedicatedGameServers on our cluster. Check them out, including their labels
@@ -219,42 +220,40 @@ kubectl get dgs --show-labels
 ```
 
 ```
-NAME                                       ACTIVEPLAYERS   GAMESERVERSTATE     PODSTATE   PORTS                                                    PUBLICIP       LABELS
-simplenodejsudp-collection-example-docji   5               MarkedForDeletion   Running    [map[containerPort:22222 hostPort:22388 protocol:UDP]]   40.115.5.154   ActivePlayers=5,DedicatedGameServerState=MarkedForDeletion,OriginalDedicatedGameServerCollectionName=simplenodejsudp-collection-example,PodState=Running,ServerName=simplenodejsudp-collection-example-docji
-simplenodejsudp-collection-example-fhlcm   5               Running             Running    [map[containerPort:22222 hostPort:24580 protocol:UDP]]   40.115.5.154   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-fhlcm
-simplenodejsudp-collection-example-gcmig   5               Running             Running    [map[containerPort:22222 hostPort:26580 protocol:UDP]]   40.115.6.130   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-gcmig
-simplenodejsudp-collection-example-jetld   5               Running             Running    [map[containerPort:22222 hostPort:25682 protocol:UDP]]   40.115.7.145   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-jetld
-simplenodejsudp-collection-example-nkbso   5               Running             Running    [map[containerPort:22222 hostPort:20866 protocol:UDP]]   40.115.6.130   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-nkbso
-simplenodejsudp-collection-example-pgqud   5               Running             Running    [map[containerPort:22222 hostPort:20745 protocol:UDP]]   40.115.5.154   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-pgqud
-simplenodejsudp-collection-example-tjvym   5               MarkedForDeletion   Running    [map[hostPort:24984 protocol:UDP containerPort:22222]]   40.115.6.130   ActivePlayers=5,DedicatedGameServerState=MarkedForDeletion,OriginalDedicatedGameServerCollectionName=simplenodejsudp-collection-example,PodState=Running,ServerName=simplenodejsudp-collection-example-tjvym
-simplenodejsudp-collection-example-xgugp   5               Running             Running    [map[containerPort:22222 hostPort:24710 protocol:UDP]]   40.115.7.145   ActivePlayers=5,DedicatedGameServerCollectionName=simplenodejsudp-collection-example,DedicatedGameServerState=Running,PodState=Running,ServerName=simplenodejsudp-collection-example-xgugp
+NAME                    PLAYERS   DGSSTATE   PODPHASE   HEALTH    PORTS                                                    PUBLICIP        MFD     LABELS
+simplenodejsudp-gamng   5         Idle       Running    Healthy   [map[protocol:UDP containerPort:22222 hostPort:28682]]   13.73.179.116   false   DedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-qguma   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:26522 protocol:UDP]]   13.73.179.116   false   DedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-rpzio   5         Idle       Running    Healthy   [map[hostPort:29041 protocol:UDP containerPort:22222]]   13.73.179.116   false   DedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-ssujb   5         Idle       Running    Healthy   [map[protocol:UDP containerPort:22222 hostPort:20528]]   13.73.179.116   true    OriginalDedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-tpxpa   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:21715 protocol:UDP]]   13.73.179.116   false   DedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-wdosf   5         Idle       Running    Healthy   [map[hostPort:24598 protocol:UDP containerPort:22222]]   13.73.179.116   false   DedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-wxkzm   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:29430 protocol:UDP]]   13.73.179.116   true    OriginalDedicatedGameServerCollectionName=simplenodejsudp
+simplenodejsudp-xjaji   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:24317 protocol:UDP]]   13.73.179.116   false   DedicatedGameServerCollectionName=simplenodejsudp
 ```
 
-As you can see, 2 of them have the state MarkedForDeletion and do not belong to the DedicatedGameServerCollection anymore. Still, they are not deleted, since there are players enjoying the game! Let's update (well, trick) these two game servers so that the system thinks that the game has finished and the players have left the server.
+As you can see, 2 of them have the field MarkedForDeletion set to true and do not belong to the DedicatedGameServerCollection anymore. Still, they are not deleted, since there are players enjoying the game! Let's update (well, trick) these two game servers so that the system thinks that the game has finished and the players have left the server.
 
 *Make sure to change the value of dgs2 variable with the names of your DedicatedGameServers that are MarkedForDeletion*
 
 ```bash
-dgs2="simplenodejsudp-collection-example-docji simplenodejsudp-collection-example-tjvym"
+dgs2="simplenodejsudp-ssujb simplenodejsudp-wxkzm"
 # update DGS.Spec.ActivePlayers
 kubectl patch dgs $dgs2 -p '[{ "op": "replace", "path": "/status/activePlayers", "value": 0 },]' --type='json'
-# update DGS.Labels[ActivePlayers]
-kubectl label dgs $dgs2 ActivePlayers=0 --overwrite
 ```
 
 Now, if you run `kubectl get dgs` you will see that the two MarkedForDeletion servers have disappeared, since the players that were connected to them have left the game and disconnected from the server.
 
 ```bash
-NAME                                       ACTIVEPLAYERS   GAMESERVERSTATE   PODSTATE   PORTS                                                    PUBLICIP
-simplenodejsudp-collection-example-fhlcm   5               Running           Running    [map[hostPort:24580 protocol:UDP containerPort:22222]]   40.115.5.154
-simplenodejsudp-collection-example-gcmig   5               Running           Running    [map[containerPort:22222 hostPort:26580 protocol:UDP]]   40.115.6.130
-simplenodejsudp-collection-example-jetld   5               Running           Running    [map[protocol:UDP containerPort:22222 hostPort:25682]]   40.115.7.145
-simplenodejsudp-collection-example-nkbso   5               Running           Running    [map[containerPort:22222 hostPort:20866 protocol:UDP]]   40.115.6.130
-simplenodejsudp-collection-example-pgqud   5               Running           Running    [map[protocol:UDP containerPort:22222 hostPort:20745]]   40.115.5.154
-simplenodejsudp-collection-example-xgugp   5               Running           Running    [map[containerPort:22222 hostPort:24710 protocol:UDP]]   40.115.7.145
+NAME                    PLAYERS   DGSSTATE   PODPHASE   HEALTH    PORTS                                                    PUBLICIP        MFD
+simplenodejsudp-gamng   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:28682 protocol:UDP]]   13.73.179.116   false
+simplenodejsudp-qguma   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:26522 protocol:UDP]]   13.73.179.116   false
+simplenodejsudp-rpzio   5         Idle       Running    Healthy   [map[protocol:UDP containerPort:22222 hostPort:29041]]   13.73.179.116   false
+simplenodejsudp-tpxpa   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:21715 protocol:UDP]]   13.73.179.116   false
+simplenodejsudp-wdosf   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:24598 protocol:UDP]]   13.73.179.116   false
+simplenodejsudp-xjaji   5         Idle       Running    Healthy   [map[containerPort:22222 hostPort:24317 protocol:UDP]]   13.73.179.116   false
 ```
 
-Congratulations, you have this project up and running!. You can type `kubectl delete dgsc simplenodejsudp-collection-example` to delete the sample application from your cluster.
+Congratulations, you have this project up and running!. You can type `kubectl delete dgsc simplenodejsudp` to delete the sample application from your cluster.
 
 ## OpenArena
 
@@ -262,7 +261,7 @@ We have created a Docker container for the open source game [OpenArena](http://o
 
 ### Necessary stuff to test OpenArena game
 
-To test the project's installation using the OpenArena game, you should create a storage account to copy the OpenArena files. This will allow us to use the [Docker image](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s/) that we have built (source is on the `demos/openarena` folder). Our Docker image accesses the game files from a volume mount, on an Azure File share. Thus, main game files are not copied into each running Docker image but pulled dynamically on container creation. As you can understand, this makes for a Docker image that is smaller and faster to load, thus a smaller dedicated game server boot time.
+To test the project's installation using the OpenArena game, you should create a storage account to copy the OpenArena asset files. This will allow us to use the [Docker image](https://hub.docker.com/r/dgkanatsios/docker_openarena_k8s/) that we have built (source is on the `demos/openarena` folder). Our Docker image accesses the game files from a volume mount, on an Azure File share. So, main game files are not copied into each running Docker image but pulled dynamically on container creation. As you can understand, this makes for a Docker image that is smaller and faster to load.
 
 ```bash
 # Change these parameters as needed
@@ -309,4 +308,4 @@ Then, you can use this command to launch a DedicatedGameServerCollection with 5 
 kubectl create -f https://raw.githubusercontent.com/dgkanatsios/azuregameserversscalingkubernetes/master/artifacts/examples/openarena/dedicatedgameservercollection.yaml
 ```
 
-Don't forget that you can open an [issue](https://github.com/dgkanatsios/azuregameserversscalingkubernetes/issues) in case you encounter any issues!
+Don't forget that you can open an [issue](https://github.com/dgkanatsios/azuregameserversscalingkubernetes/issues) in case you need any help!

@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -13,7 +12,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 )
 
 var clientSet *kubernetes.Clientset
@@ -89,16 +87,6 @@ func getClientOutOfCluster() (*kubernetes.Clientset, *dgsclientsetversioned.Clie
 	}
 
 	return clientSet, dgsClientSet, nil
-}
-
-func createKubeConfig() *string {
-	var kubeconfig *string
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	return kubeconfig
 }
 
 // get user home directory depending on OS

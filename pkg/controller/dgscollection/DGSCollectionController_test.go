@@ -8,8 +8,11 @@ import (
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	"github.com/jonboulle/clockwork"
+
 	"github.com/stretchr/testify/assert"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +49,7 @@ func newDGSColFixture(t *testing.T) *dgsColFixture {
 	return f
 }
 
-func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DGSCollectionController, dgsinformers.SharedInformerFactory) {
+func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*Controller, dgsinformers.SharedInformerFactory) {
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
@@ -77,10 +80,6 @@ func (f *dgsColFixture) newDedicatedGameServerCollectionController() (*DGSCollec
 
 func (f *dgsColFixture) run(dgsColName string) {
 	f.runController(dgsColName, true, false)
-}
-
-func (f *dgsColFixture) runExpectError(dgsColName string) {
-	f.runController(dgsColName, true, true)
 }
 
 func (f *dgsColFixture) runController(dgsColName string, startInformers bool, expectError bool) {

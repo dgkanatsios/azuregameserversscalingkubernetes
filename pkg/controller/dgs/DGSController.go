@@ -8,9 +8,11 @@ import (
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
+	controllers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	logrus "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +29,8 @@ import (
 
 const dgsControllerAgentName = "dedigated-game-server-controller"
 
-// DGSController is the struct that contains necessary fields for the DGS controller
-type DGSController struct {
+// Controller represents the Dedicated Game Server Controller
+type Controller struct {
 	dgsClient  dgsclientset.Interface
 	podClient  kubernetes.Interface
 	nodeClient kubernetes.Interface
@@ -54,9 +56,9 @@ type DGSController struct {
 // NewDedicatedGameServerController creates a new DedicatedGameServerController
 func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsInformer informerdgs.DedicatedGameServerInformer,
-	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *controllers.PortRegistry) *DGSController {
+	podInformer informercorev1.PodInformer, nodeInformer informercorev1.NodeInformer, portRegistry *controllers.PortRegistry) *Controller {
 
-	c := &DGSController{
+	c := &Controller{
 		dgsClient:        dgsclient,
 		podClient:        client, //getter hits the live API server (can also create/update objects)
 		nodeClient:       client,
@@ -140,7 +142,7 @@ func NewDedicatedGameServerController(client kubernetes.Interface, dgsclient dgs
 	return c
 }
 
-func (c *DGSController) handlePod(obj interface{}) {
+func (c *Controller) handlePod(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -171,7 +173,7 @@ func (c *DGSController) handlePod(obj interface{}) {
 	}
 }
 
-func (c *DGSController) handleDedicatedGameServer(obj interface{}) {
+func (c *Controller) handleDedicatedGameServer(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -191,7 +193,7 @@ func (c *DGSController) handleDedicatedGameServer(obj interface{}) {
 	c.enqueueDedicatedGameServer(object)
 }
 
-func (c *DGSController) handleDedicatedGameServerDelete(obj interface{}) {
+func (c *Controller) handleDedicatedGameServerDelete(obj interface{}) {
 	dgs, ok := obj.(*dgsv1alpha1.DedicatedGameServer)
 	if ok {
 		//make sure all ports are deleted from the registry
@@ -202,7 +204,7 @@ func (c *DGSController) handleDedicatedGameServerDelete(obj interface{}) {
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
-func (c *DGSController) syncHandler(key string) error {
+func (c *Controller) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, dgsName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -301,7 +303,7 @@ func (c *DGSController) syncHandler(key string) error {
 	return nil
 }
 
-func (c *DGSController) getPodForDGS(dgs *dgsv1alpha1.DedicatedGameServer) (*corev1.Pod, error) {
+func (c *Controller) getPodForDGS(dgs *dgsv1alpha1.DedicatedGameServer) (*corev1.Pod, error) {
 	// Let's see if the corresponding pod for this DGS exists
 	// grab all the DedicatedGameServers that belong to this DedicatedGameServerCollection
 	set := labels.Set{
@@ -337,7 +339,7 @@ func (c *DGSController) getPodForDGS(dgs *dgsv1alpha1.DedicatedGameServer) (*cor
 // enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServer.
-func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
+func (c *Controller) enqueueDedicatedGameServer(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -347,7 +349,7 @@ func (c *DGSController) enqueueDedicatedGameServer(obj interface{}) {
 	c.controllerHelper.Workqueue.AddRateLimited(key)
 }
 
-func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
+func (c *Controller) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error {
 	accesscode, err := shared.GetAccessCode(c.podClient)
 	if err != nil {
 		return fmt.Errorf("Cannot get API Server Access Code because of: %s", err.Error())
@@ -365,6 +367,6 @@ func (c *DGSController) createNewPod(dgs *dgsv1alpha1.DedicatedGameServer) error
 }
 
 // Run initiates the DedicatedGameServer controller
-func (c *DGSController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	return c.controllerHelper.Run(controllerThreadiness, stopCh)
 }

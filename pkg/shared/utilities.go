@@ -42,8 +42,7 @@ func GetRandomIndexes(length int, count int) []int {
 	sliceToReturn := make([]int, count)
 
 	for i := 0; i < count; i++ {
-		var rand int
-		rand = GetRandomInt(0, length-1)
+		rand := GetRandomInt(0, length-1)
 
 		for {
 			found := false

@@ -5,7 +5,9 @@ import (
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	logrus "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -14,7 +16,7 @@ import (
 // hasDGSChanged returns true if *all* of the following DGS properties have changed
 // dgsHealth, podPhase, publicIP, nodeName, activePlayers
 // As expected, it returns false if at least one has changed
-func (c *DGSController) hasDGSChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
+func (c *Controller) hasDGSChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
 
 	//check if any new containers have been added
 	if len(oldDGS.Spec.Template.Containers) != len(newDGS.Spec.Template.Containers) {
@@ -42,7 +44,7 @@ func (c *DGSController) hasDGSChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameS
 	return false
 }
 
-func (c *DGSController) handleDGSMarkedForDeletionWithZeroPlayers(dgsTemp *dgsv1alpha1.DedicatedGameServer) error {
+func (c *Controller) handleDGSMarkedForDeletionWithZeroPlayers(dgsTemp *dgsv1alpha1.DedicatedGameServer) error {
 	err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServers(dgsTemp.Namespace).Delete(dgsTemp.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		c.logger.WithFields(logrus.Fields{
@@ -57,7 +59,7 @@ func (c *DGSController) handleDGSMarkedForDeletionWithZeroPlayers(dgsTemp *dgsv1
 	return nil //nothing more to do here
 }
 
-func (c *DGSController) getPublicIPForNode(nodeName string) (string, error) {
+func (c *Controller) getPublicIPForNode(nodeName string) (string, error) {
 	node, err := c.nodeLister.Get(nodeName)
 	if err != nil {
 		return "", err
@@ -77,11 +79,7 @@ func (c *DGSController) getPublicIPForNode(nodeName string) (string, error) {
 	return "", fmt.Errorf("Node with name %s does not have a Public or Internal IP", nodeName)
 }
 
-func (c *DGSController) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {
+func (c *Controller) isDGSMarkedForDeletionWithZeroPlayers(dgs *dgsv1alpha1.DedicatedGameServer) bool {
 	//check its state and active players
 	return dgs.Status.ActivePlayers == 0 && dgs.Status.MarkedForDeletion
-}
-
-func (c *DGSController) isDGSFailed(dgs *dgsv1alpha1.DedicatedGameServer) bool {
-	return dgs.Status.Health == dgsv1alpha1.DGSFailed
 }

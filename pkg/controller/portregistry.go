@@ -7,7 +7,9 @@ import (
 
 	dgsclientset "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	log "github.com/sirupsen/logrus"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -104,7 +106,7 @@ func (pr *PortRegistry) portProducer() {
 
 		initialIndex := pr.NextFreePortIndex
 		for {
-			if pr.Ports[pr.Indexes[pr.NextFreePortIndex]] == false {
+			if !pr.Ports[pr.Indexes[pr.NextFreePortIndex]] {
 				//we found a port
 				port := pr.Indexes[pr.NextFreePortIndex]
 				pr.Ports[port] = true

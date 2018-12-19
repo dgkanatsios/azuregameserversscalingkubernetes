@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	log "github.com/sirupsen/logrus"
+
 	"k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,14 +28,13 @@ var (
 	deserializer  = codecs.UniversalDeserializer()
 
 	// (https://github.com/kubernetes/kubernetes/issues/57982)
-	defaulter = runtime.ObjectDefaulter(runtimeScheme)
+	//defaulter = runtime.ObjectDefaulter(runtimeScheme)
 
 	podLabels = map[string]string{
 		shared.LabelIsDedicatedGameServer: "true",
 	}
 )
 var verboseLogging = false
-var server WebhookServer
 
 // WebhookServer represents the webhook server object
 type WebhookServer struct {
@@ -54,15 +54,6 @@ func init() {
 	// https://github.com/kubernetes/kubernetes/issues/57982
 	_ = v1.AddToScheme(runtimeScheme)
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
-}
-
-// the Path of the JSON patch is a JSON pointer value
-// so we need to escape any "/"s in the key we add to the annotation
-// https://tools.ietf.org/html/rfc6901
-func escapeJSONPointer(s string) string {
-	esc := strings.Replace(s, "~", "~0", -1)
-	esc = strings.Replace(esc, "/", "~1", -1)
-	return esc
 }
 
 // main mutation process
@@ -214,6 +205,7 @@ func (whsvr *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Run starts the webhook server in a new goroutine
 func Run(certFile, keyFile string, port int) *WebhookServer {
 	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
@@ -248,7 +240,7 @@ func addAffinity(affinityExists bool) patchOperation {
 	affinity := corev1.Affinity{
 		PodAffinity: &corev1.PodAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-				corev1.WeightedPodAffinityTerm{
+				{
 					Weight: 100,
 					PodAffinityTerm: corev1.PodAffinityTerm{
 						LabelSelector: &metav1.LabelSelector{

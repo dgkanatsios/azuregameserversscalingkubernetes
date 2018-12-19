@@ -11,9 +11,11 @@ import (
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
+	controllers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	logrus "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,7 +156,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 	}
 
 	// check if it has autoscaling enabled
-	if dgsColTemp.Spec.DgsAutoScalerDetails == nil || dgsColTemp.Spec.DgsAutoScalerDetails.Enabled == false {
+	if dgsColTemp.Spec.DgsAutoScalerDetails == nil || !dgsColTemp.Spec.DgsAutoScalerDetails.Enabled {
 		return nil
 	}
 

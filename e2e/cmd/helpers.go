@@ -9,7 +9,9 @@ import (
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	log "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,7 +27,7 @@ type clusterState struct {
 }
 
 func validateClusterState(state clusterState) {
-	log.Infof("    Waiting for %d seconds", delayInSeconds)
+	log.Infof("    Waiting for %d second(s)", delayInSeconds)
 	time.Sleep(time.Duration(delayInSeconds) * time.Second)
 
 	if state.dgsColHealth == "" {

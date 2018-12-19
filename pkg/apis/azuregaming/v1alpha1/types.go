@@ -21,9 +21,9 @@ const (
 	// DGSCreating represents Creating DGS
 	DGSCreating DGSHealth = "Creating"
 	// DGSHealthy represents a Healthy DGS
-	DGSHealthy  DGSHealth = "Healthy"
+	DGSHealthy DGSHealth = "Healthy"
 	// DGSFailed represents a Failed DGS
-	DGSFailed   DGSHealth = "Failed"
+	DGSFailed DGSHealth = "Failed"
 )
 
 type DGSColHealth string

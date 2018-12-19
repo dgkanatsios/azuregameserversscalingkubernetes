@@ -18,7 +18,7 @@ var FixedTime = time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 
 var PodSpec = corev1.PodSpec{
 	Containers: []corev1.Container{
-		corev1.Container{
+		{
 			Ports: []corev1.ContainerPort{}, // if we create any ports here we need to initialize port registry before (during??) running the test
 		},
 	},

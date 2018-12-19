@@ -9,7 +9,9 @@ import (
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	dgsclientsetversioned "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	log "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -348,7 +350,7 @@ func resetClusterState(replicas int32, failbehavior dgsv1alpha1.DedicatedGameSer
 		}
 	}
 
-	log.Infof("    Waiting for %d seconds", delayInSeconds)
+	log.Infof("    Waiting for %d second(s)", delayInSeconds)
 	time.Sleep(time.Duration(delayInSeconds) * time.Second)
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -521,7 +523,7 @@ func decreaseReplicasToSeven() {
 
 func initialValidation() {
 	count := int32(5)
-	log.Infof("    Waiting for %d seconds", delayInSeconds)
+	log.Infof("    Waiting for %d second(s)", delayInSeconds)
 	time.Sleep(time.Duration(delayInSeconds) * time.Second)
 
 	log.Infof("    Verifying that %d pods are Running", count)

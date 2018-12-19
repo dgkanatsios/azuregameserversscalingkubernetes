@@ -6,14 +6,17 @@ import (
 	"time"
 
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
+	controllers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/autoscale"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/dgs"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/dgscollection"
 	shared "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
 	signals "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/signals"
+
 	"github.com/jonboulle/clockwork"
+
 	log "github.com/sirupsen/logrus"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informers "k8s.io/client-go/informers"
 )

@@ -2,7 +2,9 @@ package helpers
 
 import (
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	log "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 )
 

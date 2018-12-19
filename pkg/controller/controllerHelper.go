@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+// NewControllerHelper returns a new ControllerHelper instance
 func NewControllerHelper(workqueue workqueue.RateLimitingInterface, logger *logrus.Logger, syncHandler func(string) error, controllerType string, cacheSyncs []cache.InformerSynced) *ControllerHelper {
 	return &ControllerHelper{
 		Workqueue:      workqueue,
@@ -21,6 +22,7 @@ func NewControllerHelper(workqueue workqueue.RateLimitingInterface, logger *logr
 	}
 }
 
+// ControllerHelper contains shared methods and fields used by Controllers in this project
 type ControllerHelper struct {
 	Workqueue      workqueue.RateLimitingInterface
 	logger         *logrus.Logger
@@ -96,6 +98,7 @@ func (c *ControllerHelper) runWorker() {
 	}
 }
 
+// Run waits for caches to sync and then initializes the Controller's worker
 func (c *ControllerHelper) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	defer c.Workqueue.ShutDown()

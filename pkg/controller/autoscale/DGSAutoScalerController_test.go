@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/client-go/tools/cache"
-
 	"github.com/jonboulle/clockwork"
 
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
@@ -13,11 +11,13 @@ import (
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 )
 
@@ -84,10 +84,6 @@ func (f *dgsAutoScalerFixture) run(dgsName string) {
 	f.runController(dgsName, true, false)
 }
 
-func (f *dgsAutoScalerFixture) runExpectError(dgsName string) {
-	f.runController(dgsName, true, true)
-}
-
 func (f *dgsAutoScalerFixture) runController(dgsName string, startInformers bool, expectError bool) {
 
 	testController, dgsInformers := f.newPodAutoScalerController()
@@ -122,36 +118,11 @@ func (f *dgsAutoScalerFixture) runController(dgsName string, startInformers bool
 
 }
 
-func (f *dgsAutoScalerFixture) expectCreateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
-	action := core.NewCreateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs)
-	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
-	f.dgsActions = append(f.dgsActions, extAction)
-}
-
-func (f *dgsAutoScalerFixture) expectDeleteDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
-	action := core.NewDeleteAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs.Name)
-	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
-	f.dgsActions = append(f.dgsActions, extAction)
-}
-
-func (f *dgsAutoScalerFixture) expectUpdateDGSAction(dgs *dgsv1alpha1.DedicatedGameServer, assertions func(runtime.Object)) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservers"}, dgs.Namespace, dgs)
-	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
-	f.dgsActions = append(f.dgsActions, extAction)
-}
-
 func (f *dgsAutoScalerFixture) expectUpdateDGSColAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
 	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
 }
-
-func (f *dgsAutoScalerFixture) expectUpdateDGSColActionStatus(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
-	action := core.NewUpdateAction(schema.GroupVersionResource{Group: "azuregaming.com", Resource: "dedicatedgameservercollections", Version: "v1alpha1"}, dgsCol.Namespace, dgsCol)
-	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
-	f.dgsActions = append(f.dgsActions, extAction)
-}
-
 func TestScaleOutDGSCol(t *testing.T) {
 	f := newDGSAutoScalerFixture(t)
 

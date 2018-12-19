@@ -8,7 +8,7 @@ Here you can see a configuration example, fields are self-explainable:
 
 ```yaml
 # field of DedicatedGameServerCollection.Spec
-DGSActivePlayersAutoScalerDetails:
+dgsActivePlayersAutoScalerDetails:
   minimumReplicas: 5
   maximumReplicas: 10
   scaleInThreshold: 60

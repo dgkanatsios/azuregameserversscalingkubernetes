@@ -28,11 +28,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-const autoscalerControllerAgentName = "auto-scaler-controller"
+const activePlayersAutoscalerControllerAgentName = "active-players-auto-scaler-controller"
 const timeformat = "2006-01-02 15:04:05.999999999 -0700 MST"
 
-// DGSAutoScalerController is the struct that represents the DGSAutoScalerController
-type DGSAutoScalerController struct {
+// ActivePlayersAutoScalerController is the struct that represents the ActivePlayersAutoScalerController
+type ActivePlayersAutoScalerController struct {
 	dgsColClient       dgsclientset.Interface
 	dgsClient          dgsclientset.Interface
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
@@ -50,12 +50,12 @@ type DGSAutoScalerController struct {
 	controllerHelper *controllers.ControllerHelper
 }
 
-// NewDGSAutoScalerController creates a new DGSAutoScalerController
-func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
+// NewActivePlayersAutoScalerController creates a new DGSAutoScalerController
+func NewActivePlayersAutoScalerController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer,
-	dgsInformer informerdgs.DedicatedGameServerInformer, clockImpl clockwork.Clock) *DGSAutoScalerController {
+	dgsInformer informerdgs.DedicatedGameServerInformer, clockImpl clockwork.Clock) *ActivePlayersAutoScalerController {
 
-	c := &DGSAutoScalerController{
+	c := &ActivePlayersAutoScalerController{
 		dgsColClient:       dgsclient,
 		dgsColLister:       dgsColInformer.Lister(),
 		dgsColListerSynced: dgsColInformer.Informer().HasSynced,
@@ -67,10 +67,10 @@ func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 	}
 
 	c.controllerHelper = controllers.NewControllerHelper(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DGSAutoScalerSync"),
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ActivePlayersAutoScalerSync"),
 		c.logger,
 		c.syncHandler,
-		"DGSAutoScalerController",
+		"ActivePlayersAutoScalerController",
 		[]cache.InformerSynced{c.dgsColListerSynced, c.dgsListerSynced},
 	)
 
@@ -78,22 +78,22 @@ func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 	// Add DedicatedGameServerController types to the default Kubernetes Scheme so Events can be
 	// logged for DedicatedGameServerController types.
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
-	c.logger.Info("Creating event broadcaster for DGSAutoScaler controller")
+	c.logger.Info("Creating event broadcaster for ActivePlayersAutoScaler controller")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(c.logger.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
-	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: autoscalerControllerAgentName})
+	c.recorder = eventBroadcaster.NewRecorder(dgsscheme.Scheme, corev1.EventSource{Component: activePlayersAutoscalerControllerAgentName})
 
-	c.logger.Info("Setting up event handlers for DGSAutoScaler controller")
+	c.logger.Info("Setting up event handlers for ActivePlayersAutoScaler controller")
 
 	dgsColInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				c.logger.Print("DGSAutoScaler controller - add DedicatedGameServerCollection")
+				c.logger.Print("ActivePlayersAutoScaler controller - add DedicatedGameServerCollection")
 				c.handleDedicatedGameServerCollection(obj)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.logger.Print("DGSAutoScaler controller - update DedicatedGameServerCollection")
+				c.logger.Print("ActivePlayersAutoScaler controller - update DedicatedGameServerCollection")
 				oldDGSCol := oldObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				newDGSCol := newObj.(*dgsv1alpha1.DedicatedGameServerCollection)
 				if oldDGSCol.ResourceVersion == newDGSCol.ResourceVersion {
@@ -109,10 +109,10 @@ func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 			AddFunc: func(obj interface{}) {
 				// we're doing nothing on add
 				// the logic will run either on DGSCol add/update or DGS update
-				c.logger.Print("DGSAutoScaler controller - add DedicatedGameServer")
+				c.logger.Print("ActivePlayersAutoScaler controller - add DedicatedGameServer")
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				c.logger.Print("DGSAutoScaler controller - update DedicatedGameServer")
+				c.logger.Print("ActivePlayersAutoScaler controller - update DedicatedGameServer")
 				oldDGS := oldObj.(*dgsv1alpha1.DedicatedGameServer)
 				newDGS := newObj.(*dgsv1alpha1.DedicatedGameServer)
 				if oldDGS.ResourceVersion == newDGS.ResourceVersion {
@@ -128,7 +128,7 @@ func NewDGSAutoScalerController(client kubernetes.Interface, dgsclient dgsclient
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
-func (c *DGSAutoScalerController) syncHandler(key string) error {
+func (c *ActivePlayersAutoScalerController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -156,7 +156,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 	}
 
 	// check if it has autoscaling enabled
-	if dgsColTemp.Spec.DgsAutoScalerDetails == nil || !dgsColTemp.Spec.DgsAutoScalerDetails.Enabled {
+	if dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails == nil || !dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails.Enabled {
 		return nil
 	}
 
@@ -175,20 +175,20 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 
 	// lastScaleOperationDateTime != "" => scale in/out has happened before, at least once
 	// let's see if time has passed since then is more than the cooldown threshold
-	if dgsColTemp.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime != "" {
-		lastScaleOperation, err := time.ParseInLocation(timeformat, dgsColTemp.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime, loc)
+	if dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime != "" {
+		lastScaleOperation, err := time.ParseInLocation(timeformat, dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime, loc)
 		if err != nil {
 			c.logger.WithFields(logrus.Fields{
 				"DGSColName":                 dgsColTemp.Name,
-				"LastScaleOperationDateTime": dgsColTemp.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime,
+				"LastScaleOperationDateTime": dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime,
 				"Error":                      err.Error(),
 			}).Info("Cannot parse LastScaleOperationDateTime string. Will ignore cooldown duration")
 		} else {
 			currentTime := c.clock.Now().In(loc)
 			durationSinceLastScaleOperation := currentTime.Sub(lastScaleOperation)
 			// cooldown period has not passed
-			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.DgsAutoScalerDetails.CoolDownInMinutes) {
-				c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about autoscaling because coolDownPeriod has not passed")
+			if durationSinceLastScaleOperation.Minutes() <= float64(dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails.CoolDownInMinutes) {
+				c.logger.WithField("DGSColName", dgsColTemp.Name).Info("Not checking about ActivePlayers autoscaling because coolDownPeriod has not passed")
 				return nil
 			}
 		}
@@ -209,7 +209,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 	}
 
 	// get scaler information
-	scalerDetails := dgsColTemp.Spec.DgsAutoScalerDetails
+	scalerDetails := dgsColTemp.Spec.DGSActivePlayersAutoScalerDetails
 
 	// measure total player capacity
 	totalPlayerCapacity := scalerDetails.MaxPlayersPerServer * len(dgsRunningList)
@@ -232,16 +232,16 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 		//scale out
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas++
-		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
+		dgsColToUpdate.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
 		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
 		if err != nil {
-			c.logger.WithFields(logrus.Fields{"DedicatedGameServerCollectionName": dgsColTemp.Name, "totalActivePlayers": totalActivePlayers, "totalPlayerCapacity": totalPlayerCapacity, "Error": err.Error()}).Error("Cannot scale out")
+			c.logger.WithFields(logrus.Fields{"DedicatedGameServerCollectionName": dgsColTemp.Name, "totalActivePlayers": totalActivePlayers, "totalPlayerCapacity": totalPlayerCapacity, "Error": err.Error()}).Error("Cannot scale out based on ActivePlayers")
 			return err
 		}
 
-		c.logger.WithField("DedicatedGameServerCollectionName", dgsColToUpdate.Name).Info("Scale out occurred")
+		c.logger.WithField("DedicatedGameServerCollectionName", dgsColToUpdate.Name).Info("Scale out occurred on ActivePlayersAutoscaler")
 
 		return nil
 	}
@@ -250,7 +250,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 		//scale in
 		dgsColToUpdate := dgsColTemp.DeepCopy()
 		dgsColToUpdate.Spec.Replicas--
-		dgsColToUpdate.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
+		dgsColToUpdate.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = c.clock.Now().In(loc).String()
 		dgsColToUpdate.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
 		_, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgsColToUpdate)
@@ -259,7 +259,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 			return err
 		}
 
-		c.logger.WithField("DedicatedGameServerCollectionName", dgsColToUpdate.Name).Info("Scale in occurred")
+		c.logger.WithField("DedicatedGameServerCollectionName", dgsColToUpdate.Name).Info("Scale in occurred on ActivePlayersAutoscaler")
 
 		return nil
 	}
@@ -270,7 +270,7 @@ func (c *DGSAutoScalerController) syncHandler(key string) error {
 // enqueueDedicatedGameServer takes a DedicatedGameServer resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServer.
-func (c *DGSAutoScalerController) enqueueDedicatedGameServerCollection(obj interface{}) {
+func (c *ActivePlayersAutoScalerController) enqueueDedicatedGameServerCollection(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -281,11 +281,11 @@ func (c *DGSAutoScalerController) enqueueDedicatedGameServerCollection(obj inter
 }
 
 // Run initiates the AutoScalerController
-func (c *DGSAutoScalerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+func (c *ActivePlayersAutoScalerController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	return c.controllerHelper.Run(controllerThreadiness, stopCh)
 }
 
-func (c *DGSAutoScalerController) handleDedicatedGameServerCollection(obj interface{}) {
+func (c *ActivePlayersAutoScalerController) handleDedicatedGameServerCollection(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -304,7 +304,7 @@ func (c *DGSAutoScalerController) handleDedicatedGameServerCollection(obj interf
 	c.enqueueDedicatedGameServerCollection(object)
 }
 
-func (c *DGSAutoScalerController) handleDedicatedGameServer(obj interface{}) {
+func (c *ActivePlayersAutoScalerController) handleDedicatedGameServer(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {

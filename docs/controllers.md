@@ -19,13 +19,13 @@ The DedicatedGameServerCollection controller has the dury of handling the Pods o
 - checks if there is a pod for the changed DedicatedGameServer. If there is not, the controller will create one
 - if a pod exists, the controller gets to update the corresponding DedicatedGameServer with i) Node's Public IP, ii) Node Name and iii) Pod state
 
-## PodAutoScalerController
+## DGSActivePlayersAutoScalerController
 
-The PodAutoScalerController controller is optionally created (via a command line argument on the controller) and is responsible for Pod Autoscaling on every DedicatedGameServerCollection that opts into the pod autoscaling mechanism. The controller performs scaling by querying requesting DedicatedGameServerCollections for their child DedicatedGameServers and checking their total ActivePlayers metric. If its value is not between requested threshold, then the controller will either do scale in or scale out.
+The DGSActivePlayersAutoScalerController controller is optionally started (via a command line argument on the controller) and is responsible for Pod Autoscaling on every DedicatedGameServerCollection that opts into the pod autoscaling mechanism. The controller performs scaling by querying requesting DedicatedGameServerCollections for their child DedicatedGameServers and checking their total ActivePlayers metric. If its value is not between requested threshold, then the controller will either do scale in or scale out.
 
-The PodAutoScalerController performs this tasks by watching the DedicatedGameServerCollection CRD objects in the system. It also watches the DedicatedGameServers in the system (that belong to a DedicatedGameServerCollection). When there is a change in either of these objects, the controller performs the following steps (either in a single loop or multiple ones):
+The DGSActivePlayersAutoScalerController performs this tasks by watching the DedicatedGameServerCollection CRD instances in the system. It also watches the DedicatedGameServers in the system (that belong to a DedicatedGameServerCollection). When there is a change in either of these objects, the controller performs the following steps (either in a single loop or multiple ones):
 
-- checks if the DedicatedGameServerCollection has autoscaling enabled
+- checks if the DedicatedGameServerCollection has autoscaling for Active Players enabled
 - if true, it checks if its Pod and DedicatedGameServer overall state is Running (if it's in another state like Failed or Creating or Pending the controller shouldn't scale)
 - checks the last time a scale in/out operation took place, as there is a cooldown period in the autoscaler's settings
 - checks if the current amount of DedicatedGameServers is below a requested maximum or above a requested minumum (depending on whether the controller checks for scale out or scale in)

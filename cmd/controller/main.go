@@ -62,7 +62,7 @@ func main() {
 	controllers := []controllerHelper{dgsColController, dgsController}
 
 	if *podautoscalerenabled {
-		podAutoscalerController := autoscale.NewDGSAutoScalerController(client, dgsclient,
+		podAutoscalerController := autoscale.NewActivePlayersAutoScalerController(client, dgsclient,
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 			dgsSharedInformerFactory.Azuregaming().V1alpha1().DedicatedGameServers(), clockwork.NewRealClock())
 		controllers = append(controllers, podAutoscalerController)

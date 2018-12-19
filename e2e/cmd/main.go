@@ -288,7 +288,7 @@ func setAutoscalerLastScaleOperationDateTimeToZeroValue() {
 		if err != nil {
 			return err
 		}
-		dgscol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = ""
+		dgscol.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = ""
 		_, err = dgsclient.AzuregamingV1alpha1().DedicatedGameServerCollections(namespace).Update(dgscol)
 		if err != nil {
 			return err
@@ -316,7 +316,7 @@ func addAutoScalerDetails() {
 		if err != nil {
 			return err
 		}
-		dgscol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
+		dgscol.Spec.DGSActivePlayersAutoScalerDetails = &dgsv1alpha1.DGSActivePlayersAutoScalerDetails{
 			MinimumReplicas:     5,
 			MaximumReplicas:     7,
 			ScaleInThreshold:    60,

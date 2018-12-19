@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-type dgsAutoScalerFixture struct {
+type dgsActivePlayersAutoScalerFixture struct {
 	t *testing.T
 
 	k8sClient *k8sfake.Clientset
@@ -41,9 +41,9 @@ type dgsAutoScalerFixture struct {
 	clock clockwork.FakeClock
 }
 
-func newDGSAutoScalerFixture(t *testing.T) *dgsAutoScalerFixture {
+func newDGSAutoScalerFixture(t *testing.T) *dgsActivePlayersAutoScalerFixture {
 
-	f := &dgsAutoScalerFixture{}
+	f := &dgsActivePlayersAutoScalerFixture{}
 	f.t = t
 
 	f.k8sObjects = []runtime.Object{}
@@ -53,14 +53,14 @@ func newDGSAutoScalerFixture(t *testing.T) *dgsAutoScalerFixture {
 	return f
 }
 
-func (f *dgsAutoScalerFixture) newPodAutoScalerController() (*DGSAutoScalerController, dgsinformers.SharedInformerFactory) {
+func (f *dgsActivePlayersAutoScalerFixture) newActivePlayersAutoScalerController() (*ActivePlayersAutoScalerController, dgsinformers.SharedInformerFactory) {
 
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
 	f.dgsClient = fake.NewSimpleClientset(f.dgsObjects...)
 
 	dgsInformers := dgsinformers.NewSharedInformerFactory(f.dgsClient, testhelpers.NoResyncPeriodFunc())
 
-	testController := NewDGSAutoScalerController(f.k8sClient, f.dgsClient,
+	testController := NewActivePlayersAutoScalerController(f.k8sClient, f.dgsClient,
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServerCollections(),
 		dgsInformers.Azuregaming().V1alpha1().DedicatedGameServers(), f.clock)
 
@@ -80,13 +80,13 @@ func (f *dgsAutoScalerFixture) newPodAutoScalerController() (*DGSAutoScalerContr
 	return testController, dgsInformers
 }
 
-func (f *dgsAutoScalerFixture) run(dgsName string) {
+func (f *dgsActivePlayersAutoScalerFixture) run(dgsName string) {
 	f.runController(dgsName, true, false)
 }
 
-func (f *dgsAutoScalerFixture) runController(dgsName string, startInformers bool, expectError bool) {
+func (f *dgsActivePlayersAutoScalerFixture) runController(dgsName string, startInformers bool, expectError bool) {
 
-	testController, dgsInformers := f.newPodAutoScalerController()
+	testController, dgsInformers := f.newActivePlayersAutoScalerController()
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -118,7 +118,7 @@ func (f *dgsAutoScalerFixture) runController(dgsName string, startInformers bool
 
 }
 
-func (f *dgsAutoScalerFixture) expectUpdateDGSColAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
+func (f *dgsActivePlayersAutoScalerFixture) expectUpdateDGSColAction(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, assertions func(runtime.Object)) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "dedicatedgameservercollections"}, dgsCol.Namespace, dgsCol)
 	extAction := testhelpers.ExtendedAction{Action: action, Assertions: assertions}
 	f.dgsActions = append(f.dgsActions, extAction)
@@ -127,7 +127,7 @@ func TestScaleOutDGSCol(t *testing.T) {
 	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, testhelpers.PodSpec)
-	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
+	dgsCol.Spec.DGSActivePlayersAutoScalerDetails = &dgsv1alpha1.DGSActivePlayersAutoScalerDetails{
 		MinimumReplicas:     1,
 		MaximumReplicas:     5,
 		ScaleInThreshold:    60,
@@ -157,7 +157,7 @@ func TestScaleOutDGSCol(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
 	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
@@ -171,7 +171,7 @@ func TestScaleInDGSCol(t *testing.T) {
 	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, testhelpers.PodSpec)
-	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
+	dgsCol.Spec.DGSActivePlayersAutoScalerDetails = &dgsv1alpha1.DGSActivePlayersAutoScalerDetails{
 		MinimumReplicas:     1,
 		MaximumReplicas:     5,
 		ScaleInThreshold:    60,
@@ -206,7 +206,7 @@ func TestScaleInDGSCol(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs2)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 1
 	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
@@ -220,7 +220,7 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, testhelpers.PodSpec)
-	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
+	dgsCol.Spec.DGSActivePlayersAutoScalerDetails = &dgsv1alpha1.DGSActivePlayersAutoScalerDetails{
 		MinimumReplicas:            1,
 		MaximumReplicas:            5,
 		ScaleInThreshold:           60,
@@ -253,7 +253,7 @@ func TestDoNothingBecauseOfCoolDown(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
 	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 
@@ -267,7 +267,7 @@ func TestWithMalformedLastScaleTime(t *testing.T) {
 	f := newDGSAutoScalerFixture(t)
 
 	dgsCol := shared.NewDedicatedGameServerCollection("test", shared.GameNamespace, 1, testhelpers.PodSpec)
-	dgsCol.Spec.DgsAutoScalerDetails = &dgsv1alpha1.DedicatedGameServerDgsAutoScalerDetails{
+	dgsCol.Spec.DGSActivePlayersAutoScalerDetails = &dgsv1alpha1.DGSActivePlayersAutoScalerDetails{
 		MinimumReplicas:            1,
 		MaximumReplicas:            5,
 		ScaleInThreshold:           60,
@@ -298,7 +298,7 @@ func TestWithMalformedLastScaleTime(t *testing.T) {
 	f.dgsObjects = append(f.dgsObjects, dgs)
 
 	expDGSCol := dgsCol.DeepCopy()
-	expDGSCol.Spec.DgsAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
+	expDGSCol.Spec.DGSActivePlayersAutoScalerDetails.LastScaleOperationDateTime = f.clock.Now().String()
 	expDGSCol.Spec.Replicas = 2
 	expDGSCol.Status.DGSCollectionHealth = dgsv1alpha1.DGSColCreating
 

@@ -9,7 +9,6 @@ import (
 // AuthenticateWebServerCode authenticates the user request by comparing the given code with the actual
 func AuthenticateWebServerCode(code string) (bool, error) {
 	if accesscode == "" {
-
 		client, _, err := GetClientSet()
 		if err != nil {
 			return false, err
@@ -19,7 +18,6 @@ func AuthenticateWebServerCode(code string) (bool, error) {
 			return false, err
 		}
 	}
-
 	return code == accesscode, nil
 }
 

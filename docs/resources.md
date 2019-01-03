@@ -47,3 +47,4 @@ Scheduling
 Other
 - https://kubeyaml.com/
 - [Dep quick overview](https://gist.github.com/subfuzion/12342599e26f5094e4e2d08e9d4ad50d)
+- https://github.com/dsalamancaMS/K8sSmokeTest/blob/master/smoke.sh

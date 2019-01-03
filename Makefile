@@ -4,7 +4,7 @@ GOBUILD=CGO_ENABLED=0 GOOS=linux $(GOCMD) build -a -installsuffix cgo
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-VERSION=0.0.46
+VERSION=0.0.47
 REGISTRY ?= docker.io
 
 HAS_GOLANGCI     := $(shell command -v golangci-lint;)

@@ -7,6 +7,9 @@ GOGET=$(GOCMD) get
 VERSION=0.0.46
 REGISTRY ?= docker.io
 
+HAS_GOLANGCI     := $(shell command -v golangci-lint;)
+HAS_DEP          := $(shell command -v dep;)
+
 # set these two for remote e2e
 REMOTE_DEBUG_CLUSTER_NAME=aksopenarena
 REMOTE_DEBUG_CONFIG_FILENAME=config-openarena
@@ -32,7 +35,8 @@ pushremote:
 		docker push $(REGISTRY)/$(CONTROLLER_NAME):$(VERSION)
 		docker push $(REGISTRY)/$(APISERVER_NAME):latest
 		docker push $(REGISTRY)/$(CONTROLLER_NAME):latest
-test: 
+test:
+		golangci-lint run --config ./golangci.yml
 		$(GOTEST) -v ./...
 clean: 
 		$(GOCLEAN)
@@ -42,6 +46,17 @@ travis: clean deps
 		$(GOTEST) -v ./... -race -coverprofile=coverage.txt -covermode=atomic
 authorsfile: ## Update the AUTHORS file from the git logs
 		git log --all --format='%aN <%cE>' | sort -u > AUTHORS
+.PHONY: vendor
+vendor:
+		ifndef HAS_DEP
+			$(GOCMD) get -u github.com/golang/dep/cmd/dep
+		endif
+		ifndef HAS_GOLANGCI
+			go get -u github.com/golangci/golangci-lint/cmd/golangci-lint && \
+			cd $(GOPATH)/src/github.com/golangci/golangci-lint/cmd/golangci-lint && \
+			$(GOCMD) install -ldflags "-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse --short HEAD)' -X 'main.date=$(date)'"
+		endif
+		dep ensure
 createcrds:
 		kubectl apply -f ./artifacts/crds
 cleancrds:

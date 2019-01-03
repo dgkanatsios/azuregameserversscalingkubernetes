@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

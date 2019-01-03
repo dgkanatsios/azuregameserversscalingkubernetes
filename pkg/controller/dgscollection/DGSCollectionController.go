@@ -8,10 +8,11 @@ import (
 	dgsscheme "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/scheme"
 	informerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions/azuregaming/v1alpha1"
 	listerdgs "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/listers/azuregaming/v1alpha1"
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
+	controllers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
-	"github.com/jonboulle/clockwork"
+
 	"github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,15 +28,14 @@ const (
 	dgsColControllerAgentName = "dedigated-game-server-collection-controller"
 )
 
-// DGSCollectionController represents a controller for a Dedicated Game Server Collection
-type DGSCollectionController struct {
+// Controller represents the Dedicated Game Server Collection controller
+type Controller struct {
 	dgsColClient       dgsclientset.Interface
 	dgsClient          dgsclientset.Interface
 	dgsColLister       listerdgs.DedicatedGameServerCollectionLister
 	dgsLister          listerdgs.DedicatedGameServerLister
 	dgsColListerSynced cache.InformerSynced
 	dgsListerSynced    cache.InformerSynced
-	clock              clockwork.Clock
 	logger             *logrus.Logger
 	portRegistry       *controllers.PortRegistry
 	recorder           record.EventRecorder
@@ -45,10 +45,10 @@ type DGSCollectionController struct {
 // NewDedicatedGameServerCollectionController initializes and returns a new DedicatedGameServerCollectionController instance
 func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgsclient dgsclientset.Interface,
 	dgsColInformer informerdgs.DedicatedGameServerCollectionInformer, dgsInformer informerdgs.DedicatedGameServerInformer,
-	portRegistry *controllers.PortRegistry) (*DGSCollectionController, error) {
+	portRegistry *controllers.PortRegistry) (*Controller, error) {
 	dgsscheme.AddToScheme(dgsscheme.Scheme)
 
-	c := &DGSCollectionController{
+	c := &Controller{
 		dgsColClient:       dgsclient,
 		dgsClient:          dgsclient,
 		dgsColLister:       dgsColInformer.Lister(),
@@ -126,7 +126,7 @@ func NewDedicatedGameServerCollectionController(client kubernetes.Interface, dgs
 // syncHandler compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the DedicatedGameServer resource
 // with the current status of the resource.
-func (c *DGSCollectionController) syncHandler(key string) error {
+func (c *Controller) syncHandler(key string) error {
 
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -212,7 +212,7 @@ func (c *DGSCollectionController) syncHandler(key string) error {
 	return nil
 }
 
-func (c *DGSCollectionController) handleDGSFailed(dgsCol *dgsv1alpha1.DedicatedGameServerCollection,
+func (c *Controller) handleDGSFailed(dgsCol *dgsv1alpha1.DedicatedGameServerCollection,
 	failedDGSs []*dgsv1alpha1.DedicatedGameServer) error {
 
 	if dgsCol.Status.DGSCollectionHealth == dgsv1alpha1.DGSColNeedsIntervention {
@@ -257,7 +257,7 @@ func (c *DGSCollectionController) handleDGSFailed(dgsCol *dgsv1alpha1.DedicatedG
 	return nil
 }
 
-func (c *DGSCollectionController) handleDedicatedGameServerCollection(obj interface{}) {
+func (c *Controller) handleDedicatedGameServerCollection(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -277,7 +277,7 @@ func (c *DGSCollectionController) handleDedicatedGameServerCollection(obj interf
 	c.enqueueDedicatedGameServerCollection(object)
 }
 
-func (c *DGSCollectionController) handleDedicatedGameServer(obj interface{}) {
+func (c *Controller) handleDedicatedGameServer(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -328,7 +328,7 @@ func (c *DGSCollectionController) handleDedicatedGameServer(obj interface{}) {
 // enqueueDedicatedGameServerCollection takes a DedicatedGameServerCollection resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DedicatedGameServerCollection.
-func (c *DGSCollectionController) enqueueDedicatedGameServerCollection(obj interface{}) {
+func (c *Controller) enqueueDedicatedGameServerCollection(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -339,6 +339,6 @@ func (c *DGSCollectionController) enqueueDedicatedGameServerCollection(obj inter
 }
 
 // Run starts the DedicatedGameServerCollectionController
-func (c *DGSCollectionController) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(controllerThreadiness int, stopCh <-chan struct{}) error {
 	return c.controllerHelper.Run(controllerThreadiness, stopCh)
 }

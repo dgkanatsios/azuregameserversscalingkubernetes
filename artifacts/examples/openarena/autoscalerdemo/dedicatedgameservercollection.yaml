@@ -6,7 +6,7 @@ spec:
   replicas: 5
   portsToExpose:
   - 27960
-  dgsAutoScalerDetails:
+  dgsActivePlayersAutoScalerDetails:
     minimumReplicas: 5
     maximumReplicas: 10
     scaleInThreshold: 60

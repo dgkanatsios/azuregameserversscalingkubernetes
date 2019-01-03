@@ -3,18 +3,20 @@ package dgscollection
 import (
 	dgsv1alpha1 "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/apis/azuregaming/v1alpha1"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	logrus "github.com/sirupsen/logrus"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 )
 
-func (c *DGSCollectionController) hasSpecChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
+func (c *Controller) hasSpecChanged(oldDGSCol, newDGSCol *dgsv1alpha1.DedicatedGameServerCollection) bool {
 	return oldDGSCol.Spec.Replicas != newDGSCol.Spec.Replicas
 }
 
-func (c *DGSCollectionController) setPodCollectionState(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+func (c *Controller) setPodCollectionState(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
@@ -43,7 +45,7 @@ func (c *DGSCollectionController) setPodCollectionState(dgsCol *dgsv1alpha1.Dedi
 
 }
 
-func (c *DGSCollectionController) setDedicatedGameServerCollectionHealth(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+func (c *Controller) setDedicatedGameServerCollectionHealth(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
 	if dgsCol.Status.DGSCollectionHealth == dgsv1alpha1.DGSColNeedsIntervention {
 		return nil
 	}
@@ -72,7 +74,7 @@ func (c *DGSCollectionController) setDedicatedGameServerCollectionHealth(dgsCol 
 	return nil
 }
 
-func (c *DGSCollectionController) setAvailableReplicasStatus(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+func (c *Controller) setAvailableReplicasStatus(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
@@ -95,7 +97,7 @@ func (c *DGSCollectionController) setAvailableReplicasStatus(dgsCol *dgsv1alpha1
 	return nil
 }
 
-func (c *DGSCollectionController) addDGSColReplicas(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, dgsExistingCount int) error {
+func (c *Controller) addDGSColReplicas(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, dgsExistingCount int) error {
 	//create them
 	increaseCount := int(dgsCol.Spec.Replicas) - dgsExistingCount
 	c.logger.WithFields(logrus.Fields{"DGSColName": dgsCol.Name, "IncreaseCount": increaseCount}).Printf("Scaling out")
@@ -128,7 +130,7 @@ func (c *DGSCollectionController) addDGSColReplicas(dgsCol *dgsv1alpha1.Dedicate
 	return nil
 }
 
-func (c *DGSCollectionController) removeDGSColReplicas(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection, dgsExisting []*dgsv1alpha1.DedicatedGameServer) error {
+func (c *Controller) removeDGSColReplicas(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection, dgsExisting []*dgsv1alpha1.DedicatedGameServer) error {
 	dgsExistingCount := len(dgsExisting)
 	// we need to decrease our DGS for this collection
 	// to accomplish this, we'll first find the number of DGS we need to decrease
@@ -163,7 +165,7 @@ func (c *DGSCollectionController) removeDGSColReplicas(dgsColTemp *dgsv1alpha1.D
 	return nil
 }
 
-func (c *DGSCollectionController) increaseTimesFailed(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, count int) {
+func (c *Controller) increaseTimesFailed(dgsCol *dgsv1alpha1.DedicatedGameServerCollection, count int) {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		dgsColToUpdate, err := c.dgsClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsCol.Namespace).Get(dgsCol.Name, metav1.GetOptions{})
 		if err != nil {
@@ -182,7 +184,7 @@ func (c *DGSCollectionController) increaseTimesFailed(dgsCol *dgsv1alpha1.Dedica
 	}
 }
 
-func (c *DGSCollectionController) getNotFailedDGSForDGSCol(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection) ([]*dgsv1alpha1.DedicatedGameServer, error) {
+func (c *Controller) getNotFailedDGSForDGSCol(dgsColTemp *dgsv1alpha1.DedicatedGameServerCollection) ([]*dgsv1alpha1.DedicatedGameServer, error) {
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsColTemp.Name,
 	}
@@ -202,7 +204,7 @@ func (c *DGSCollectionController) getNotFailedDGSForDGSCol(dgsColTemp *dgsv1alph
 	return dgsToReturn, err
 }
 
-func (c *DGSCollectionController) getFailedDGSForDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) ([]*dgsv1alpha1.DedicatedGameServer, error) {
+func (c *Controller) getFailedDGSForDGSCol(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) ([]*dgsv1alpha1.DedicatedGameServer, error) {
 	set := labels.Set{
 		shared.LabelDedicatedGameServerCollectionName: dgsCol.Name,
 	}
@@ -222,7 +224,7 @@ func (c *DGSCollectionController) getFailedDGSForDGSCol(dgsCol *dgsv1alpha1.Dedi
 	return dgsToReturn, err
 }
 
-func (c *DGSCollectionController) setDGSColToNeedsIntervention(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+func (c *Controller) setDGSColToNeedsIntervention(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		dgsColToUpdate, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsCol.Namespace).Get(dgsCol.Name, metav1.GetOptions{})
 		if err != nil {
@@ -239,7 +241,7 @@ func (c *DGSCollectionController) setDGSColToNeedsIntervention(dgsCol *dgsv1alph
 	return retryErr
 }
 
-func (c *DGSCollectionController) reconcileStatuses(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
+func (c *Controller) reconcileStatuses(dgsCol *dgsv1alpha1.DedicatedGameServerCollection) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		dgsColToUpdate, err := c.dgsColClient.AzuregamingV1alpha1().DedicatedGameServerCollections(dgsCol.Namespace).Get(dgsCol.Name, metav1.GetOptions{})
 		if err != nil {
@@ -273,7 +275,7 @@ func (c *DGSCollectionController) reconcileStatuses(dgsCol *dgsv1alpha1.Dedicate
 	return retryErr
 }
 
-func (c *DGSCollectionController) hasDGSStatusChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
+func (c *Controller) hasDGSStatusChanged(oldDGS, newDGS *dgsv1alpha1.DedicatedGameServer) bool {
 	if oldDGS.Status.Health != newDGS.Status.Health ||
 		oldDGS.Status.PodPhase != newDGS.Status.PodPhase ||
 		len(oldDGS.GetOwnerReferences()) != len(newDGS.GetOwnerReferences()) {

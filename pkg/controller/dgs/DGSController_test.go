@@ -8,6 +8,7 @@ import (
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,7 +48,7 @@ func newDGSFixture(t *testing.T) *dgsFixture {
 	return f
 }
 
-func (f *dgsFixture) newDedicatedGameServerController() (*DGSController,
+func (f *dgsFixture) newDedicatedGameServerController() (*Controller,
 	dgsinformers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 
 	f.k8sClient = k8sfake.NewSimpleClientset(f.k8sObjects...)
@@ -80,10 +81,6 @@ func (f *dgsFixture) newDedicatedGameServerController() (*DGSController,
 
 func (f *dgsFixture) run(dgsName string) {
 	f.runController(dgsName, true, false)
-}
-
-func (f *dgsFixture) runExpectError(dgsName string) {
-	f.runController(dgsName, true, true)
 }
 
 func (f *dgsFixture) runController(dgsName string, startInformers bool, expectError bool) {

@@ -4,11 +4,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
-
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/clientset/versioned/fake"
 	dgsinformers "github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/client/informers/externalversions"
+	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/controller/testhelpers"
 	"github.com/dgkanatsios/azuregameserversscalingkubernetes/pkg/shared"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,22 +20,22 @@ func TestPortRegistry(t *testing.T) {
 
 	server1 := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, "default1", corev1.PodSpec{
 		Containers: []corev1.Container{
-			corev1.Container{
+			{
 				Name: "test",
 				Ports: []corev1.ContainerPort{
-					corev1.ContainerPort{
+					{
 						ContainerPort: 20002,
 						HostPort:      20002,
 					},
-					corev1.ContainerPort{
+					{
 						ContainerPort: 20004,
 						HostPort:      20004,
 					},
-					corev1.ContainerPort{
+					{
 						ContainerPort: 20006,
 						HostPort:      20006,
 					},
-					corev1.ContainerPort{
+					{
 						ContainerPort: 20008,
 						HostPort:      20008,
 					},
@@ -46,7 +46,7 @@ func TestPortRegistry(t *testing.T) {
 
 	server2 := shared.NewDedicatedGameServerWithNoParent(shared.GameNamespace, "default2", corev1.PodSpec{
 		Containers: []corev1.Container{
-			corev1.Container{
+			{
 				Name: "test",
 			},
 		},

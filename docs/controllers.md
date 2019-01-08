@@ -1,8 +1,8 @@
 # Controllers
 
-Kubernetes controllers are objects that are active reconciliation processes. In simple words, this means that a controller watches an object (or a set of objects) for its desired state as well as its actual state. It actively compares these states and it makes every effort to bring the actual state to look like the desired state.
+Kubernetes controllers are objects that are active reconciliation processes. In simple words, this means that a controller watches an object (or a set of objects) for its desired state as well as its actual state. It actively compares them and makes every effort to bring the actual state to look like the desired state.
 
-This project contains a set of controllers, each one having assigned the task to reconcile a specific set of objects. All controllers are based on the official [Kubernetes sample controller](https://github.com/kubernetes/sample-controller). You can also find some good advice on writing controllers [here](https://github.com/kubernetes/community/blob/master/contributors/devel/controllers.md). Controllers in this project were made in order to reconcile our Custom Resource Definition (CRD) objects, i.e. the DedicatedGameServerCollections and the DedicatedGameServers.
+This project contains a set of controllers, each one carrying the task to reconcile a specific set of objects. All controllers are based on the official [Kubernetes sample controller](https://github.com/kubernetes/sample-controller) and the respective documentation [here](https://github.com/kubernetes/community/blob/master/contributors/devel/controllers.md). Controllers in this project were made in order to reconcile our Custom Resource Definition (CRD) objects, i.e. the DedicatedGameServerCollections and the DedicatedGameServers.
 
 ## DedicatedGameServerCollectionController
 
@@ -29,4 +29,16 @@ The DGSActivePlayersAutoScalerController performs this tasks by watching the Ded
 - if true, it checks if its Pod and DedicatedGameServer overall state is Running (if it's in another state like Failed or Creating or Pending the controller shouldn't scale)
 - checks the last time a scale in/out operation took place, as there is a cooldown period in the autoscaler's settings
 - checks if the current amount of DedicatedGameServers is below a requested maximum or above a requested minumum (depending on whether the controller checks for scale out or scale in)
-- if all of the above are true, then the controller aggregates the **ActivePlayers** field on the DedicatedGameServers that belong to the DedicatedGameServerCollection in question. If the sum is below or above a requested threshold (again depending on scale in or scale out), then the controller submits a change in the **Replicas** field of the DedicatedGameServerCollection (either add one or remove one). This, in turn, will be handled by the DedicatedGameServerCollection controller which will create or mark as deletion a single DedicatedGameServer
+- if all of the above are true, then the controller aggregates the **ActivePlayers** field on the DedicatedGameServers that belong to the DedicatedGameServerCollection in question. If the sum is below or above a requested threshold (again depending on scale in or scale out), then the controller submits a change in the **Replicas** field of the DedicatedGameServerCollection (either add one or remove one). This, in turn, will be handled by the DedicatedGameServerCollection controller which will create or mark as deletion a single DedicatedGameServer.
+
+
+## Environment variables
+
+These environment variables are created on each DGS pod:
+
+- SERVER_NAME: contains the name of the DGS instance
+- SERVER_NAMESPACE: contains the namespace of the DGS instance
+- API_SERVER_URL: the API Server URL
+- API_SERVER_CODE: the secret code needed to call API Server methods
+
+The last two env variables are to used when calling the API Server HTTP methods.

@@ -11,7 +11,7 @@ spec:
     dnsPolicy: ClusterFirstWithHostNet
     containers:
     - name: simplenodejsudp
-      image: docker.io/dgkanatsios/simplenodejsudp:0.0.10
+      image: docker.io/dgkanatsios/simplenodejsudp:0.0.11
       resources:
         limits:
           cpu: 50m

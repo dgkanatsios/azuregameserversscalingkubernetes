@@ -54,7 +54,7 @@ server.on('message', function (message, remote) {
         serverResponse = `${serverResponse}, error in setting Server Health: ${err}\n`;
       } else if (response) {
         console.log("Set Server Health OK");
-        serverResponse = `${serverResponse}, set Server Status to ${status} OK\n`;
+        serverResponse = `${serverResponse}, set Server Status to ${health} OK\n`;
       }
       sendResponse(serverResponse, remote);
     });

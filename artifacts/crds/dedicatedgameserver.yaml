@@ -31,15 +31,15 @@ spec:
     type: string
     description: health of the DGS
     JSONPath: .status.health
-  - name: Ports
-    type: string
-    description: port mapping of the game server
-    JSONPath: .spec.template.containers[0].ports
-  - name: PublicIP
-    type: string
-    description: node's public IP for this DedicatedGameServer
-    JSONPath: .status.publicIP
   - name: MFD
     type: string
     description: MarkedForDeletion status value
     JSONPath: .status.markedForDeletion
+  - name: PublicIP
+    type: string
+    description: node's public IP for this DedicatedGameServer
+    JSONPath: .status.publicIP
+  - name: Ports
+    type: string
+    description: port mapping of the game server
+    JSONPath: .spec.template.containers[0].ports

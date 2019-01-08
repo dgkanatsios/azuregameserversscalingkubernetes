@@ -65,15 +65,15 @@ func main() {
 	log.Info("Step 4a")
 	// some random deletes
 	deleteRandomDGS() // delete a random DGS
-	deleteRandomPod() // delete a random DGS-ownered pod
+	deleteRandomPod() // delete a random DGS-owned pod
 	deleteRandomDGS() // delete a random DGS
 	validateClusterState(clusterState{totalPodCount: 7, healthyDGSCount: 7})
 
 	// more chaos
 	log.Info("Step 4b")
-	deleteRandomPod() // delete a random DGS-ownered pod
+	deleteRandomPod() // delete a random DGS-owned pod
 	deleteRandomDGS() // delete a random DGS
-	deleteRandomPod() // delete a random DGS-ownered pod
+	deleteRandomPod() // delete a random DGS-owned pod
 	validateClusterState(clusterState{totalPodCount: 7, healthyDGSCount: 7})
 
 	// let's test some DGS failure - recall that DGSCol.FailBehavior is set to Remove. DGSMaxFailures is 2

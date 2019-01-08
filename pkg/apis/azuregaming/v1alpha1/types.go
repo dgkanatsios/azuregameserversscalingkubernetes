@@ -26,12 +26,17 @@ const (
 	DGSFailed DGSHealth = "Failed"
 )
 
+// DGSColHealth represents the Health of the Collection. For it to be Healthy, all the DGS need to be Healthy
 type DGSColHealth string
 
 const (
-	DGSColHealthy           DGSColHealth = "Healthy"
-	DGSColCreating          DGSColHealth = "Creating"
-	DGSColFailed            DGSColHealth = "Failed"
+	// DGSColHealthy represents a Healthy DGSCollection
+	DGSColHealthy DGSColHealth = "Healthy"
+	// DGSColCreating represents a Creating DGSCollection
+	DGSColCreating DGSColHealth = "Creating"
+	// DGSColFailed represents a Failed DGSCollection (i.e. it contains at least one Failed DGS)
+	DGSColFailed DGSColHealth = "Failed"
+	// DGSColNeedsIntervention represents a DGSCollection that has failed multiple times and needs manual check-up from the clsuter admin
 	DGSColNeedsIntervention DGSColHealth = "NeedsIntervention"
 )
 

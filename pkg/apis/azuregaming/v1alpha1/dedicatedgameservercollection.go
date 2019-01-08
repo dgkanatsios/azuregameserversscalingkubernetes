@@ -29,15 +29,12 @@ type DedicatedGameServerCollection struct {
 
 // DedicatedGameServerCollectionSpec is the spec for a DedicatedGameServerCollection resource
 type DedicatedGameServerCollectionSpec struct {
-	// Message and SomeValue are example custom spec fields
-	//
 	// this is where you would put your custom resource data
-	Replicas        int32                           `json:"replicas"`
-	PortsToExpose   []int32                         `json:"portsToExpose"`
-	Template        corev1.PodSpec                  `json:"template"`
-	DGSFailBehavior DedicatedGameServerFailBehavior `json:"dgsFailBehavior,omitempty"`
-	DGSMaxFailures  int32                           `json:"dgsMaxFailures,omitempty"`
-
+	Replicas                          int32                              `json:"replicas"`
+	PortsToExpose                     []int32                            `json:"portsToExpose"`
+	Template                          corev1.PodSpec                     `json:"template"`
+	DGSFailBehavior                   DedicatedGameServerFailBehavior    `json:"dgsFailBehavior,omitempty"`
+	DGSMaxFailures                    int32                              `json:"dgsMaxFailures,omitempty"`
 	DGSActivePlayersAutoScalerDetails *DGSActivePlayersAutoScalerDetails `json:"dgsActivePlayersAutoScalerDetails,omitempty"`
 }
 
@@ -67,6 +64,5 @@ type DedicatedGameServerCollectionStatus struct {
 type DedicatedGameServerCollectionList struct {
 	meta_v1.TypeMeta `json:",inline"`
 	meta_v1.ListMeta `json:"metadata"`
-
-	Items []DedicatedGameServerCollection `json:"items"`
+	Items            []DedicatedGameServerCollection `json:"items"`
 }

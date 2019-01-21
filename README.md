@@ -39,6 +39,9 @@ Images used for this project are hosted on Docker Hub:
 - [API Server](https://hub.docker.com/r/dgkanatsios/aks_gaming_apiserver/)
 - [Controllers](https://hub.docker.com/r/dgkanatsios/aks_gaming_controller/)
 
+### Architecture Diagram
+
+![architecture diagram](docs/diagram.png)
 
 ### Thanks
 

@@ -7,7 +7,7 @@ To build and upload images to your container registry of choice, you should cust
 - `./various/changeversion.sh oldVersion newVersion` to update version in the Makefile and in the deployment YAML files
 - `make buildremote` to build the images
 - `make pushremote` to push the images to the container registry
-- check [installation document](docs/installation.md) for the next steps
+- check [installation document](installation.md) for the next steps
 
 ## Local development and e2e testing
 

@@ -22,7 +22,7 @@ export CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
 export TAG?=$(shell git rev-list HEAD --max-count=1 --abbrev-commit)
 
 
-all: test build
+all: test buildlocal
 deps:
 		$(GOCMD) get -t -v ./...
 buildremote: clean

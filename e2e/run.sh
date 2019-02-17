@@ -4,7 +4,7 @@
 
 set -o errexit # script exits when a command fails == set -e
 set -o nounset # script exits when tries to use undeclared variables == set -u
-#set -o xtrace # trace what's executed == set -x
+#set -o xtrace # trace what's executed == set -x (useful for debugging)
 set -o pipefail
 
 #https://stackoverflow.com/questions/59895/getting-the-source-directory-of-a-bash-script-from-within
@@ -14,8 +14,8 @@ KUBECONFIG_FILE=$1
 BUILD=${2:-remote} # setting a default value for $BUILD
 
 if [ "$BUILD" = "local" ]; then
-  export KIND_CONTAINER_NAME="kind-${KIND_CLUSTER_NAME}-control-plane"
-  "${DIR}/build_images.sh"
+  kind load docker-image ${APISERVER_NAME}:"${TAG}"
+  kind load docker-image ${CONTROLLER_NAME}:"${TAG}"
 fi
 
 function finish {

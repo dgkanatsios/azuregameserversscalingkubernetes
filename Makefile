@@ -15,7 +15,7 @@ REMOTE_DEBUG_CLUSTER_NAME=aksopenarena
 REMOTE_DEBUG_CONFIG_FILENAME=config-openarena
 
 # this one is for local e2e with kind (kubernetes in docker)
-export KIND_CLUSTER_NAME=1
+export KIND_CLUSTER_NAME=kind
 
 export APISERVER_NAME=dgkanatsios/aks_gaming_apiserver
 export CONTROLLER_NAME=dgkanatsios/aks_gaming_controller
@@ -78,8 +78,9 @@ deployk8slocal: createcrds
 		sed "s/%TAG%/$(TAG)/g" ./e2e/deploy.apiserver-controller.local.yaml | kubectl apply -f -
 cleank8slocal: cleancrds
 		sed "s/%TAG%/$(TAG)/g" ./e2e/deploy.apiserver-controller.local.yaml | kubectl delete -f -
+# make sure to run make builddockerlocal before that
 e2elocal: test
-		kubectl config use-context kubernetes-admin@kind-$(KIND_CLUSTER_NAME)
+		kubectl config use-context kubernetes-admin@$(KIND_CLUSTER_NAME)
 		./e2e/run.sh kind-config-$(KIND_CLUSTER_NAME) local
 
 # remote building and deploying

@@ -8,7 +8,7 @@
 
 # Scaling multiplayer Dedicated Game Servers on Azure Kubernetes Service
 
-Scaling Dedicated Game Servers (DGS) is a hard problem. They're stateful (having the bulk of player data stored in server memoty), can't be explicitly shut down (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal latency, especially for real-time multiplayer games.
+Scaling Dedicated Game Servers (DGS) is a hard problem. They're stateful (having the bulk of player data stored in server memory), can't be explicitly shut down (since players might be still enjoying their game) and, as a rule of thumb, their connection with the players must be of minimal latency, especially for real-time multiplayer games.
 
 This repository aims to provide a solution/guidance/building blocks for managing containerized dedicated game servers using the [Kubernetes](https://k8s.io) orchestrator on Azure using the managed [Azure Kubernetes Service (AKS)](https://azure.microsoft.com/en-us/services/kubernetes-service/). However, you could probably use parts of the project to scale memory-stateful workloads.
 

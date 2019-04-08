@@ -1,5 +1,5 @@
-#stolen from https://raw.githubusercontent.com/timoreimann/kubernetes-scripts/master/wait-for-deployment
 #!/bin/bash
+# stolen from https://raw.githubusercontent.com/timoreimann/kubernetes-scripts/master/wait-for-deployment
 # Waits for a deployment to complete.
 #
 # Includes a two-step approach:

@@ -47,5 +47,13 @@ Images used for this project are hosted on Docker Hub:
 
 To [Brian Peek](https://github.com/BrianPeek) and [Andreas Pohl](https://twitter.com/annonator) for the countless discussions we had (and still have!) about scaling DGSs. Moreover, I'd like to express my gratitude to the awesome people on *#sig-api-machinery* channel on [Kubernetes Slack](http://slack.k8s.io/) for answering a lot of my questions during the development of this project. 
 
+### Presentation
+
+Checkout a presentation I gave about this project on Open-conf conference in Greece, on March 2019.
+
+[![Open-Conf Youtube video](https://img.youtube.com/vi/FdXf2Vcu39k/0.jpg)](https://www.youtube.com/watch?v=FdXf2Vcu39k)
+
+
+
 ---
 This is not an official Microsoft product.
